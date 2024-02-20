@@ -178,13 +178,16 @@ if (length(unique(meta$Plex)) > 1) {
 
 ```{r}
 plot_pca(m_global_corrected, phenotype = "Plex") + ggtitle("Global PCA - All features by Plex, Corrected")
-plot_pca(m_global_corrected, phenotype = "SampleID") + ggtitle("Global PCA - All features by Plex, Corrected")
+plot_pca(m_global_corrected, phenotype = "SampleID") + ggtitle("Global PCA - All features by Sample ID, Corrected")
+ggsave("Global_PCA.pdf")
 
-plot_pca(m_global_with_mouse_corrected, phenotype = "Plex") + ggtitle("Global PCA with Mouse - All features by Plex, Corrected")
-plot_pca(m_global_with_mouse_corrected, phenotype = "SampleID") + ggtitle("Global PCA with Mouse - All features by Plex, Corrected")
+plot_pca(m_global_with_mouse_corrected, phenotype = "Plex") + ggtitle("Global PCA - All features by Plex, Corrected")
+plot_pca(m_global_with_mouse_corrected, phenotype = "SampleID") + ggtitle("Global PCA - All features by Sample ID, Corrected")
+ggsave("Global_PDX_PCA.pdf")
 
 plot_pca(m_phospho_corrected, phenotype = "Plex") + ggtitle("Phospho PCA - All features by Plex, Corrected")
-plot_pca(m_phospho_corrected, phenotype = "SampleID") + ggtitle("Phospho PCA - All features by Plex, Corrected")
+plot_pca(m_phospho_corrected, phenotype = "SampleID") + ggtitle("Phospho PCA - All features by Sample ID, Corrected")
+ggsave("Phospho_PCA.pdf")
 
 plot_pca(m_phospho_prot_corrected, phenotype = "Plex") + ggtitle("Phospho prot PCA - All features by Plex, Corrected")
 
