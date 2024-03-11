@@ -89,17 +89,37 @@ conv <- data.frame(NAME = names(fst)) %>%
   dplyr::select(-NAME) %>%
   mutate(UNIPROT = sub(".*\\|(.*)\\|.*", "\\1", UNIPROT),
          SYMBOL = sub("GN=", "", SYMBOL))
-
+# same extraction of UNIPROT IDs works for NCBI accession
+# for example, in: "NP_001171669.1 src substrate cortactin isoform c GN=CTTN [Homo sapiens]"
+# where NP_001171669.1 is NCBI accession # and CTTN is gene symbol
 msnid_prot <- msnid
+
+# before remapping:
+#Spectrum Files:  12 
+#PSMs: 137596 at 0.97 % FDR
+#peptides: 94406 at 1 % FDR
+#accessions: 26774 at 7.2 % FDR
 
 msnid <- remap_accessions_uniprot_to_gene(msnid,
                                           organism_name="Homo sapiens",
                                           conversion_table = conv)
-
 show(msnid)
+
+# after remapping:
+#Spectrum Files:  12 
+#PSMs: 137596 at 0.97 % FDR
+#peptides: 94406 at 1 % FDR
+#accessions: 10905 at 0.055 % FDR
+
 table(is.na(msnid$accession))
 msnid <- apply_filter(msnid, "!is.na(accession)")
 show(msnid)
+
+# after removing NAs:
+#Spectrum Files:  12 
+#PSMs: 137153 at 0.97 % FDR
+#peptides: 94207 at 1 % FDR
+#accessions: 10904 at 0.055 % FDR
 
 ```
 
@@ -108,10 +128,37 @@ show(msnid)
 
 
 ```{r protein_level_filter }
-fst_dms_pth_2 <- remap_fasta_entry_names(fst_dms_pth, conv, "^.*\\|(.+?)(-\\d+)?\\|.*")
+#fst_dms_pth_2 <- remap_fasta_entry_names(fst_dms_pth, conv, "^.*\\|(.+?)(-\\d+)?\\|.*")
+# fst_dms_pth_2 <- remap_fasta_entry_names(fst_dms_pth, conv, "([A-Z]P_\\d+)") # better but returns "NP_001254479" for "NP_001254479.2"
+# test: extract "NP_001254479.2" from "NP_001171669.1 src substrate cortactin isoform c GN=CTTN [Homo sapiens]"
+# in remap_fasta_entry_names:
+# extraction_pttrn <- paste0(".*", extraction_pttrn, ".*")
+# names(mySequences) <- sub(extraction_pttrn, "\\1", names(mySequences)) # names(mySequences) = names(fst)
+
+# easier to just do it without the function:
+conversion_table <- conv
+mySequences <- readAAStringSet(fst_dms_pth)
+names(mySequences) <- sub(" .*$", "\\1", names(mySequences))
+prot_lengths <- data.frame(seq_name = names(mySequences), 
+                           seq_length = width(mySequences), stringsAsFactors = FALSE)
+by_ <- "seq_name"
+names(by_) <- colnames(conversion_table)[1]
+conversion_table <- conversion_table %>% inner_join(prot_lengths, 
+                                                    by = by_) %>% group_by_at(colnames(conversion_table)[2]) %>% 
+  dplyr::slice(which.max(seq_length))
+conversion_table <- conversion_table %>% select(-seq_length) %>% 
+  distinct() %>% group_by_at(colnames(conversion_table)[1]) %>% 
+  top_n(1, dplyr::desc(!!as.name(colnames(conversion_table)[2])))
+conversion_vec <- conversion_table %>% pull(2)
+names(conversion_vec) <- conversion_table %>% pull(1)
+mySequences <- mySequences[names(conversion_vec)]
+names(mySequences) <- conversion_vec[names(mySequences)]
+path_to_FASTA_remapped <- gsub("\\.fasta.*", "_remapped.fasta", 
+                               fst_dms_pth)
+writeXStringSet(mySequences, path_to_FASTA_remapped, compress = grepl("[.]gz$", fst_dms_pth))
 
 ## peptide density and accession filter
-msnid <- compute_num_peptides_per_1000aa(msnid, fst_dms_pth_2)
+msnid <- compute_num_peptides_per_1000aa(msnid, path_to_FASTA_remapped)
 msnid <- filter_msgf_data_protein_level(msnid, 0.01)
 show(msnid)
 
