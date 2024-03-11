@@ -207,7 +207,7 @@ quant_cross_tab <- create_crosstab(msnid,
 
 dim(quant_cross_tab)
 
-write.table(quant_cross_tab, file=file.path(data_folder, paste(crosstab_prefix, "crosstab_global_gene_original.txt", sep="_")),
+write.table(quant_cross_tab, file=file.path(data_folder, paste(crosstab_prefix, "crosstab_global_old_database_gene_original.txt", sep="_")),
             quote=F, sep="\t")
 ```
 
@@ -235,7 +235,7 @@ crosstab$peptide <- rownames(crosstab)
 
 crosstab <- left_join(crosstab, xx, by = "peptide")
 write.table(crosstab %>% select(peptide, pepSeq, accession, everything()), 
-            file=file.path(data_folder, paste(crosstab_prefix, "crosstab_global_peptide_original.txt", sep="_")),
+            file=file.path(data_folder, paste(crosstab_prefix, "crosstab_global_old_database_peptide_original.txt", sep="_")),
             quote=F, sep="\t")
 ```
 
@@ -260,7 +260,7 @@ quant_cross_tab_prot <- create_crosstab(msnid_prot,
                                         fractions, samples, references)
 dim(quant_cross_tab_prot)
 
-write.table(quant_cross_tab_prot, file=file.path(data_folder, paste(crosstab_prefix, "crosstab_global_prot_original.txt", sep="_")),
+write.table(quant_cross_tab_prot, file=file.path(data_folder, paste(crosstab_prefix, "crosstab_global_old_database_prot_original.txt", sep="_")),
             quote=F, sep="\t")
 ```
 
