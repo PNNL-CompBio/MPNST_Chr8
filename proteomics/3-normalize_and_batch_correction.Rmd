@@ -104,7 +104,7 @@ phospho_row_medians <- apply(phospho_crosstab, 1, median, na.rm = T)
 phospho_prot_row_medians <- apply(phospho_prot_mat, 1, median, na.rm = T)
 
 global_crosstab <- sweep(global_crosstab, 1, global_row_medians, FUN = '-')
-global_with_mouse_crosstab <- sweep(global_with_mouse_crosstab, 1, global_row_medians, FUN = '-')
+global_with_mouse_crosstab <- sweep(global_with_mouse_crosstab, 1, global_with_mouse_row_medians, FUN = '-')
 phospho_crosstab <- sweep(phospho_crosstab, 1, phospho_row_medians, FUN = '-')
 phospho_prot_mat <- sweep(phospho_prot_mat, 1, phospho_prot_row_medians, FUN = '-')
 
