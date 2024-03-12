@@ -15,7 +15,7 @@ library(ggplot2)
 library(readxl)
 
 global_crosstab <- read.table("../proteomics/data/global_data/Chr8_crosstab_global_gene_original.txt")
-global_with_mouse_crosstab <- read.table("../proteomics/data/global_with_mouse_data/Chr8_crosstab_global_gene_original.txt")
+global_with_mouse_crosstab <- read.table("../proteomics/data/global_with_mouse_data/Chr8_crosstab_global_old_database_gene_original.txt")
 phospho_crosstab <- read.table("../proteomics/data/phospho_data/Chr8_crosstab_phospho_siteID_original.txt")
 phospho_crosstab_prot <- read.table("../proteomics/data/phospho_data/Chr8_crosstab_phospho_siteID_prot_original.txt", sep = "\t")
 
@@ -40,6 +40,18 @@ meta <- meta %>%
 
 # remove EMPTY rows
 meta <- meta[meta$Tube != "EMPTY", ]
+
+# fix sample IDs
+meta[meta$SampleID == "WU-22t Cshim81", ]$SampleID <- "WU-225"
+meta[meta$SampleID == "WU-487CPP1", ]$SampleID <- "WU-487"
+
+# add Chr8 status
+meta$Chr8_amplified <- TRUE
+non.chr8.amp <- c("JH-2-055", "WU-487")
+meta[meta$SampleID %in% non.chr8.amp, ]$Chr8_amplified <- FALSE
+meta$Chr8_strongly_amplified <- TRUE
+meta[meta$SampleID %in% non.chr8.amp, ]$Chr8_strongly_amplified <- FALSE
+meta[meta$SampleID == "JH-2-002", ]$Chr8_strongly_amplified <- NA
 
 colnames(global_crosstab) <- sub("^X", "", colnames(global_crosstab))
 colnames(global_with_mouse_crosstab) <- sub("^X", "", colnames(global_with_mouse_crosstab))
@@ -144,15 +156,20 @@ Both datasets show strong batch effect
 
 
 ```{r}
-plot_pca(m_global, phenotype = "Plex") + ggtitle("Global PCA - All features by Plex")
-plot_pca(m_global, phenotype = "SampleID") + ggtitle("Global PCA - All features by Plex")
-
-plot_pca(m_global_with_mouse, phenotype = "Plex") + ggtitle("Global PCA with Mouse - All features by Plex")
-plot_pca(m_global_with_mouse, phenotype = "SampleID") + ggtitle("Global PCA with Mouse - All features by Plex")
-
-plot_pca(m_phospho, phenotype = "Plex") + ggtitle("Phospho PCA - All features by Plex")
-
-plot_pca(m_phospho_prot, phenotype = "Plex") + ggtitle("Phospho prot PCA - All features by Plex")
+phenos <- c("Plex", "SampleID", "Chr8_amplified", "Chr8_strongly_amplified")
+for (i in 1:length(phenos)) {
+  plot_pca(m_global, phenotype = phenos[i]) + ggtitle("Global PCA")
+  ggsave(paste0("Chr8_global_PCA_by_", phenos[i], ".pdf"))
+  
+  plot_pca(m_global_with_mouse, phenotype = phenos[i]) + ggtitle("Global PCA")
+  ggsave(paste0("Chr8_global_old_database_PCA_by_", phenos[i], ".pdf"))
+  
+  plot_pca(m_phospho, phenotype = phenos[i]) + ggtitle("Phospho PCA")
+  ggsave(paste0("Chr8_phospho_PCA_by_", phenos[i], ".pdf"))
+  
+  plot_pca(m_phospho_prot, phenotype = phenos[i]) + ggtitle("Phospho prot PCA")
+  ggsave(paste0("Chr8_phospho_prot_PCA_by_", phenos[i], ".pdf"))
+}
 
 ```
 
@@ -177,19 +194,20 @@ if (length(unique(meta$Plex)) > 1) {
 
 
 ```{r}
-plot_pca(m_global_corrected, phenotype = "Plex") + ggtitle("Global PCA - All features by Plex, Corrected")
-plot_pca(m_global_corrected, phenotype = "SampleID") + ggtitle("Global PCA - All features by Sample ID, Corrected")
-ggsave("Global_PCA.pdf")
-
-plot_pca(m_global_with_mouse_corrected, phenotype = "Plex") + ggtitle("Global PCA - All features by Plex, Corrected")
-plot_pca(m_global_with_mouse_corrected, phenotype = "SampleID") + ggtitle("Global PCA - All features by Sample ID, Corrected")
-ggsave("Global_PDX_PCA.pdf")
-
-plot_pca(m_phospho_corrected, phenotype = "Plex") + ggtitle("Phospho PCA - All features by Plex, Corrected")
-plot_pca(m_phospho_corrected, phenotype = "SampleID") + ggtitle("Phospho PCA - All features by Sample ID, Corrected")
-ggsave("Phospho_PCA.pdf")
-
-plot_pca(m_phospho_prot_corrected, phenotype = "Plex") + ggtitle("Phospho prot PCA - All features by Plex, Corrected")
+phenos <- c("Plex", "SampleID", "Chr8_amplified", "Chr8_strongly_amplified")
+for (i in 1:length(phenos)) {
+  plot_pca(m_global, phenotype = phenos[i]) + ggtitle("Global PCA")
+  ggsave(paste0("Chr8_global_PCA_by_", phenos[i], "_corrected.pdf"))
+  
+  plot_pca(m_global_with_mouse, phenotype = phenos[i]) + ggtitle("Global PCA")
+  ggsave(paste0("Chr8_global_old_database_PCA_by_", phenos[i], "_corrected.pdf"))
+  
+  plot_pca(m_phospho, phenotype = phenos[i]) + ggtitle("Phospho PCA")
+  ggsave(paste0("Chr8_phospho_PCA_by_", phenos[i], "_corrected.pdf"))
+  
+  plot_pca(m_phospho_prot, phenotype = phenos[i]) + ggtitle("Phospho prot PCA")
+  ggsave(paste0("Chr8_phospho_prot_PCA_by_", phenos[i], "_corrected.pdf"))
+}
 
 ```
 
@@ -201,7 +219,7 @@ write.table(exprs(m_global_corrected),
             quote=F, sep="\t")
 
 write.table(exprs(m_global_with_mouse_corrected), 
-            file = "data/global_with_mouse_data/Chr8_crosstab_global_gene_corrected.txt",
+            file = "data/global_with_mouse_data/Chr8_crosstab_global_old_database_gene_corrected.txt",
             quote=F, sep="\t")
 
 write.table(exprs(m_phospho_corrected), 
