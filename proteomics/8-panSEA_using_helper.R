@@ -172,13 +172,17 @@ contrasts <- list(c(TRUE, FALSE))
 contrast.type <- "Chr8_strongly_amplified"
 temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "new database")
 run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
-                                   omics, gmt1, gmt2, base.path = temp.path,
+                                   omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
+                                   gmt.list2 = "chr8", base.path, temp.path,
+                                   subfolder = FALSE,
                                    synapse_id = "syn54042241")
 
 contrast.type <- "Chr8_amplified"
 temp.path <- file.path(base.path, "Chr8_amp_vs_not", "new database")
 run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
-                                   omics, gmt1, gmt2, base.path = temp.path,
+                                   omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
+                                   gmt.list2 = "chr8", base.path, temp.path,
+                                   subfolder = FALSE,
                                    synapse_id = "syn54042236")
 
 #### Global - old database ####
@@ -188,35 +192,18 @@ contrasts <- list(c(TRUE, FALSE))
 contrast.type <- "Chr8_strongly_amplified"
 temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "old database")
 run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-                                   omics, gmt1, base.path = temp.path,
-                                   synapse_id = "syn54042244")
+                           omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
+                           base.path, temp.path,
+                           subfolder = FALSE,
+                           synapse_id = "syn54042244")
 
 contrast.type <- "Chr8_amplified"
 temp.path <- file.path(base.path, "Chr8_amp_vs_not", "old database")
 run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-                           omics, gmt1, base.path = temp.path,
+                           omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
+                           base.path, temp.path,
+                           subfolder = FALSE,
                            synapse_id = "syn54042237")
-
-msigdb.info <- msigdbr::msigdbr("Homo sapiens", "C1")
-
-# extract necessary info into data frame
-msigdb.info <- as.data.frame(msigdb.info[, c(
-  "gene_symbol",
-  "gs_name",
-  "gs_description"
-)])
-
-gmt <- DMEA::as_gmt(
-  msigdb.info, "gene_symbol", "gs_name", min.per.set = 6,
-  descriptions = "gs_description"
-) 
-
-Chr8.cancer.genes <- c("PLAG1", "CHCHD7", "SOX17", "TCEA1", "NCOA2", "TCEB1", 
-                       "HEY1", "RUNX1T1", "NBN", "CNBD1", "COX6C", "UBR5", 
-                       "RAD21", "EXT1", "MYC", "NDRG1", "EPPK1", "RECQL4")
-gmt$genesets[[length(gmt$genesets)+1]] <- Chr8.cancer.genes
-gmt$geneset.names[[length(gmt$geneset.names)+1]] <- "Chr8 cancer-associated genes"
-gmt$geneset.descriptions[[length(gmt$geneset.descriptions)+1]] <- "Chr8 cancer-associated genes"
 
 #### 6. Pathways of interest: expression, log2FC heatmaps; TYK2, pSTAT3 boxplot ####
 # look at individual genes: Chr8q, Chr8 cancer, Myc targets, JAK/STAT (esp. TYK2, pSTAT3), TGF beta
