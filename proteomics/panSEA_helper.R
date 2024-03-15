@@ -7,6 +7,178 @@ library(readxl); library(panSEA); library(synapser)
 library(stringr); library(tidyr)
 library(dplyr)
 
+## get CCLE proteomics formatted for DMEA
+get_gmt1 <- function(gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+                                   "msigdb_Homo sapiens_H",
+                                   "msigdb_Homo sapiens_C1")) {
+  if (file.exists("gmt1_run_contrasts_global_phospho_human.rds")) {
+    gmt1 <- readRDS("gmt1_run_contrasts_global_phospho_human.rds")
+  } else {
+    gmt1 <- list()
+    for (i in 1:length(gmt.list1)) {
+      if (is.character(gmt.list1[i])) {
+        if (grepl("msigdb", gmt.list1[i], ignore.case = TRUE)) {
+          gmt.info <- stringr::str_split(gmt.list1[i], "_")[[1]]
+          if (length(gmt.info) > 1) {
+            if (length(gmt.info) == 2) {
+              msigdb.info <- msigdbr::msigdbr(gmt.info[2])
+            } else if (length(gmt.info) == 3) {
+              msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3])
+            } else {
+              msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3], gmt.info[4])
+            }
+            
+            # extract necessary info into data frame
+            msigdb.info <- as.data.frame(msigdb.info[, c(
+              "gene_symbol",
+              "gs_name",
+              "gs_description"
+            )])
+            
+            gmt1[[i]] <- DMEA::as_gmt(
+              msigdb.info, "gene_symbol", "gs_name", min.per.set,
+              descriptions = "gs_description"
+            )
+          }
+        } 
+      }else {
+        gmt1[[i]] <- gmt.list1[[i]]
+      }
+    } 
+  }
+  return(gmt1)
+}
+
+get_chr8_gmt1 <- function(gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+                                   "msigdb_Homo sapiens_H",
+                                   "msigdb_Homo sapiens_C1",
+                                   "chr8_cancer_human")) {
+  if (file.exists("chr8_gmt1_run_contrasts_global_phospho_human.rds")) {
+    gmt1 <- readRDS("chr8_gmt1_run_contrasts_global_phospho_human.rds")
+  } else {
+    gmt1 <- list()
+    for (i in 1:length(gmt.list1)) {
+      if (is.character(gmt.list1[i])) {
+        if (grepl("msigdb", gmt.list1[i], ignore.case = TRUE)) {
+          gmt.info <- stringr::str_split(gmt.list1[i], "_")[[1]]
+          if (length(gmt.info) > 1) {
+            if (length(gmt.info) == 2) {
+              msigdb.info <- msigdbr::msigdbr(gmt.info[2])
+            } else if (length(gmt.info) == 3) {
+              msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3])
+            } else {
+              msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3], gmt.info[4])
+            }
+            
+            # extract necessary info into data frame
+            msigdb.info <- as.data.frame(msigdb.info[, c(
+              "gene_symbol",
+              "gs_name",
+              "gs_description"
+            )])
+            
+            gmt1[[i]] <- DMEA::as_gmt(
+              msigdb.info, "gene_symbol", "gs_name", min.per.set,
+              descriptions = "gs_description"
+            )
+          }
+        } else if (gmt.list1[i] == "chr8_cancer_human") {
+          msigdb.info <- msigdbr::msigdbr("Homo sapiens", "C1")
+          msigdb.info <- as.data.frame(msigdb.info[, c(
+            "gene_symbol",
+            "gs_name",
+            "gs_description"
+          )])
+          
+          gmt <- DMEA::as_gmt(
+            msigdb.info, "gene_symbol", "gs_name", min.per.set,
+            descriptions = "gs_description"
+          )
+          Chr8.cancer.genes <- c("PLAG1", "CHCHD7", "SOX17", "TCEA1", "NCOA2", "TCEB1", 
+                                 "HEY1", "RUNX1T1", "NBN", "CNBD1", "COX6C", "UBR5", 
+                                 "RAD21", "EXT1", "MYC", "NDRG1", "EPPK1", "RECQL4")
+          gmt$genesets[[length(gmt$genesets)+1]] <- Chr8.cancer.genes
+          gmt$geneset.names[[length(gmt$geneset.names)+1]] <- "Chr8 cancer-associated genes"
+          gmt$geneset.descriptions[[length(gmt$geneset.descriptions)+1]] <- "Chr8 cancer-associated genes"
+          gmt1[[i]] <- gmt
+        }
+      } else {
+        gmt1[[i]] <- gmt.list1[[i]]
+      }
+    } 
+  }
+  return(gmt1)
+}
+
+get_ksdb <- function(organism="human"){
+  if (is.character(organism)) {
+    if (organism == "human") {
+      if (!file.exists("gmt_ksdb_human.rds")) {
+        url <- "https://raw.github.com/BelindaBGarana/panSEA/main/data/gmt_ksdb_human.rds"
+        httr::GET(url, httr::write_disk("gmt_ksdb_human.rds")) 
+      }
+      gmt <- readRDS("gmt_ksdb_human.rds")
+    } else {
+      ksdb <- read.csv(paste0("https://raw.githubusercontent.com/BelindaBGarana/",
+                              "panSEA/shiny-app/data/ksdb_20231101.csv"))
+      if (organism %in% unique(na.omit(ksdb$KIN_ORGANISM)) &
+          organism %in% unique(na.omit(ksdb$SUB_ORGANISM))) {
+        ksdb <- ksdb[ksdb$KIN_ORGANISM == organism &
+                       ksdb$SUB_ORGANISM == organism, ]
+      }
+      ksdb$SUB_MOD_RSD_PNNL <- ksdb$SUB_MOD_RSD
+      ksdb$SUB_MOD_RSD_PNNL <- paste0(ksdb$SUB_MOD_RSD_PNNL,
+                                      tolower(substr(ksdb$SUB_MOD_RSD_PNNL,1,1)))
+      ksdb <- ksdb %>% unite("SUB_SITE", c("SUBSTRATE", "SUB_MOD_RSD_PNNL"),
+                             sep = "-", remove = FALSE)
+      gmt <- DMEA::as_gmt(ksdb, "SUB_SITE", "KINASE",
+                          descriptions = "KIN_ACC_ID")
+    } 
+  }
+  return(gmt)
+}
+
+get_chr8_gmt2 <- function() {
+  if (file.exists("chr8_gmt2_run_contrasts_global_phospho_human.rds")) {
+    gmt2 <- readRDS("chr8_gmt2_run_contrasts_global_phospho_human.rds")
+  } else {
+    stop("Chr8 gmt2 file not found in current directory") 
+  }
+}
+
+get_CCLE_prot <- function() {
+  if (file.exists("CCLE_proteomics.csv")) {
+    prot.df.noNA <- read.csv("CCLE_proteomics.csv")
+  } else {
+    # get CCLE proteomics
+    download.file("https://figshare.com/ndownloader/files/41466702", "proteomics.csv.gz")
+    prot.df <- read.csv(gzfile("proteomics.csv.gz"),fileEncoding="UTF-16LE")
+    
+    allgenes = readr::read_csv("https://figshare.com/ndownloader/files/40576109")
+    genes = allgenes|>
+      dplyr::select(gene_symbol,entrez_id)|>
+      dplyr::distinct()
+    #genes <- genes[genes$gene_symbol %in% colnames(RNA.df)[2:ncol(RNA.df)], ]
+    
+    allsamples = readr::read_csv('https://figshare.com/ndownloader/files/40576103')
+    CCLE.samples <- dplyr::distinct(allsamples[allsamples$id_source == "CCLE",
+                                               c("other_id","improve_sample_id")])
+    
+    # merge prot.df with genes, samples to stop using improve IDs
+    prot.df <- merge(prot.df, CCLE.samples)
+    prot.df <- merge(prot.df, genes)
+    prot.df$entrez_id <- NULL
+    prot.df <- dplyr::distinct(prot.df)
+    
+    # convert to wide format for DMEA
+    prot.df <- reshape2::dcast(prot.df, other_id ~ gene_symbol, mean,
+                               value.var = "proteomics")
+    colnames(prot.df)[1] <- "CCLE_ID"
+    prot.df.noNA <- prot.df[, colSums(is.na(prot.df)) == 0] # 23304 gene names 
+  }
+  return(prot.df.noNA)
+}
+
 ## get list of top n mountain plots (if any)
 # input: EA output (e.g., mGSEA.result or mDMEA.result)
 # output: list of top n mountain plots
@@ -76,7 +248,11 @@ save_to_synapse <- function(temp.files, resultsFolder = NULL) {
   if (length(HTML.files) > 0) {
     # save locally
     for (j in 1:length(HTML.files)) {
-      visNetwork::visSave(temp.files[[HTML.files[j]]], HTML.files[j])
+      if (is.list(temp.files[[HTML.files[j]]])) {
+        visNetwork::visSave(temp.files[[HTML.files[j]]], HTML.files[j])
+      } else {
+        HTML.files <- HTML.files[HTML.files != HTML.files[j]]
+      }
     }
     
     if (!is.null(resultsFolder)) {
@@ -86,91 +262,598 @@ save_to_synapse <- function(temp.files, resultsFolder = NULL) {
       lapply(HTMLs, synapser::synStore) 
     }
   }
+  
+  # save subfolders if relevant
+  subfolders <- names(temp.files)[!grepl("[.]", names(temp.files))]
+  if (length(subfolders) > 0) {
+    temp.base <- getwd()
+    for (m in 1:length(subfolders)) {
+      # create folder for mtn plots
+      dir.create(subfolders[m])
+      setwd(subfolders[m])
+      if (!is.null(resultsFolder)) {
+        subFolder <- 
+          synapser::synStore(synapser::Folder(subfolders[m],
+                                              parent = resultsFolder))
+      } else {
+        subFolder <- NULL
+      }
+      
+      sub.base <- file.path(temp.base, subfolders[m])
+      save_to_synapse(temp.files[[subfolders[m]]], subFolder)
+      setwd(temp.base)
+    } 
+  }
 }
 
-save_contrast_to_synapse <- function(all.files, contrastFolder=NULL, contrast.name, base.path) {
-  for (i in 1:length(all.files)) {
-    # create folder for omics type (e.g., global)
-    setwd(file.path(base.path, contrast.name))
-    dir.create(names(all.files)[i])
-    setwd(names(all.files)[i])
-    omics.files <- all.files[[i]]
-    if (!is.null(contrastFolder)) {
-      omicsFolder <- 
-        synapser::synStore(synapser::Folder(names(all.files)[i],
-                                            parent = contrastFolder))
+## run panSEA across global & phospho types for multiple contrasts
+# input: vector of contrasts, contrast.type column for meta.df extraction, 
+#   omics data.list, beatAML expression list, gmt set information, 
+#   BeatAML drug AUC, base.path, Synapse ID info
+# output: panSEA result files are saved locally & uploaded to Synapse
+run_contrasts_global_phospho_human <- function(contrasts, contrast.type, id.type, meta.df, 
+                          omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+                                              "msigdb_Homo sapiens_H",
+                                              "msigdb_Homo sapiens_C1"),
+                          EA.types = c("KEGG", "Hallmark", "Positional"),
+                          gmt.list2 = c("ksdb_human", "sub"),
+                          expr = as.list(rep("adherent CCLE", 3)),
+                          gmt.drug = "PRISM", drug.sens = "PRISM", 
+                          base.path = "~/OneDrive - PNNL/Documents/GitHub/Exp24_patient_cells/proteomics/analysis/",
+                          temp.path, subfolder = TRUE,
+                          synapse_id = NULL) {
+  setwd(base.path)
+  types = c("global", "phospho")
+  feature.names = c("Gene", "SUB_SITE")
+  
+  # load set annotations
+  if (gmt.list1[1] == "chr8") {
+    gmt1 <- get_chr8_gmt1()
+  } else {
+    gmt1 <- get_gmt1(gmt.list1)
+  }
+  
+  if (gmt.list2[1] == "chr8") {
+    gmt2 <- get_chr8_gmt2()
+  } else {
+    gmt2 <- list()
+    for (i in 1:length(gmt.list2)) {
+      if (is.character(gmt.list2[i])) {
+        if (grepl("ksdb", gmt.list2[i], ignore.case = TRUE)) {
+          org <- stringr::str_split(gmt.list2[i], "_")[[1]][2]
+          gmt2[[i]] <- get_ksdb(organism = org)
+        } else if (gmt.list2[i] == "sub") {
+          SUB_SITE <- omics[[2]]$SUB_SITE
+          phospho.ref <- data.frame(SUB_SITE)
+          phospho.ref <- phospho.ref %>% tidyr::extract(SUB_SITE, "KINASE",
+                                                        remove = FALSE)
+          SUB_SITE <- NULL
+          gmt2[[i]] <- DMEA::as_gmt(phospho.ref, "SUB_SITE", "KINASE")
+        } else {
+          gmt2[[i]] <- gmt.list2[i]
+        }
+      }
     }
-
-    for (j in 1:length(omics.files)) {
-      # create folder for result type (e.g., Differential expression)
-      setwd(file.path(base.path, contrast.name, names(all.files)[i]))
-      dir.create(names(omics.files)[j])
-      setwd(names(omics.files)[j])
-      temp.files <- omics.files[[j]]
-      if(!is.null(contrastFolder)) {
-        resultsFolder <- 
-          synapser::synStore(synapser::Folder(names(omics.files)[j],
-                                              parent = omicsFolder)) 
+  }
+  
+  prot.df.noNA <- get_CCLE_prot()
+  
+  ## for each contrast: 
+  for (k in 1:length(contrasts)) {
+    # identify samples for each side of contrast
+    c1 <- contrasts[[k]][1]
+    c2 <- contrasts[[k]][2]
+    group.names <- c(c1, c2)
+    contrast.name <- paste0(contrast.type, "_", contrasts[[k]][1], "_vs_", contrasts[[k]][2])
+    group.samples <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type] == c1, id.type]))[[id.type]],
+                          as.vector(na.omit(meta.df[meta.df[,contrast.type] == c2, id.type]))[[id.type]])
+    
+    if (length(group.samples[[1]]) > 0 & length(group.samples[[2]]) > 0) {
+      # run panSEA across omics types
+      # CAUTION: this only works because the # of samples for each treatment type 
+      # is equal; otherwise would have to run panSEA for each contrast separately 
+      # and perhaps set the group.samples input parameter for panSEA
+      
+      # run global against KEGG sets, phospho against kinase sets from ksdb
+      # run differential expression analysis
+      deg <- panSEA::mDEG(omics, types, group.names, group.samples, 
+                                   feature.names)$all.results
+      
+      ## for phospho data:
+      # run GSEA for each gmt in gmt2 and then check coverage of 2+ sets in gmt1
+      gsea2.inputs <- list(deg[[2]], deg[[2]])
+      gsea2 <- panSEA::mGSEA(gsea2.inputs, gmt2, types = c("phospho_ksdb", "phospho_sub"),
+                             feature.names = c("SUB_SITE", "SUB_SITE"))
+      
+      # create network graphs for KSEA, SSEA
+      kin.net2 <- panSEA::netSEA(list(gsea2.inputs[[1]]),
+                                list(gsea2$all.results[[1]]$result),
+                                "SUB_SITE",
+                                n.network.sets = 5)
+      sub.net2 <- panSEA::netSEA(list(gsea2.inputs[[2]]),
+                                 list(gsea2$all.results[[2]]$result),
+                                 "SUB_SITE",
+                                 n.network.sets = 5)
+      
+      if (nrow(gsea2$all.results[[1]]$result) > 100 & 
+          nrow(gsea2$all.results[[2]]$result) > 100) {
+        KSEA <- TRUE
+        SSEA <- TRUE
+        gsea1.inputs <- list("global" = deg[[1]],
+                             "phospho_ksdb" = gsea2$all.results[[1]]$result,
+                             "phospho_sub" = gsea2$all.results[[2]]$result) 
+        prot.expr <- list(prot.df.noNA, prot.df.noNA, prot.df.noNA)
+        features1 <- c("Gene", "Feature_set", "Feature_set")
+        rank.var <- c("Log2FC", "NES", "NES")
+      } else if (nrow(gsea2$all.results[[1]]$result) > 100) {
+        KSEA <- TRUE
+        SSEA <- FALSE
+        gsea1.inputs <- list("global" = deg[[1]],
+                             "phospho_ksdb" = gsea2$all.results[[1]]$result)
+        prot.expr <- list(prot.df.noNA, prot.df.noNA)
+        features1 <- c("Gene", "Feature_set")
+        rank.var <- c("Log2FC", "NES")
+      } else if (nrow(gsea2$all.results[[2]]$result) > 100) {
+        KSEA <- FALSE
+        SSEA <- TRUE
+        gsea1.inputs <- list("global" = deg[[1]],
+                             "phospho_sub" = gsea2$all.results[[2]]$result) 
+        prot.expr <- list(prot.df.noNA, prot.df.noNA)
+        features1 <- c("Gene", "Feature_set")
+        rank.var <- c("Log2FC", "NES")
       } else {
-        resultsFolder <- NULL
+        KSEA <- FALSE
+        SSEA <- FALSE
+        gsea1.inputs <- list("global" = deg[[1]])
+        prot.expr <- list(prot.df.noNA)
+        features1 <- c("Gene")
+        rank.var <- c("Log2FC")
       }
       
-      # save to synapse
-      save_to_synapse(temp.files, resultsFolder)
-      
-      # save mtn plots if relevant
-      mtn.files <- names(temp.files)[grepl("mtn_plots", names(temp.files))]
-      if (length(mtn.files) > 0) {
-        temp.mtn.files <- temp.files[["mtn_plots"]]
-        if (length(temp.mtn.files) > 0) {
-          # create folder for mtn plots
-          dir.create("mtn_plots")
-          setwd("mtn_plots")
-          
-          if (!is.null(contrastFolder)) {
-            mtnFolder <- 
-              synapser::synStore(synapser::Folder("mountain_plots",
-                                                  parent = resultsFolder)) 
-          }
-          
-          # save mtn plots locally
-          for (m in 1:length(temp.mtn.files)) {
-            ggplot2::ggsave(names(temp.mtn.files)[m], temp.mtn.files[[m]], 
-                            device = "pdf")
-          } 
-          
-          if (!is.null(contrastFolder)) {
-            # upload mtn plots to synapse
-            PDFs <- lapply(as.list(names(temp.mtn.files)), synapser::File,
-                           parent = mtnFolder)
-            lapply(PDFs, synapser::synStore) 
-          }
+      # run GSEA for each gmt in gmt1
+      gsea1 <- list()
+      global.gsea.files <- list()
+      kin.gsea.files <- list()
+      sub.gsea.files <- list()
+      for (i in 1:length(gmt1)) {
+        gsea.name <- paste0("GSEA_", EA.types[i])
+        
+        # prep set annotations
+        temp.gmt1 <- list()
+        for (j in 1:length(gsea1.inputs)) {
+          temp.gmt1[[j]] <- gmt1[[i]]
+        }
+        
+        # run GSEA
+        gsea1[[gsea.name]] <- panSEA::mGSEA(gsea1.inputs, temp.gmt1, 
+                                            types = names(gsea1.inputs), 
+                                            feature.names = features1,
+                                            rank.var = rank.var)
+        
+        # store results for each input type
+        global.mtn <- get_top_mtn_plots(
+          gsea1[[gsea.name]]$all.results[["global"]], 
+          EA.type = EA.types[i])
+        global.net <- panSEA::netSEA(list(gsea1.inputs[["global"]]),
+                                                  list(gsea1[[gsea.name]]$all.results[["global"]]$result),
+                                                  n.network.sets = 5)
+        global.gsea.files[[gsea.name]] <- list("GSEA_results.csv" =
+                                                 gsea1[[gsea.name]]$all.results[["global"]]$result,
+                                               "GSEA_volcano_plot.pdf" =
+                                                 gsea1[[gsea.name]]$all.results[["global"]]$volcano.plot,
+                                               "GSEA_network_graph.html" = 
+                                                 global.net$interactive,
+                                               "mtn_plots" = global.mtn)
+        if (KSEA) {
+          kin.mtn <- get_top_mtn_plots(
+            gsea1[[gsea.name]]$all.results[["phospho_ksdb"]], 
+            EA.type = EA.types[i])
+          kin.net <- panSEA::netSEA(list(gsea1.inputs[["phospho_ksdb"]]),
+                                                 list(gsea1[[gsea.name]]$all.results[["phospho_ksdb"]]$result),
+                                                 "Feature_set", "NES",
+                                                 n.network.sets = 5)
+          kin.gsea.files[[gsea.name]] <- list("GSEA_results.csv" =
+                                                gsea1[[gsea.name]]$all.results[["phospho_ksdb"]]$result,
+                                              "GSEA_volcano_plot.pdf" =
+                                                gsea1[[gsea.name]]$all.results[["phospho_ksdb"]]$volcano.plot,
+                                              "GSEA_network_graph.html" = 
+                                                kin.net$interactive,
+                                              "mtn_plots" = kin.mtn) 
+        }
+        
+        if (SSEA) {
+          sub.mtn <- get_top_mtn_plots(
+            gsea1[[gsea.name]]$all.results[["phospho_sub"]], 
+            EA.type = EA.types[i])
+          sub.net <- panSEA::netSEA(list(gsea1.inputs[["phospho_sub"]]),
+                                                 list(gsea1[[gsea.name]]$all.results[["phospho_sub"]]$result),
+                                                 "Feature_set", "NES",
+                                                 n.network.sets = 5)
+          sub.gsea.files[[gsea.name]] <- list("GSEA_results.csv" =
+                                                gsea1[[gsea.name]]$all.results[["phospho_sub"]]$result,
+                                              "GSEA_volcano_plot.pdf" =
+                                                gsea1[[gsea.name]]$all.results[["phospho_sub"]]$volcano.plot,
+                                              "GSEA_network_graph.html" = 
+                                                sub.net$interactive,
+                                              "mtn_plots" = sub.mtn) 
         }
       }
-      setwd(file.path(base.path, contrast.name, names(all.files[i]), names(omics.files)[j]))
       
-      # save KSEA_GSEA or sub_GSEA if relevant
-      gsea.files <- names(temp.files)[grepl("GSEA", names(temp.files))]
-      if (length(gsea.files) > 0) {
-        temp.gsea.files <- temp.files[["GSEA"]]
-        if (length(temp.gsea.files) > 0) {
-          for (m in 1:length(temp.gsea.files)) {
-            # create folder for mtn plots
-            dir.create(names(temp.gsea.files)[m])
-            setwd(names(temp.gsea.files)[m])
-            if (!is.null(contrastFolder)) {
-              gseaFolder <- 
-                synapser::synStore(synapser::Folder(paste0(names(omics.files)[j], "_", names(temp.gsea.files)[m]),
-                                                    parent = resultsFolder)) 
-            } else {
-              gseaFolder <- NULL
-            }
-            
-            save_to_synapse(temp.gsea.files[[m]], gseaFolder)
-            setwd(file.path(base.path, contrast.name, names(all.files[i]), names(omics.files)[j]))
-          } 
-        }
+      # run DMEA
+      dmea.results <- panSEA::mDMEA(drug.sens, gmt.drug, expr, gsea1.inputs, 
+                                    names(gsea1.inputs), 
+                                    feature.names = features1,
+                                    weight.values = rank.var)
+      dmea.prot.results <- panSEA::mDMEA(drug.sens, gmt.drug, prot.expr, gsea1.inputs, 
+                                         names(gsea1.inputs), 
+                                         feature.names = features1,
+                                         weight.values = rank.var)
+      
+      #### save results & upload to Synapse
+      ### set file names
+      ## global
+      global.DEG.files <- list("Differential_expression_results.csv" = 
+                                 deg[["global"]])
+      DMEA.global.mtn <- get_top_mtn_plots(dmea.results$all.results[["global"]],
+                                           sets = "Drug_set",
+                                           EA.type = "DMEA")
+      DMEA.global.net <- panSEA::netSEA(list(dmea.results$all.results[["global"]]$corr.result),
+                                list(dmea.results$all.results[["global"]]$result),
+                                "Drug", "Pearson.est",
+                                n.network.sets = 5)
+      global.DMEA.files <- list("DMEA_results.csv" =
+                                  dmea.results$all.results[[1]]$result,
+                                "DMEA_correlation_results.csv" = 
+                                  dmea.results$all.results[[1]]$corr.result,
+                                "DMEA_correlation_scatter_plots.pdf" = 
+                                  dmea.results$all.results[[1]]$corr.scatter.plots,
+                                "DMEA_volcano_plot.pdf" =
+                                  dmea.results$all.results[[1]]$volcano.plot,
+                                "DMEA_network_graph.html" = 
+                                  DMEA.global.net$interactive,
+                                "mtn_plots" = DMEA.global.mtn)
+      prot.DMEA.global.mtn <- get_top_mtn_plots(dmea.prot.results$all.results[[1]],
+                                                sets = "Drug_set",
+                                                EA.type = "DMEA")
+      prot.DMEA.global.net <- panSEA::netSEA(list(dmea.prot.results$all.results[[1]]$corr.result),
+                                        list(dmea.prot.results$all.results[[1]]$result),
+                                        "Drug", "Pearson.est",
+                                        n.network.sets = 5)
+      prot.global.DMEA.files <- list("DMEA_results.csv" =
+                                       dmea.prot.results$all.results[[1]]$result,
+                                     "DMEA_correlation_results.csv" = 
+                                       dmea.prot.results$all.results[[1]]$corr.result,
+                                     "DMEA_correlation_scatter_plots.pdf" = 
+                                       dmea.prot.results$all.results[[1]]$corr.scatter.plots,
+                                     "DMEA_volcano_plot.pdf" =
+                                       dmea.prot.results$all.results[[1]]$volcano.plot,
+                                     "DMEA_network_graph.html" = 
+                                       prot.DMEA.global.net$interactive,
+                                     "mtn_plots" = prot.DMEA.global.mtn)
+      global.files <- list('Differential_expression' = global.DEG.files, 
+                           'DMEA' = global.DMEA.files,
+                           'DMEA_proteomics' = prot.global.DMEA.files,
+                           'GSEA' = global.gsea.files)
+      
+      ## phospho
+      phospho.DEG.files <- list("Differential_expression_results.csv" = 
+                                  deg[[2]])
+
+      kin.mtn2 <- get_top_mtn_plots(gsea2$Log2FC$all.results$phospho_ksdb,
+                                    EA.type = "KSEA")
+      if (KSEA) {
+        kin.DMEA.mtn <- get_top_mtn_plots(dmea.results$all.results[[2]],
+                                          sets = "Drug_set",
+                                          EA.type = "DMEA")
+        DMEA.kin.net <- panSEA::netSEA(list(dmea.results$all.results[["phospho_ksdb"]]$corr.result),
+                                            list(dmea.results$all.results[["phospho_ksdb"]]$result),
+                                            "Drug", "Pearson.est",
+                                            n.network.sets = 5)
+        kin.DMEA.files <- list("DMEA_results.csv" =
+                                 dmea.results$all.results[[2]]$result,
+                               "DMEA_correlation_results.csv" = 
+                                 dmea.results$all.results[[2]]$corr.result,
+                               "DMEA_correlation_scatter_plots.pdf" = 
+                                 dmea.results$all.results[[2]]$corr.scatter.plots,
+                               "DMEA_volcano_plot.pdf" =
+                                 dmea.results$all.results[[2]]$volcano.plot,
+                               "DMEA_network_graph.html" = 
+                                 DMEA.kin.net$interactive,
+                               "mtn_plots" = kin.DMEA.mtn)
+        
+        prot.kin.DMEA.mtn <- get_top_mtn_plots(dmea.prot.results$all.results[[2]],
+                                               sets = "Drug_set",
+                                               EA.type = "DMEA")
+        prot.DMEA.kin.net <- panSEA::netSEA(list(prot.dmea.results$all.results[["phospho_ksdb"]]$corr.result),
+                                            list(prot.dmea.results$all.results[["phospho_ksdb"]]$result),
+                                            "Drug", "Pearson.est",
+                                            n.network.sets = 5)
+        prot.kin.DMEA.files <- list("DMEA_results.csv" =
+                                      dmea.prot.results$all.results[[2]]$result,
+                                    "DMEA_correlation_results.csv" = 
+                                      dmea.prot.results$all.results[[2]]$corr.result,
+                                    "DMEA_correlation_scatter_plots.pdf" = 
+                                      dmea.prot.results$all.results[[2]]$corr.scatter.plots,
+                                    "DMEA_volcano_plot.pdf" =
+                                      dmea.prot.results$all.results[[2]]$volcano.plot,
+                                    "DMEA_network_graph.html" = 
+                                      prot.DMEA.kin.net$interactive,
+                                    "mtn_plots" = prot.kin.DMEA.mtn)
+      } else {
+        kin.DMEA.files <- list()
+        prot.kin.DMEA.files <- list()
       }
+      phospho.kin.files <- list("KSEA_results.csv" =
+                                  gsea2$Log2FC$all.results$phospho_ksdb$result,
+                                "KSEA_volcano_plot.pdf" =
+                                  gsea2$Log2FC$all.results$phospho_ksdb$volcano.plot,
+                                "KSEA_network_graph.html" = 
+                                  kin.net2$interactive,
+                                "mtn_plots" = kin.mtn2,
+                                "GSEA" = kin.gsea.files,
+                                "DMEA" = kin.DMEA.files,
+                                "DMEA_proteomics" = prot.kin.DMEA.files) 
+      
+      
+      sub.mtn2 <- get_top_mtn_plots(gsea2$Log2FC$all.results$phospho_sub,
+                                    EA.type = "Substrate_enrichment")
+      if (SSEA) {
+        sub.DMEA.mtn <- get_top_mtn_plots(dmea.results$all.results[["phospho_sub"]],
+                                          sets = "Drug_set",
+                                          EA.type = "DMEA")
+        DMEA.sub.net <- panSEA::netSEA(list(dmea.results$all.results[["phospho_sub"]]$corr.result),
+                                       list(dmea.results$all.results[["phospho_sub"]]$result),
+                                       "Drug", "Pearson.est",
+                                       n.network.sets = 5)
+        sub.DMEA.files <- list("DMEA_results.csv" =
+                                 dmea.results$all.results[["phospho_sub"]]$result,
+                               "DMEA_correlation_results.csv" = 
+                                 dmea.results$all.results[["phospho_sub"]]$corr.result,
+                               "DMEA_correlation_scatter_plots.pdf" = 
+                                 dmea.results$all.results[["phospho_sub"]]$corr.scatter.plots,
+                               "DMEA_volcano_plot.pdf" =
+                                 dmea.results$all.results[["phospho_sub"]]$volcano.plot,
+                               "DMEA_network_graph.html" = 
+                                 DMEA.sub.net$interactive,
+                               "mtn_plots" = sub.DMEA.mtn)
+        prot.sub.DMEA.mtn <- get_top_mtn_plots(dmea.prot.results$all.results[["phospho_sub"]],
+                                               sets = "Drug_set",
+                                               EA.type = "DMEA")
+        prot.DMEA.sub.net <- panSEA::netSEA(list(dmea.prot.results$all.results[["phospho_sub"]]$corr.result),
+                                       list(dmea.prot.results$all.results[["phospho_sub"]]$result),
+                                       "Drug", "Pearson.est",
+                                       n.network.sets = 5)
+        prot.sub.DMEA.files <- list("DMEA_results.csv" =
+                                      dmea.prot.results$all.results[["phospho_sub"]]$result,
+                                    "DMEA_correlation_results.csv" = 
+                                      dmea.prot.results$all.results[["phospho_sub"]]$corr.result,
+                                    "DMEA_correlation_scatter_plots.pdf" = 
+                                      dmea.prot.results$all.results[["phospho_sub"]]$corr.scatter.plots,
+                                    "DMEA_volcano_plot.pdf" =
+                                      dmea.prot.results$all.results[["phospho_sub"]]$volcano.plot,
+                                    "DMEA_network_graph.html" = 
+                                      prot.DMEA.sub.net$interactive,
+                                    "mtn_plots" = prot.sub.DMEA.mtn)
+      } else {
+        sub.DMEA.files <- list()
+        prot.sub.DMEA.files <- list()
+      }
+      phospho.sub.files <- list("Substrate_enrichment_results.csv" =
+                                  gsea2$Log2FC$all.results$phospho_sub$result,
+                                "Substrate_enrichment_volcano_plot.pdf" =
+                                  gsea2$Log2FC$all.results$phospho_sub$volcano.plot,
+                                "Substrate_enrichment_network_graph.html" = 
+                                  sub.net2$interactive,
+                                "mtn_plots" = sub.mtn2,
+                                "GSEA" = sub.gsea.files,
+                                "DMEA" = sub.DMEA.files,
+                                "DMEA_proteomics" = prot.sub.DMEA.files) 
+      
+      phospho.files <- list('Differential_expression' = phospho.DEG.files, 
+                            'KSEA' = phospho.kin.files,
+                            'Substrate_enrichment' = phospho.sub.files)
+      
+      ## combo
+      combo.DMEA.files <- list("DMEA_results.csv" =
+                                 dmea.results$compiled.results$results,
+                               "DMEA_mean_results.csv" =
+                                 dmea.results$compiled.results$mean.results,
+                               "DMEA_correlation_matrix.pdf" =
+                                 dmea.results$compiled.results$corr.matrix,
+                               "DMEA_dot_plot.pdf" =
+                                 dmea.results$compiled.results$dot.plot)
+      prot.combo.DMEA.files <- list("DMEA_results.csv" =
+                                      dmea.prot.results$compiled.results$results,
+                                    "DMEA_mean_results.csv" =
+                                      dmea.prot.results$compiled.results$mean.results,
+                                    "DMEA_correlation_matrix.pdf" =
+                                      dmea.prot.results$compiled.results$corr.matrix,
+                                    "DMEA_dot_plot.pdf" =
+                                      dmea.prot.results$compiled.results$dot.plot)
+      combo.files <- list('DMEA' = combo.DMEA.files,
+                          'DMEA_proteomics' = prot.combo.DMEA.files)
+      
+      all.files <- list('global_and_phospho' = combo.files,
+                        'global' = global.files,
+                        'phospho' = phospho.files)
+      
+      # create folder for contrast
+      setwd(temp.path)
+      if (subfolder) {
+        dir.create(contrast.name)
+        setwd(contrast.name)
+        contrastFolder <- 
+          synapser::synStore(synapser::Folder(contrast.name,
+                                              parent = synapse_id))
+      } else {
+        contrastFolder <- synapse_id
+        contrast.name <- ""
+      }
+      
+      save_to_synapse(all.files, contrastFolder)
+      
+      # make space to process next contrast
+      gsea1 <- NULL
+      gsea2 <- NULL
+      dmea.results <- NULL
+      deg <- NULL
+      gsea1.inputs <- NULL
+    }
+  }
+}
+
+run_contrasts_global_human <- function(contrasts, contrast.type, id.type, meta.df, 
+                                               omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+                                                                    "msigdb_Homo sapiens_H",
+                                                                    "msigdb_Homo sapiens_C1"),
+                                               EA.types = c("KEGG", "Hallmark", "Positional"),
+                                               expr = as.list(rep("adherent CCLE", 1)),
+                                               gmt.drug = "PRISM", drug.sens = "PRISM", 
+                                               base.path = "~/OneDrive - PNNL/Documents/GitHub/Exp24_patient_cells/proteomics/analysis/",
+                                               temp.path, subfolder = TRUE,
+                                               synapse_id = NULL) {
+  setwd(base.path)
+  types = c("global")
+  feature.names = c("Gene")
+  
+  # load set annotations
+  if (gmt.list1[1] == "chr8") {
+    gmt1 <- get_chr8_gmt1()
+  } else {
+    gmt1 <- get_gmt1(gmt.list1)
+  }
+  
+  prot.df.noNA <- get_CCLE_prot()
+  
+  ## for each contrast: 
+  for (k in 1:length(contrasts)) {
+    # identify samples for each side of contrast
+    c1 <- contrasts[[k]][1]
+    c2 <- contrasts[[k]][2]
+    group.names <- c(c1, c2)
+    contrast.name <- paste0(contrast.type, "_", contrasts[[k]][1], "_vs_", contrasts[[k]][2])
+    group.samples <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type] == c1, id.type]))[[id.type]],
+                          as.vector(na.omit(meta.df[meta.df[,contrast.type] == c2, id.type]))[[id.type]])
+    
+    if (length(group.samples[[1]]) > 0 & length(group.samples[[2]]) > 0) {
+      # run panSEA across omics types
+      # CAUTION: this only works because the # of samples for each treatment type 
+      # is equal; otherwise would have to run panSEA for each contrast separately 
+      # and perhaps set the group.samples input parameter for panSEA
+      
+      # run global against KEGG sets, phospho against kinase sets from ksdb
+      # run differential expression analysis
+      deg <- panSEA::mDEG(omics, types, group.names, group.samples, 
+                          feature.names)$all.results
+      
+      # run GSEA for each gmt in gmt1
+      gsea1 <- list()
+      global.gsea.files <- list()
+      for (i in 1:length(gmt1)) {
+        gsea.name <- paste0("GSEA_", EA.types[i])
+        
+        # prep set annotations
+        temp.gmt1 <- list()
+        for (j in 1:length(gsea1.inputs)) {
+          temp.gmt1[[j]] <- gmt1[[i]]
+        }
+        
+        # run GSEA
+        gsea1[[gsea.name]] <- panSEA::mGSEA(deg, temp.gmt1, 
+                                            types = "global")
+        
+        # store results for each input type
+        global.mtn <- get_top_mtn_plots(
+          gsea1[[gsea.name]]$all.results[["global"]], 
+          EA.type = EA.types[i])
+        global.net <- panSEA::netSEA(list(gsea1.inputs[["global"]]),
+                                     list(gsea1[[gsea.name]]$all.results[["global"]]$result),
+                                     n.network.sets = 5)
+        global.gsea.files[[gsea.name]] <- list("GSEA_results.csv" =
+                                                 gsea1[[gsea.name]]$all.results[["global"]]$result,
+                                               "GSEA_volcano_plot.pdf" =
+                                                 gsea1[[gsea.name]]$all.results[["global"]]$volcano.plot,
+                                               "GSEA_network_graph.html" = 
+                                                 global.net$interactive,
+                                               "mtn_plots" = global.mtn)
+      }
+      
+      # run DMEA
+      dmea.results <- panSEA::mDMEA(drug.sens, gmt.drug, expr, gsea1.inputs, 
+                                    names(gsea1.inputs), 
+                                    feature.names = features1,
+                                    weight.values = rank.var)
+      dmea.prot.results <- panSEA::mDMEA(drug.sens, gmt.drug, prot.expr, gsea1.inputs, 
+                                         names(gsea1.inputs), 
+                                         feature.names = features1,
+                                         weight.values = rank.var)
+      
+      #### save results & upload to Synapse
+      ### set file names
+      ## global
+      global.DEG.files <- list("Differential_expression_results.csv" = 
+                                 deg[["global"]])
+      DMEA.global.mtn <- get_top_mtn_plots(dmea.results$all.results[["global"]],
+                                           sets = "Drug_set",
+                                           EA.type = "DMEA")
+      DMEA.global.net <- panSEA::netSEA(list(dmea.results$all.results[["global"]]$corr.result),
+                                        list(dmea.results$all.results[["global"]]$result),
+                                        "Drug", "Pearson.est",
+                                        n.network.sets = 5)
+      global.DMEA.files <- list("DMEA_results.csv" =
+                                  dmea.results$all.results[[1]]$result,
+                                "DMEA_correlation_results.csv" = 
+                                  dmea.results$all.results[[1]]$corr.result,
+                                "DMEA_correlation_scatter_plots.pdf" = 
+                                  dmea.results$all.results[[1]]$corr.scatter.plots,
+                                "DMEA_volcano_plot.pdf" =
+                                  dmea.results$all.results[[1]]$volcano.plot,
+                                "DMEA_network_graph.html" = 
+                                  DMEA.global.net$interactive,
+                                "mtn_plots" = DMEA.global.mtn)
+      prot.DMEA.global.mtn <- get_top_mtn_plots(dmea.prot.results$all.results[[1]],
+                                                sets = "Drug_set",
+                                                EA.type = "DMEA")
+      prot.DMEA.global.net <- panSEA::netSEA(list(dmea.prot.results$all.results[[1]]$corr.result),
+                                             list(dmea.prot.results$all.results[[1]]$result),
+                                             "Drug", "Pearson.est",
+                                             n.network.sets = 5)
+      prot.global.DMEA.files <- list("DMEA_results.csv" =
+                                       dmea.prot.results$all.results[[1]]$result,
+                                     "DMEA_correlation_results.csv" = 
+                                       dmea.prot.results$all.results[[1]]$corr.result,
+                                     "DMEA_correlation_scatter_plots.pdf" = 
+                                       dmea.prot.results$all.results[[1]]$corr.scatter.plots,
+                                     "DMEA_volcano_plot.pdf" =
+                                       dmea.prot.results$all.results[[1]]$volcano.plot,
+                                     "DMEA_network_graph.html" = 
+                                       prot.DMEA.global.net$interactive,
+                                     "mtn_plots" = prot.DMEA.global.mtn)
+      global.files <- list('Differential_expression' = global.DEG.files, 
+                           'DMEA' = global.DMEA.files,
+                           'DMEA_proteomics' = prot.global.DMEA.files,
+                           'GSEA' = global.gsea.files)
+      all.files <- list('global' = global.files)
+      
+      # create folder for contrast
+      setwd(temp.path)
+      if (subfolder) {
+        dir.create(contrast.name)
+        setwd(contrast.name)
+        contrastFolder <- 
+          synapser::synStore(synapser::Folder(contrast.name,
+                                              parent = synapse_id))
+      } else {
+        contrastFolder <- synapse_id
+        contrast.name <- ""
+      }
+      
+      save_to_synapse(all.files, contrastFolder)
+      
+      # make space to process next contrast
+      gsea1 <- NULL
+      dmea.results <- NULL
+      deg <- NULL
     }
   }
 }
@@ -180,97 +863,64 @@ save_contrast_to_synapse <- function(all.files, contrastFolder=NULL, contrast.na
 #   omics data.list, beatAML expression list, gmt set information, 
 #   BeatAML drug AUC, base.path, Synapse ID info
 # output: panSEA result files are saved locally & uploaded to Synapse
-run_contrasts <- function(contrasts, contrast.type, id.type, meta.df, 
-                          omics, types = c("Global", "Phospho"), DMEA = c(TRUE, FALSE),
-                          expr = as.list(rep("adherent CCLE", length(types))), 
-                          gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
-                                                 "msigdb_Homo sapiens_H",
-                                                 "msigdb_Homo sapiens_C1"), 
-                          gmt.list2 = c("ksdb_Homo sapiens", "sub"),
-                          gmt.drug = "PRISM", drug.sens = "PRISM", 
-                          base.path = "~/OneDrive - PNNL/Documents/GitHub/Exp24_patient_cells/proteomics/analysis/",
-                          synapse_id = NULL) {
+run_contrasts_global_human_old <- function(contrasts, contrast.type, id.type, meta.df, 
+                                               omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+                                                                    "msigdb_Homo sapiens_H",
+                                                                    "msigdb_Homo sapiens_C1"),
+                                               expr = as.list(rep("adherent CCLE", 1)),
+                                               gmt.drug = "PRISM", drug.sens = "PRISM", 
+                                               base.path = "~/OneDrive - PNNL/Documents/GitHub/Exp24_patient_cells/proteomics/analysis/",
+                                       temp.path,
+                                               synapse_id = NULL) {
+  setwd(base.path)
+  types = c("global")
+  feature.names = c("Gene")
+  EA.types <- c("KEGG", "Hallmark", "Positional")
+  
   # load set annotations
-  # run differential expression analysis
-  # check for coverage of 2+ sets in each omics type
-  # if phospho, run GSEA for each gmt in gmt.list2 and check coverage of 2+ sets in gmt.list1
-  # run GSEA for each gmt in gmt.list1
-  # run DMEA
-  # save results
-  
-  # check if sufficient coverage for enrichment analyses
-  # get KEGG info
-  msigdb.KEGG <- msigdbr::msigdbr("Homo sapiens", "C2", "CP")
-  msigdb.KEGG <- as.data.frame(msigdb.info[, c(
-    "gene_symbol",
-    "gs_name",
-    "gs_description"
-  )])
-  
-  msigdb.H <- msigdbr::msigdbr("Homo sapiens", "H")
-  msigdb.H <- as.data.frame(msigdb.info[, c(
-    "gene_symbol",
-    "gs_name",
-    "gs_description"
-  )])
-  
-  global.KEGG <- msigdb.KEGG[msigdb.KEGG$gene_symbol %in% global.df$Gene, ]
-  global.H <- msigdb.H[msigdb.H$gene_symbol %in% global.df$Gene, ]
-  
-  if (KSEA) {
-    library(plyr); library(dplyr); library(tidyr)
-    ksdb <- read.csv(paste0("https://raw.githubusercontent.com/BelindaBGarana/",
-                            "panSEA/shiny-app/data/ksdb_20231101.csv"))
-    ksdb.human <- ksdb[
-      ksdb$KIN_ORGANISM == "human" & ksdb$SUB_ORGANISM == "human", ]
-    ksdb <- NULL # save space
-    # ksdb.human$SUB_SITE <- paste(ksdb.human$SUBSTRATE, ksdb.human$SUB_MOD_RSD,
-    #                               collapse = "_")
-    ksdb.human$SUB_MOD_RSD_PNNL <- ksdb.human$SUB_MOD_RSD
-    ksdb.human$SUB_MOD_RSD_PNNL <- paste0(ksdb.human$SUB_MOD_RSD_PNNL, tolower(substr(ksdb.human$SUB_MOD_RSD_PNNL,1,1)))
-    ksdb.human <- ksdb.human %>% unite("SUB_SITE",
-                                       c("SUBSTRATE", "SUB_MOD_RSD_PNNL"),
-                                       sep = "-", remove = FALSE)
-    phospho.ksdb <- ksdb.human[ksdb.human$SUB_SITE %in% phospho.df$SUB_SITE, ]
-  } else {
-    phospho.ksdb <- data.frame()
+  gmt1 <- list()
+  for (i in 1:length(gmt.list1)) {
+    if (is.character(gmt.list1[i])) {
+      if (grepl("msigdb", gmt.list1[i], ignore.case = TRUE)) {
+        gmt.info <- stringr::str_split(gmt.list1[i], "_")[[1]]
+        if (length(gmt.info) > 1) {
+          if (length(gmt.info) == 2) {
+            msigdb.info <- msigdbr::msigdbr(gmt.info[2])
+          } else if (length(gmt.info) == 3) {
+            msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3])
+          } else {
+            msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3], gmt.info[4])
+          }
+          
+          # extract necessary info into data frame
+          msigdb.info <- as.data.frame(msigdb.info[, c(
+            "gene_symbol",
+            "gs_name",
+            "gs_description"
+          )])
+          
+          gmt1[[i]] <- DMEA::as_gmt(
+            msigdb.info, "gene_symbol", "gs_name", min.per.set,
+            descriptions = "gs_description"
+          )
+        }
+      } 
+    } else {
+      gmt1[[i]] <- gmt.list1[[i]]
+    }
   }
   
-  if (nrow(global.KEGG) > 0) {
-    gmt.global.KEGG <- DMEA::as_gmt(
-      global.KEGG, "gene_symbol", "gs_name", min.per.set = 6,
-      descriptions = "gs_description"
-    )
-  } else {
-    gmt.global.KEGG <- list("genesets" = list())
-  }
+  prot.df.noNA <- get_CCLE_prot()
   
-  if (nrow(global.H) > 0) {
-    gmt.global.H <- DMEA::as_gmt(
-      global.H, "gene_symbol", "gs_name", min.per.set = 6,
-      descriptions = "gs_description"
-    )
-  } else {
-    gmt.global.H <- list("genesets" = list())
-  }
-  
-  if (nrow(phospho.ksdb) > 0) {
-    gmt.phospho.ksdb <- DMEA::as_gmt(
-      phospho.ksdb, "SUB_SITE", "KINASE", min.per.set = 6,
-      descriptions = "KIN_ACC_ID"
-    )
-  } else {
-    gmt.phospho.ksdb <- list("genesets" = list())
-  }
-  
+  ## for each contrast: 
   for (k in 1:length(contrasts)) {
     # identify samples for each side of contrast
     c1 <- contrasts[[k]][1]
     c2 <- contrasts[[k]][2]
     group.names <- c(c1, c2)
     contrast.name <- paste0(contrast.type, "_", contrasts[[k]][1], "_vs_", contrasts[[k]][2])
-    group.samples <- list(meta.df[meta.df[,contrast.type] == c1, id.type],
-                          meta.df[meta.df[,contrast.type] == c2, id.type])
+    group.samples <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type] == c1, id.type]))[[id.type]],
+                          as.vector(na.omit(meta.df[meta.df[,contrast.type] == c2, id.type]))[[id.type]])
     
     if (length(group.samples[[1]]) > 0 & length(group.samples[[2]]) > 0) {
       # run panSEA across omics types
@@ -279,450 +929,87 @@ run_contrasts <- function(contrasts, contrast.type, id.type, meta.df,
       # and perhaps set the group.samples input parameter for panSEA
       
       # run global against KEGG sets, phospho against kinase sets from ksdb
-      if (length(gmt.global.KEGG$genesets) > 1 &
-          length(gmt.phospho.ksdb$genesets) > 1 & KSEA) {
-        panSEA1 <- panSEA::panSEA(omics, c("global", "phospho"), 
-                                  feature.names = c("Gene", "SUB_SITE"), 
-                                  group.names = group.names,
-                                  group.samples = group.samples,
-                                  gmt.features = gmt.features,
-                                  gmt.drugs = gmt.drug,
-                                  drug.sensitivity = drug.BeatAML,
-                                  expression = beatAML, 
-                                  min.per.set = 6)
+      # run differential expression analysis
+      deg <- panSEA::mDEG(omics, types, group.names, group.samples, 
+                                   feature.names)$all.results
+      
+      # run GSEA for each gmt in gmt1
+      rank.var <- c("Log2FC")
+      gsea1 <- list()
+      global.mtn <- list()
+      global.gsea.files <- list()
+      for (i in 1:length(gmt1)) {
+        gsea1[[i]] <- panSEA::mGSEA(deg, gmt1[[i]], 
+                                    types = names(gsea1.inputs), 
+                                    rank.var = rank.var)
         
-        
-      } else if (length(gmt.global.KEGG$genesets) > 1) {
-        panSEA1 <- panSEA::panSEA(omics, c("global", "phospho"), 
-                                  GSEA = FALSE,
-                                  feature.names = c("Gene", "SUB_SITE"), 
-                                  group.names = group.names,
-                                  group.samples = group.samples,
-                                  gmt.features = gmt.features,
-                                  gmt.drugs = gmt.drug,
-                                  drug.sensitivity = drug.BeatAML,
-                                  expression = beatAML, 
-                                  min.per.set = 6)
-        
-        global1.input <- list("global" = panSEA1$mDEG.results$all.results$global)
-        global1 <- panSEA::panSEA(global1.input, c("global"), 
-                                  feature.names = c("Gene"), DMEA = FALSE,
-                                  group.names = contrast.name,
-                                  group.samples = 2, # "Log2FC" is in column 2
-                                  gmt.features = list(gmt.features[[1]]),
-                                  min.per.set = 6)
-        
-        # add phospho data to global
-        panSEA1$mGSEA.results <- list("compiled.results" = NA, 
-                                      "all.results" = list(
-                                        "global" = global1$mGSEA.results$Log2FC$all.results$global,
-                                        "phospho" = NA))
-      } else if (length(gmt.phospho.ksdb$genesets) > 1 & KSEA) {
-        panSEA1 <- panSEA::panSEA(omics, c("global", "phospho"), 
-                                  GSEA = FALSE,
-                                  feature.names = c("Gene", "SUB_SITE"), 
-                                  group.names = group.names,
-                                  group.samples = group.samples,
-                                  gmt.features = gmt.features,
-                                  gmt.drugs = gmt.drug,
-                                  drug.sensitivity = drug.BeatAML,
-                                  expression = beatAML, 
-                                  min.per.set = 6)
-        
-        phospho1.input <- list("phospho" = panSEA1$mDEG.results$all.results$phospho)
-        phospho1 <- panSEA::panSEA(phospho1.input, c("phospho"), 
-                                   feature.names = c("SUB_SITE"), DMEA = FALSE,
-                                   group.names = contrast.name,
-                                   group.samples = 2, # "Log2FC" is in column 2
-                                   gmt.features = list(gmt.features[[2]]), 
-                                   min.per.set = 6)
-        
-        # add phospho data to global
-        panSEA1$mGSEA.results <- list("compiled.results" = NA, 
-                                      "all.results" = list(
-                                        "global" = NA,
-                                        "phospho" = phospho1$mGSEA.results$Log2FC$all.results$global))
-      } else {
-        panSEA1 <- NULL
+        global.mtn[[i]] <- get_top_mtn_plots(
+          gsea1[[i]][[rank.var[1]]]$all.results[[names(gsea1.inputs)[1]]], 
+          EA.type = EA.types[[i]])
+        global.gsea.files[[i]] <- list("GSEA_results.csv" =
+                                         gsea1[[i]][[rank.var[1]]]$all.results[[names(gsea1.inputs)[1]]]$result,
+                                       "GSEA_volcano_plot.pdf" =
+                                         gsea1[[i]][[rank.var[1]]]$all.results[[names(gsea1.inputs)[1]]]$volcano.plot,
+                                       "mtn_plots" = global.mtn[[i]])
       }
       
+      # run DMEA
+      dmea.results <- panSEA::mDMEA(drug.sens, gmt.drug, expr, deg, 
+                                    names(deg), weight.values = rank.var)
+      prot.expr <- list(prot.df.noNA, prot.df.noNA, prot.df.noNA)
+      dmea.prot.results <- panSEA::mDMEA(drug.sens, gmt.drug, prot.expr, gsea1.inputs, 
+                                         names(gsea1.inputs), weight.values = rank.var)
       
-      # use DEG results to avoid re-running DEG analysis
-      # run global against hallmark sets, phospho against substrate sets
-      deg.results <- list("global" = panSEA1$mDEG.results$all.results$global,
-                          "phospho" = panSEA1$mDEG.results$all.results$phospho)
-      
-      # check if substrate sets are sufficiently covered
-      phospho.degs <- panSEA1$mDEG.results$all.results$phospho
-      phospho.degs <- phospho.degs %>% tidyr::extract(SUB_SITE, "KINASE", remove = FALSE)
-      phospho.degs <- na.omit(phospho.degs[phospho.degs$Log2FC != 0, ])
-      gmt.sub <- DMEA::as_gmt(phospho.degs, "SUB_SITE", "KINASE", min.per.set = 6)
-      
-      if (length(gmt.sub$genesets) > 1 & length(gmt.global.H$genesets) > 1) {
-        panSEA2 <- panSEA::panSEA(deg.results, names(deg.results), DMEA = FALSE,
-                                  group.names = contrast.name,
-                                  group.samples = 2, # "Log2FC" is in column 2
-                                  feature.names = c("Gene", "SUB_SITE"), 
-                                  gmt.features = gmt.features2,
-                                  min.per.set = 6) 
-        sub.results <- panSEA2$mGSEA.results$Log2FC$all.results$phospho$result
-      } else if (length(gmt.global.H$genesets) > 1) {
-        panSEA2 <- panSEA::panSEA(list("global" = deg.results[[1]]), "global", 
-                                  DMEA = FALSE,
-                                  group.names = contrast.name,
-                                  group.samples = 2, # "Log2FC" is in column 2
-                                  feature.names = c("Gene"), 
-                                  gmt.features = list(gmt.features2[[1]]),
-                                  min.per.set = 6) 
-        
-        sub.results <- data.frame()
-      } else if (length(gmt.sub$genesets) > 1) {
-        panSEA2 <- panSEA::panSEA(list("phospho" = deg.results[[2]]), "phospho", 
-                                  DMEA = FALSE,
-                                  group.names = contrast.name,
-                                  group.samples = 2, # "Log2FC" is in column 2
-                                  feature.names = c("SUB_SITE"), 
-                                  gmt.features = list(gmt.features2[[2]]),
-                                  min.per.set = 6) 
-        
-        sub.results <- panSEA2$mGSEA.results$Log2FC$all.results$phospho$result
-      } else {
-        panSEA2 <- NULL
-        sub.results <- data.frame()
-      }
-      
-      if (length(gmt.phospho.ksdb$genesets) > 1) {
-        ksea.results <- panSEA1$mGSEA.results$all.results$phospho$result
-      } else {
-        ksea.results <- data.frame()
-      }
-      
-      # check if 2+ gene sets are covered by KSEA or substrate enrichment results
-      # merge with kinase, substrate results
-      # create gmts to determine if we can do further GSEA
-      if (nrow(ksea.results) > 0) {
-        kin.KEGG <- msigdb.KEGG[msigdb.KEGG$gene_symbol %in% ksea.results$Feature_set, ]
-        if (nrow(kin.KEGG) > 0) {
-          gmt.kin.KEGG <- DMEA::as_gmt(
-            kin.KEGG, "gene_symbol", "gs_name", min.per.set = 6,
-            descriptions = "gs_description"
-          )  
-        } else {
-          gmt.kin.KEGG <- list('genesets' = list())
-        }
-        
-        kin.H <- msigdb.H[msigdb.H$gene_symbol %in% ksea.results$Feature_set, ]
-        if (nrow(kin.H) > 0) {
-          gmt.kin.H <- DMEA::as_gmt(
-            kin.H, "gene_symbol", "gs_name", min.per.set = 6,
-            descriptions = "gs_description"
-          )  
-        } else {
-          gmt.kin.H <- list('genesets' = list())
-        }
-      } else {
-        gmt.kin.KEGG <- list('genesets' = list())
-        gmt.kin.H <- list('genesets' = list())
-      }
-      
-      if (nrow(sub.results) > 0) {
-        sub.KEGG <- msigdb.KEGG[msigdb.KEGG$gene_symbol %in% sub.results$Feature_set, ]
-        if (nrow(sub.KEGG) > 0) {
-          gmt.sub.KEGG <- DMEA::as_gmt(
-            sub.KEGG, "gene_symbol", "gs_name", min.per.set = 6,
-            descriptions = "gs_description" 
-          )
-        } else {
-          gmt.sub.KEGG <- list('genesets' = list())
-        }
-        
-        sub.H <- msigdb.H[msigdb.H$gene_symbol %in% sub.results$Feature_set, ]
-        if (nrow(sub.H) > 0) {
-          gmt.sub.H <- DMEA::as_gmt(
-            sub.H, "gene_symbol", "gs_name", min.per.set = 6,
-            descriptions = "gs_description"
-          )   
-        } else {
-          gmt.sub.H <- list('genesets' = list())
-        }
-      } else {
-        gmt.sub.KEGG <- list('genesets' = list())
-        gmt.sub.H <- list('genesets' = list())
-      }
-      
-      if (length(gmt.kin.KEGG$genesets) > 1 & length(gmt.sub.KEGG$genesets) > 1) {
-        phospho.a <- list("KSEA" = ksea.results,
-                          "Substrate enrichment" = sub.results)
-      } else if (length(gmt.sub.KEGG$genesets) > 1) {
-        phospho.a <- list("Substrate enrichment" = sub.results)
-      } else if (length(gmt.kin.KEGG$genesets) > 1) {
-        phospho.a <- list("KSEA" = ksea.reuslts)
-      } else {
-        phospho.a <- NULL
-      }
-      
-      if (length(gmt.kin.H$genesets) > 1 & length(gmt.sub.H$genesets) > 1) {
-        phospho.b <- list("KSEA" = ksea.results,
-                          "Substrate enrichment" = sub.results)
-      } else if (length(gmt.sub.H$genesets) > 1) {
-        phospho.b <- list("Substrate enrichment" = sub.results)
-      } else if (length(gmt.kin.H$genesets) > 1) {
-        phospho.b <- list("KSEA" = ksea.reuslts)
-      } else {
-        phospho.b <- NULL
-      } 
-      
-      if (is.null(phospho.a) & is.null(phospho.b)) {
-        panSEA3a <- NULL
-        panSEA3b <- NULL
-      } else if (is.null(phospho.a)) {
-        panSEA3a <- NULL
-        
-        # run kinase and substrate results against hallmark sets
-        panSEA3b <- 
-          panSEA::panSEA(phospho.b, names(phospho.b), DMEA = FALSE,
-                         group.names = contrast.name,
-                         group.samples = 4, # "NES" is in column 4
-                         feature.names = rep("Feature_set", 
-                                             length(phospho.b)), 
-                         GSEA.rank.var = rep("NES", length(phospho.b)),
-                         gmt.features = gmt.features3b[1:length(phospho.b)],
-                         min.per.set = 6) 
-      } else if (is.null(phospho.b)) {
-        # run kinase and substrate results against KEGG sets
-        panSEA3a <- 
-          panSEA::panSEA(phospho.a, names(phospho.a), DMEA = FALSE,
-                         group.names = contrast.name,
-                         group.samples = 4, # "NES" is in column 4
-                         feature.names = rep("Feature_set", 
-                                             length(phospho.a)), 
-                         GSEA.rank.var = rep("NES", length(phospho.a)),
-                         gmt.features = gmt.features3a[1:length(phospho.a)],
-                         min.per.set = 6)
-        
-        panSEA3b <- NULL
-      } else {
-        # run kinase and substrate results against KEGG sets
-        panSEA3a <- 
-          panSEA::panSEA(phospho.a, names(phospho.a), DMEA = FALSE,
-                         group.names = contrast.name,
-                         group.samples = 4, # "NES" is in column 4
-                         feature.names = rep("Feature_set", 
-                                             length(phospho.a)), 
-                         GSEA.rank.var = rep("NES", length(phospho.a)),
-                         gmt.features = gmt.features3a[1:length(phospho.a)],
-                         min.per.set = 6)
-        
-        # run kinase and substrate results against hallmark sets
-        panSEA3b <- 
-          panSEA::panSEA(phospho.b, names(phospho.b), DMEA = FALSE,
-                         group.names = contrast.name,
-                         group.samples = 4, # "NES" is in column 4
-                         feature.names = rep("Feature_set", 
-                                             length(phospho.b)), 
-                         GSEA.rank.var = rep("NES", length(phospho.b)),
-                         gmt.features = gmt.features3b[1:length(phospho.b)],
-                         min.per.set = 6) 
-      }
-      
-      ## save results & upload to Synapse
-      # get GSEA mtn plots
-      if (is.null(panSEA3a) & is.null(panSEA3b)) {
-        phospho.KSEA.KEGG.files <- list()
-        phospho.KSEA.hallmark.files <- list()
-        
-        phospho.sub.KEGG.files <- list()
-        phospho.sub.hallmark.files <- list()
-      } else if (is.null(panSEA3a)) {
-        kin.mtn3b <- get_top_mtn_plots(panSEA3b$mGSEA.results$NES$all.results$'KSEA',
-                                       EA.type = "KSEA_GSEA_hallmark")
-        phospho.KSEA.KEGG.files <- list()
-        phospho.KSEA.hallmark.files <- list("KSEA_GSEA_hallmark_results.csv" =
-                                              panSEA3b$mGSEA.results$NES$all.results$phospho$result,
-                                            "KSEA_GSEA_hallmark_volcano_plot.pdf" =
-                                              panSEA3b$mGSEA.results$NES$all.results$phospho$volcano.plot,
-                                            "mtn_plots" = kin.mtn3b)
-        
-        sub.mtn3b <- get_top_mtn_plots(panSEA3b$mGSEA.results$NES$all.results$'Substrate enrichment',
-                                       EA.type = "Substrate_enrichment_GSEA_hallmark")
-        phospho.sub.KEGG.files <- list()
-        phospho.sub.hallmark.files <- list("Substrate_enrichment_GSEA_hallmark_results.csv" =
-                                             panSEA3b$mGSEA.results$NES$all.results$phospho$result,
-                                           "Substrate_enrichment_GSEA_hallmark_volcano_plot.pdf" =
-                                             panSEA3b$mGSEA.results$NES$all.results$phospho$volcano.plot,
-                                           "mtn_plots" = sub.mtn3b)
-      } else if (is.null(panSEA3b)) {
-        kin.mtn3a <- get_top_mtn_plots(panSEA3a$mGSEA.results$NES$all.results$'KSEA', 
-                                       EA.type = "KSEA_GSEA_KEGG")
-        phospho.KSEA.KEGG.files <- list("KSEA_GSEA_KEGG_results.csv" =
-                                          panSEA3a$mGSEA.results$NES$all.results$phospho$result,
-                                        "KSEA_GSEA_KEGG_volcano_plot.pdf" =
-                                          panSEA3a$mGSEA.results$NES$all.results$phospho$volcano.plot,
-                                        "mtn_plots" = kin.mtn3a)
-        phospho.KSEA.hallmark.files <- list()
-        
-        sub.mtn3a <- get_top_mtn_plots(panSEA3a$mGSEA.results$NES$all.results$'Substrate enrichment',
-                                       EA.type = "Substrate_enrichment_GSEA_KEGG")
-        phospho.sub.KEGG.files <- list("Substrate_enrichment_GSEA_KEGG_results.csv" =
-                                         panSEA3a$mGSEA.results$NES$all.results$phospho$result,
-                                       "Substrate_enrichment_GSEA_KEGG_volcano_plot.pdf" =
-                                         panSEA3a$mGSEA.results$NES$all.results$phospho$volcano.plot,
-                                       "mtn_plots" = sub.mtn3a)
-        phospho.sub.hallmark.files <- list()
-      } else {
-        kin.mtn3a <- get_top_mtn_plots(panSEA3a$mGSEA.results$NES$all.results$'KSEA', 
-                                       EA.type = "KSEA_GSEA_KEGG")
-        kin.mtn3b <- get_top_mtn_plots(panSEA3b$mGSEA.results$NES$all.results$'KSEA',
-                                       EA.type = "KSEA_GSEA_hallmark")
-        phospho.KSEA.KEGG.files <- list("KSEA_GSEA_KEGG_results.csv" =
-                                          panSEA3a$mGSEA.results$NES$all.results$phospho$result,
-                                        "KSEA_GSEA_KEGG_volcano_plot.pdf" =
-                                          panSEA3a$mGSEA.results$NES$all.results$phospho$volcano.plot,
-                                        "mtn_plots" = kin.mtn3a)
-        phospho.KSEA.hallmark.files <- list("KSEA_GSEA_hallmark_results.csv" =
-                                              panSEA3b$mGSEA.results$NES$all.results$phospho$result,
-                                            "KSEA_GSEA_hallmark_volcano_plot.pdf" =
-                                              panSEA3b$mGSEA.results$NES$all.results$phospho$volcano.plot,
-                                            "mtn_plots" = kin.mtn3b)
-        
-        sub.mtn3a <- get_top_mtn_plots(panSEA3a$mGSEA.results$NES$all.results$'Substrate enrichment',
-                                       EA.type = "Substrate_enrichment_GSEA_KEGG")
-        sub.mtn3b <- get_top_mtn_plots(panSEA3b$mGSEA.results$NES$all.results$'Substrate enrichment',
-                                       EA.type = "Substrate_enrichment_GSEA_hallmark")
-        phospho.sub.KEGG.files <- list("Substrate_enrichment_GSEA_KEGG_results.csv" =
-                                         panSEA3a$mGSEA.results$NES$all.results$phospho$result,
-                                       "Substrate_enrichment_GSEA_KEGG_volcano_plot.pdf" =
-                                         panSEA3a$mGSEA.results$NES$all.results$phospho$volcano.plot,
-                                       "mtn_plots" = sub.mtn3a)
-        phospho.sub.hallmark.files <- list("Substrate_enrichment_GSEA_hallmark_results.csv" =
-                                             panSEA3b$mGSEA.results$NES$all.results$phospho$result,
-                                           "Substrate_enrichment_GSEA_hallmark_volcano_plot.pdf" =
-                                             panSEA3b$mGSEA.results$NES$all.results$phospho$volcano.plot,
-                                           "mtn_plots" = sub.mtn3b)
-      }
-      
-      # set file names
-      if (!is.null(panSEA1)) {
-        global.DEG.files <- list("Differential_expression_results.csv" = 
-                                   panSEA1$mDEG.results$all.results$global)
-        phospho.DEG.files <- list("Differential_expression_results.csv" = 
-                                    panSEA1$mDEG.results$all.results$phospho)
-        
-        combo.DMEA.files <- list("DMEA_results.csv" =
-                                   panSEA1$mDMEA.results$compiled.results$results,
-                                 "DMEA_mean_results.csv" =
-                                   panSEA1$mDMEA.results$compiled.results$mean.results,
-                                 "DMEA_correlation_matrix.pdf" =
-                                   panSEA1$mDMEA.results$compiled.results$corr.matrix,
-                                 "DMEA_dot_plot.pdf" =
-                                   panSEA1$mDMEA.results$compiled.results$dot.plot)
-        
-        # get DMEA mtn plots
-        DMEA.global.mtn <- get_top_mtn_plots(panSEA1$mDMEA.results$all.results$global,
-                                             EA.type = "DMEA")
-        DMEA.phospho.mtn <- get_top_mtn_plots(panSEA1$mDMEA.results$all.results$phospho,
-                                              EA.type = "DMEA")
-        global.DMEA.files <- list("DMEA_results.csv" =
-                                    panSEA1$mDMEA.results$all.results$global$result,
-                                  "DMEA_correlation_results.csv" = 
-                                    panSEA1$mDMEA.results$all.results$global$corr.result,
-                                  "DMEA_correlation_scatter_plots.pdf" = 
-                                    panSEA1$mDMEA.results$all.results$global$corr.scatter.plots,
-                                  "DMEA_volcano_plot.pdf" =
-                                    panSEA1$mDMEA.results$all.results$global$volcano.plot,
-                                  "mtn_plots" = DMEA.global.mtn)
-        phospho.DMEA.files <- list("DMEA_results.csv" =
-                                     panSEA1$mDMEA.results$all.results$phospho$result,
-                                   "DMEA_correlation_results.csv" = 
-                                     panSEA1$mDMEA.results$all.results$phospho$corr.result,
-                                   "DMEA_correlation_scatter_plots.pdf" = 
-                                     panSEA1$mDMEA.results$all.results$phospho$corr.scatter.plots,
-                                   "DMEA_volcano_plot.pdf" =
-                                     panSEA1$mDMEA.results$all.results$phospho$volcano.plot,
-                                   "mtn_plots" = DMEA.phospho.mtn)
-        
-      }
-      
-      if (length(gmt.global.KEGG$genesets) > 1) {
-        global.mtn1 <- get_top_mtn_plots(panSEA1$mGSEA.results$all.results$global,
-                                         EA.type = "GSEA_KEGG")
-        global.GSEA.KEGG.files <- list("GSEA_KEGG_results.csv" =
-                                         panSEA1$mGSEA.results$all.results$global$result,
-                                       "GSEA_KEGG_volcano_plot.pdf" =
-                                         panSEA1$mGSEA.results$all.results$global$volcano.plot,
-                                       "mtn_plots" = global.mtn1) 
-      } else {
-        global.GSEA.KEGG.files <- list()
-      }
-      
-      if (KSEA & length(gmt.phospho.ksdb$genesets) > 1) {
-        phospho.mtn1 <- get_top_mtn_plots(panSEA1$mGSEA.results$all.results$phospho,
-                                          EA.type = "KSEA")
-        
-        kin.files <- list('GSEA_KEGG' = phospho.KSEA.KEGG.files,
-                          'GSEA_hallmark' = phospho.KSEA.hallmark.files)
-        phospho.KSEA.files <- list("KSEA_results.csv" =
-                                     panSEA1$mGSEA.results$all.results$phospho$result,
-                                   "KSEA_volcano_plot.pdf" =
-                                     panSEA1$mGSEA.results$all.results$phospho$volcano.plot,
-                                   "mtn_plots" = phospho.mtn1,
-                                   "GSEA" = kin.files) 
-      } else {
-        phospho.KSEA.files <- list()
-      }
-      
-      if (length(gmt.global.H$genesets) > 1) {
-        global.mtn2 <- get_top_mtn_plots(panSEA2$mGSEA.results$Log2FC$all.results$global,
-                                         EA.type = "GSEA_hallmark")
-        global.GSEA.hallmark.files <- list("GSEA_hallmark_results.csv" =
-                                             panSEA2$mGSEA.results$Log2FC$all.results$global$result,
-                                           "GSEA_hallmark_volcano_plot.pdf" =
-                                             panSEA2$mGSEA.results$Log2FC$all.results$global$volcano.plot,
-                                           "mtn_plots" = global.mtn2)
-      }
-      
-      if (length(gmt.sub$genesets) > 1) {
-        phospho.mtn2 <- get_top_mtn_plots(panSEA2$mGSEA.results$Log2FC$all.results$phospho,
-                                          EA.type = "Substrate_enrichment")
-        sub.files <- list('GSEA_KEGG' = phospho.sub.KEGG.files,
-                          'GSEA_hallmark' = phospho.sub.hallmark.files)
-        phospho.sub.files <- list("Substrate_enrichment_results.csv" =
-                                    panSEA2$mGSEA.results$Log2FC$all.results$phospho$result,
-                                  "Substrate_enrichment_volcano_plot.pdf" =
-                                    panSEA2$mGSEA.results$Log2FC$all.results$phospho$volcano.plot,
-                                  "mtn_plots" = phospho.mtn2,
-                                  "GSEA" = sub.files) 
-      } else {
-        phospho.sub.files <- list()
-      }
-      
+      #### save results & upload to Synapse
+      ### set file names
+      ## global
+      global.DEG.files <- list("Differential_expression_results.csv" = 
+                                 deg[[1]])
+      DMEA.global.mtn <- get_top_mtn_plots(dmea.results$all.results[[1]],
+                                           EA.type = "DMEA")
+      global.DMEA.files <- list("DMEA_results.csv" =
+                                  dmea.results$all.results[[1]]$result,
+                                "DMEA_correlation_results.csv" = 
+                                  dmea.results$all.results[[1]]$corr.result,
+                                "DMEA_correlation_scatter_plots.pdf" = 
+                                  dmea.results$all.results[[1]]$corr.scatter.plots,
+                                "DMEA_volcano_plot.pdf" =
+                                  dmea.results$all.results[[1]]$volcano.plot,
+                                "mtn_plots" = DMEA.global.mtn)
+      prot.DMEA.global.mtn <- get_top_mtn_plots(dmea.prot.results$all.results[[1]],
+                                                EA.type = "DMEA")
+      prot.global.DMEA.files <- list("DMEA_results.csv" =
+                                       dmea.prot.results$all.results[[1]]$result,
+                                     "DMEA_correlation_results.csv" = 
+                                       dmea.prot.results$all.results[[1]]$corr.result,
+                                     "DMEA_correlation_scatter_plots.pdf" = 
+                                       dmea.prot.results$all.results[[1]]$corr.scatter.plots,
+                                     "DMEA_volcano_plot.pdf" =
+                                       dmea.prot.results$all.results[[1]]$volcano.plot,
+                                     "mtn_plots" = prot.DMEA.global.mtn)
       global.files <- list('Differential_expression' = global.DEG.files, 
                            'DMEA' = global.DMEA.files,
-                           'GSEA_hallmark' = global.GSEA.hallmark.files,
-                           'GSEA_KEGG' = global.GSEA.KEGG.files)
-      phospho.files <- list('Differential_expression' = phospho.DEG.files, 
-                            'DMEA' = phospho.DMEA.files,
-                            'KSEA' = phospho.KSEA.files,
-                            'Substrate_enrichment' = phospho.sub.files)
-      combo.files <- list('DMEA' = combo.DMEA.files)
-      all.files <- list('global_and_phospho' = combo.files,
-                        'global' = global.files,
-                        'phospho' = phospho.files)
+                           'DMEA_proteomics' = prot.global.DMEA.files,
+                           'GSEA_KEGG' = global.gsea.files[[1]],
+                           'GSEA_hallmark' = global.gsea.files[[2]],
+                           'GSEA_positional' = global.gsea.files[[3]])
+      
+      all.files <- list('global' = global.files)
       
       # create folder for contrast
-      setwd(base.path)
+      setwd(temp.path)
       dir.create(contrast.name)
       setwd(contrast.name)
       contrastFolder <- 
         synapser::synStore(synapser::Folder(contrast.name,
                                             parent = synapse_id))
       
-      save_contrast_to_synapse(all.files, contrastFolder, contrast.name, base.path)
+      save_contrast_to_synapse(all.files, contrastFolder, contrast.name, temp.path)
+      
       # make space to process next contrast
-      panSEA1 <- NULL
-      panSEA2 <- NULL
-      panSEA3a <- NULL
-      panSEA3b <- NULL 
+      gsea1 <- NULL
+      dmea.results <- NULL
+      deg <- NULL
     }
   }
 }
