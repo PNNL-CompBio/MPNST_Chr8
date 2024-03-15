@@ -754,7 +754,7 @@ run_contrasts_global_human <- function(contrasts, contrast.type, id.type, meta.d
         
         # prep set annotations
         temp.gmt1 <- list()
-        for (j in 1:length(gsea1.inputs)) {
+        for (j in 1:length(deg)) {
           temp.gmt1[[j]] <- gmt1[[i]]
         }
         
@@ -766,7 +766,7 @@ run_contrasts_global_human <- function(contrasts, contrast.type, id.type, meta.d
         global.mtn <- get_top_mtn_plots(
           gsea1[[gsea.name]]$all.results[["global"]], 
           EA.type = EA.types[i])
-        global.net <- panSEA::netSEA(list(gsea1.inputs[["global"]]),
+        global.net <- panSEA::netSEA(list(deg[["global"]]),
                                      list(gsea1[[gsea.name]]$all.results[["global"]]$result),
                                      n.network.sets = 5)
         global.gsea.files[[gsea.name]] <- list("GSEA_results.csv" =
@@ -779,14 +779,11 @@ run_contrasts_global_human <- function(contrasts, contrast.type, id.type, meta.d
       }
       
       # run DMEA
-      dmea.results <- panSEA::mDMEA(drug.sens, gmt.drug, expr, gsea1.inputs, 
-                                    names(gsea1.inputs), 
-                                    feature.names = features1,
-                                    weight.values = rank.var)
-      dmea.prot.results <- panSEA::mDMEA(drug.sens, gmt.drug, prot.expr, gsea1.inputs, 
-                                         names(gsea1.inputs), 
-                                         feature.names = features1,
-                                         weight.values = rank.var)
+      dmea.results <- panSEA::mDMEA(drug.sens, gmt.drug, expr, deg, 
+                                    names(deg))
+      prot.expr <- list(prot.df.noNA)
+      dmea.prot.results <- panSEA::mDMEA(drug.sens, gmt.drug, prot.expr, deg, 
+                                         names(deg))
       
       #### save results & upload to Synapse
       ### set file names
