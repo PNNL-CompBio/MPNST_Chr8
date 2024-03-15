@@ -164,6 +164,7 @@ plot_pca(m_RNA, phenotype = "Chr8_status") + ggtitle("RNA-Seq PCA")
 ggsave("RNAseq_PDX_PCA_byChr8Status_overlappingKnownChr8StatusOnly.pdf")
 
 #### Global & phospho - new database ####
+setwd(base.path)
 meta <- meta.df[meta.df$Sample == "Sample",]
 omics <- list("global" = global.df,
               "phospho" = phospho.df)
@@ -173,7 +174,8 @@ contrast.type <- "Chr8_strongly_amplified"
 temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "new database")
 run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
                                    omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-                                   gmt.list2 = "chr8", base.path, temp.path,
+                                   gmt.list2 = "chr8", file.exists("chr8_gmt2_run_contrasts_global_phospho_human.rds"), 
+                                   temp.path = temp.path,
                                    subfolder = FALSE,
                                    synapse_id = "syn54042241")
 
@@ -181,7 +183,7 @@ contrast.type <- "Chr8_amplified"
 temp.path <- file.path(base.path, "Chr8_amp_vs_not", "new database")
 run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
                                    omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-                                   gmt.list2 = "chr8", base.path, temp.path,
+                                   gmt.list2 = "chr8", base.path = base.path, temp.path = temp.path,
                                    subfolder = FALSE,
                                    synapse_id = "syn54042236")
 
@@ -192,16 +194,18 @@ contrasts <- list(c(TRUE, FALSE))
 contrast.type <- "Chr8_strongly_amplified"
 temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "old database")
 run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-                           omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-                           base.path, temp.path,
+                           omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+                                                "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
+                           base.path = base.path, temp.path = temp.path,
                            subfolder = FALSE,
                            synapse_id = "syn54042244")
 
 contrast.type <- "Chr8_amplified"
 temp.path <- file.path(base.path, "Chr8_amp_vs_not", "old database")
 run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-                           omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-                           base.path, temp.path,
+                           omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+                                                "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
+                           base.path = base.path, temp.path = temp.path,
                            subfolder = FALSE,
                            synapse_id = "syn54042237")
 
