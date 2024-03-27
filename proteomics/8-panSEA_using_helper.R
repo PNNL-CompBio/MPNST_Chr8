@@ -235,11 +235,15 @@ myc.targetsv2 <- unique(msigdb.info[grepl("MYC_TARGETS_V2", msigdb.info$gs_name,
                                           ignore.case = TRUE), ]$gene_symbol) # 58
 
 # JAK/STAT
-msigdb.info <- msigdbr::msigdbr("Homo sapiens", "C2", "CP:KEGG")
 jak.stat <- unique(msigdb.info[grepl("JAK_STAT", msigdb.info$gs_name, 
                                      ignore.case = TRUE), ]$gene_symbol) 
 
+# KRAS
+kras <- unique(msigdb.info[grepl("KRAS", msigdb.info$gs_name, 
+                                     ignore.case = TRUE), ]$gene_symbol) 
+
 # TGF beta
+msigdb.info <- msigdbr::msigdbr("Homo sapiens", "C2", "CP:KEGG")
 tgf <- unique(msigdb.info[grepl("TGF_BETA", msigdb.info$gs_name, 
                                      ignore.case = TRUE), ]$gene_symbol) 
 
@@ -251,6 +255,7 @@ genesets <- list('Chr8' = chr8,
                  'Myc_targets_v1' = myc.targetsv1,
                  'Myc_targets_v2' = myc.targetsv2,
                  "JAK-STAT" = jak.stat,
+                 "KRAS" = kras,
                  "TGF_Beta" = tgf)
 
 # compile differential expression results
