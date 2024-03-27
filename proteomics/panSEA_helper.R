@@ -539,7 +539,7 @@ run_contrasts_global_phospho_human <- function(contrasts, contrast.type, id.type
       phospho.DEG.files <- list("Differential_expression_results.csv" = 
                                   deg[[2]])
 
-      kin.mtn2 <- get_top_mtn_plots(gsea2$Log2FC$all.results$phospho_ksdb,
+      kin.mtn2 <- get_top_mtn_plots(gsea2$all.results[[1]],
                                     EA.type = "KSEA")
       if (KSEA) {
         kin.DMEA.mtn <- get_top_mtn_plots(dmea.results$all.results[[2]],
@@ -584,9 +584,9 @@ run_contrasts_global_phospho_human <- function(contrasts, contrast.type, id.type
         prot.kin.DMEA.files <- list()
       }
       phospho.kin.files <- list("KSEA_results.csv" =
-                                  gsea2$Log2FC$all.results$phospho_ksdb$result,
+                                  gsea2$all.results[[1]]$result,
                                 "KSEA_volcano_plot.pdf" =
-                                  gsea2$Log2FC$all.results$phospho_ksdb$volcano.plot,
+                                  gsea2$all.results[[1]]$volcano.plot,
                                 "KSEA_network_graph.html" = 
                                   kin.net2$interactive,
                                 "mtn_plots" = kin.mtn2,
@@ -595,7 +595,7 @@ run_contrasts_global_phospho_human <- function(contrasts, contrast.type, id.type
                                 "DMEA_proteomics" = prot.kin.DMEA.files) 
       
       
-      sub.mtn2 <- get_top_mtn_plots(gsea2$Log2FC$all.results$phospho_sub,
+      sub.mtn2 <- get_top_mtn_plots(gsea2$all.results[[2]],
                                     EA.type = "Substrate_enrichment")
       if (SSEA) {
         sub.DMEA.mtn <- get_top_mtn_plots(dmea.results$all.results[["phospho_sub"]],
@@ -639,9 +639,9 @@ run_contrasts_global_phospho_human <- function(contrasts, contrast.type, id.type
         prot.sub.DMEA.files <- list()
       }
       phospho.sub.files <- list("Substrate_enrichment_results.csv" =
-                                  gsea2$Log2FC$all.results$phospho_sub$result,
+                                  gsea2$all.results[[2]]$result,
                                 "Substrate_enrichment_volcano_plot.pdf" =
-                                  gsea2$Log2FC$all.results$phospho_sub$volcano.plot,
+                                  gsea2$all.results[[2]]$volcano.plot,
                                 "Substrate_enrichment_network_graph.html" = 
                                   sub.net2$interactive,
                                 "mtn_plots" = sub.mtn2,
