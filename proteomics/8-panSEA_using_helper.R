@@ -18,63 +18,13 @@ library(readxl); library(panSEA); library(synapser)
 library(stringr); library(tidyr); library(plyr)
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
 source("panSEA_helper.R")
+#source("01_mpnst_get_omics.R")
 
 #### 1. Import metadata & crosstabs ####
 setwd(
   "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/data/"
 )
 meta.df <- readxl::read_excel("Chr8-MetaDataSheet.xlsx")
-global.df <- read.table(
-  "global_data/Chr8_crosstab_global_gene_corrected.txt",
-  sep = "\t")
-global.w.mouse.df <- read.table(
-  "global_with_mouse_data/Chr8_crosstab_global_old_database_gene_corrected.txt", 
-  sep = "\t")
-phospho.df <- read.table(
-  "phospho_data/Chr8_crosstab_phospho_SiteID_corrected.txt",
-  sep = "\t")
-
-setwd(
-  "~/OneDrive - PNNL/Documents/GitHub/Chr8/transcriptomics/"
-)
-synapser::synGet("syn49554376", 
-                 downloadLocation = getwd())
-RNA.df <- read.table("salmon.merged.gene_counts.tsv", sep = "\t", 
-                     header = TRUE)
-RNA.df$gene_id <- NULL
-colnames(RNA.df)[1] <- "Gene"
-
-# add column for feature names and later make it the first column
-global.df$Gene <- rownames(global.df)
-global.w.mouse.df$Gene <- rownames(global.w.mouse.df)
-phospho.df$SUB_SITE <- rownames(phospho.df)
-
-# venn diagram
-library(dplyr)
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"
-setwd(base.path)
-phospho.venn <- phospho.df  %>% tidyr::extract(SUB_SITE, "Gene",
-                                               remove = FALSE)
-venn.list <- list('Global old' = unique(global.w.mouse.df$Gene),
-                  'Global' = unique(global.df$Gene),
-                  'RNA-Seq' = unique(RNA.df$Gene),
-                  'Phospho' = unique(phospho.venn$Gene))
-ggvenn::ggvenn(venn.list, set_name_size = 3)
-ggplot2::ggsave("Chr8_venn_diagram_20240312.pdf")
-ggvenn::ggvenn(venn.list, set_name_size = 3, show_percentage = FALSE)
-ggplot2::ggsave("Chr8_venn_diagram_wo_percent_20240312.pdf")
-
-venn.list <- list('Proteomics' = unique(global.w.mouse.df$Gene),
-                  'RNA-Seq' = unique(RNA.df$Gene),
-                  'Phospho' = unique(phospho.venn$Gene))
-ggvenn::ggvenn(venn.list, set_name_size = 4, show_percentage = FALSE)
-ggplot2::ggsave("Chr8_venn_diagram_global_old_20240312.pdf")
-
-venn.list <- list('Proteomics' = unique(global.df$Gene),
-                  'RNA-Seq' = unique(RNA.df$Gene),
-                  'Phospho' = unique(phospho.venn$Gene))
-ggvenn::ggvenn(venn.list, set_name_size = 4, show_percentage = FALSE)
-ggplot2::ggsave("Chr8_venn_diagram_global_new_20240312.pdf")
 
 # add Tube number to metadata
 meta.df$Tube <- NA
@@ -100,32 +50,141 @@ meta.df[meta.df$SampleID == "JH-2-002", ]$Chr8_strongly_amplified <- NA
 
 meta.df$id <- paste0("X", meta.df$Tube)
 
+global.df <- read.table(
+  "global_data/Chr8_crosstab_global_gene_corrected.txt",
+  sep = "\t")
+global.w.mouse.df <- read.table(
+  "global_with_mouse_data/Chr8_crosstab_global_old_database_gene_corrected.txt", 
+  sep = "\t")
+phospho.df <- read.table(
+  "phospho_data/Chr8_crosstab_phospho_SiteID_corrected.txt",
+  sep = "\t")
+
+setwd(
+  "~/OneDrive - PNNL/Documents/GitHub/Chr8/transcriptomics/"
+)
+# download sf files from Synapse based on 01_mpnst_get_omics.R from Sara JC Gosline
+synapser::synLogin()
+##now get the manifest from synapse
+manifest<-synapser::synTableQuery("select * from syn53503360")$asDataFrame()|>
+  dplyr::rename(common_name='Sample')
+
+
+##for now we only have tumor and PDX data
+##they each get their own sample identifier
+pdx_data<-manifest|>dplyr::select(common_name,Sex,RNASeq='PDX_RNASeq',Mutations='PDX_Somatic_Mutations',CopyNumber='PDX_CNV')
+pdx_data$sampleType <- "PDX"
+
+tumor_data<- manifest|>dplyr::select(common_name,Sex,RNASeq='Tumor_RNASeq',Mutations='Tumor_Somatic_Mutations',CopyNumber='Tumor_CNV')
+tumor_data$sampleType <- "Tumor"
+
+combined<-rbind(pdx_data,tumor_data)|>distinct()
+
+# from coderdata 00-buildGeneFile.R
+if(!require('org.Hs.eg.db')){
+  BiocManager::install('org.Hs.eg.db')
+  library(org.Hs.eg.db)
+}
+
+library(dplyr)
+##get entrez ids to symbol
+entrez<-as.data.frame(org.Hs.egALIAS2EG)
+
+##get entriz ids to ensembl
+ens<-as.data.frame(org.Hs.egENSEMBL2EG)
+
+##get transcript ids as well
+enst<-as.data.frame(org.Hs.egENSEMBLTRANS)
+
+joined.df<-entrez%>%full_join(ens)%>%
+  dplyr::rename(entrez_id='gene_id',gene_symbol='alias_symbol',other_id='ensembl_id')%>%
+  mutate(other_id_source='ensembl_gene')
+
+tdf<-entrez|>
+  full_join(enst)|>
+  dplyr::rename(entrez_id='gene_id',gene_symbol='alias_symbol',other_id='trans_id')|>
+  dplyr::mutate(other_id_source='ensembl_transcript')
+
+joined.df<-rbind(joined.df,tdf)|>
+  distinct()
+
+rnaseq<-do.call('rbind',lapply(setdiff(combined$RNASeq,NA),function(x){
+  # if(x!=""){
+  #print(x)
+  sample<-base::subset(combined,RNASeq==x)
+  #print(sample)
+  res<-data.table::fread(synGet(x)$path)|>
+    tidyr::separate(Name,into=c('other_id','vers'),sep='\\.')|>
+    left_join(joined.df)|>
+    dplyr::select(gene_symbol,TPM)|>
+    subset(!is.na(gene_symbol)|>
+    subset(TPM!=0))
+  res$sample <- sample$common_name
+  res$sex <- sample$Sex
+  res$sampleType <- sample$sampleType
+  return(distinct(res))
+  # }
+}))
+rnaseq <- na.omit(rnaseq)
+rna <- reshape2::dcast(rnaseq, sampleType + gene_symbol ~ sample, mean, value.var = "TPM")
+colnames(rna)[2] <- "Gene"
+pdxRNA <- rna[rna$sampleType=="PDX", colnames(rna)[2:ncol(rna)]]
+tumorRNA <- rna[rna$sampleType=="Tumor", colnames(rna)[2:ncol(rna)]]
+
+# add column for feature names and later make it the first column
+global.df$Gene <- rownames(global.df)
+global.w.mouse.df$Gene <- rownames(global.w.mouse.df)
+phospho.df$SUB_SITE <- rownames(phospho.df)
+
+meta.df[meta.df$SampleID == "JH-2-079",]$SampleID <- "JH-2-079c"
+# venn diagram
+library(dplyr)
+base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"
+setwd(base.path)
+phospho.venn <- phospho.df  %>% tidyr::extract(SUB_SITE, "Gene",
+                                               remove = FALSE)
+venn.list <- list('Global old' = unique(global.w.mouse.df$Gene),
+                  'Global' = unique(global.df$Gene),
+                  'RNA-Seq' = unique(pdxRNA$Gene),
+                  'Phospho' = unique(phospho.venn$Gene))
+ggvenn::ggvenn(venn.list, set_name_size = 3)
+ggplot2::ggsave("Chr8_venn_diagram_20240410.pdf")
+ggvenn::ggvenn(venn.list, set_name_size = 3, show_percentage = FALSE)
+ggplot2::ggsave("Chr8_venn_diagram_wo_percent_20240410.pdf")
+
+venn.list <- list('Proteomics' = unique(global.w.mouse.df$Gene),
+                  'RNA-Seq' = unique(pdxRNA$Gene),
+                  'Phospho' = unique(phospho.venn$Gene))
+ggvenn::ggvenn(venn.list, set_name_size = 4, show_percentage = FALSE)
+ggplot2::ggsave("Chr8_venn_diagram_global_old_20240410.pdf")
+
+venn.list <- list('Proteomics' = unique(global.df$Gene),
+                  'RNA-Seq' = unique(pdxRNA$Gene),
+                  'Phospho' = unique(phospho.venn$Gene))
+ggvenn::ggvenn(venn.list, set_name_size = 4, show_percentage = FALSE)
+ggplot2::ggsave("Chr8_venn_diagram_global_new_20240410.pdf")
+
 #### 2. PCA plots ####
 library(MSnSet.utils)
+library(ggplot2)
 
 ### Transcriptomics PCA
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/transcriptomics/")
-RNA.df$Gene <- NULL
+pdxRNA_pca <- pdxRNA
+pdxRNA_pca$Gene <- NULL
 
 # create metadata for RNA-Seq
-Tube <- colnames(RNA.df)
-pca.meta.df <- as.data.frame(Tube)
-pca.meta.df$SampleID <- c("JH-2-009", "JH-2-055", "JH-2-079", "WU-487", 
-                      "WU-536", "WU-561", "MN-2", "MN-3")
-pca.meta.df$Sample <- "Sample"
-pca.meta.df$SampleID <- pca.meta.df$Tube
-rownames(meta.df) <- pca.meta.df$Tube
+pca.meta.df <- manifest[,c("common_name", "Sex", "Chr8 Status")]
+rownnames(pca.meta.df) <- pca.meta.df$common_name
 
-meta.df$SampleID <- c("JH-2-009", "JH-2-055", "JH-2-079", "WU-487", 
-                      "WU-536", "WU-561", "MN-2", "MN-3")
-m_RNA <- MSnSet(exprs = RNA.df %>% as.matrix(),
+m_RNA <- MSnSet(exprs = pdxRNA_pca %>% as.matrix(),
                 pData = pca.meta.df)
-plot_pca(m_RNA, phenotype = "SampleID") + ggtitle("RNA-Seq PCA")
-ggsave("RNAseq_PDX_PCA_betterSampleID.pdf")
+MSnSet.utils::plot_pca(m_RNA, phenotype = "SampleID") + ggtitle("RNA-Seq PCA")
+ggsave(paste0("RNAseq_PDX_PCA_betterSampleID_", Sys.Date(), ".pdf"))
 
-Chr8.RNA.df <- RNA.df[, c("X2.055_pdx", "X2.079_pdx", "WU.487_pdx", "WU.561_pdx", "mn2_pdx")]
+Chr8.pdxRNA <- pdxRNA[, c("X2.055_pdx", "X2.079_pdx", "WU.487_pdx", "WU.561_pdx", "mn2_pdx")]
 # create metadata for RNA-Seq
-Tube <- colnames(Chr8.RNA.df)
+Tube <- colnames(Chr8.pdxRNA)
 pca.meta.df <- as.data.frame(Tube)
 pca.meta.df$SampleID <- c("JH-2-055", "JH-2-079", "WU-487", "WU-561", "MN-2")
 pca.meta.df$Sample <- "Sample"
@@ -134,19 +193,19 @@ pca.meta.df$Chr8_status <- "Amplified"
 non.chr8.amp.rna <- c("JH-2-055", "WU-487")
 pca.meta.df[pca.meta.df$SampleID %in% non.chr8.amp.rna, ]$Chr8_status <- "Not amplified"
 
-m_RNA <- MSnSet(exprs = Chr8.RNA.df %>% as.matrix(),
+m_RNA <- MSnSet(exprs = Chr8.pdxRNA %>% as.matrix(),
                 pData = pca.meta.df)
 plot_pca(m_RNA, phenotype = "SampleID") + ggtitle("RNA-Seq PCA")
 ggsave("RNAseq_PDX_PCA_betterSampleID_knownChr8StatusOnly.pdf")
 
-m_RNA <- MSnSet(exprs = Chr8.RNA.df %>% as.matrix(),
+m_RNA <- MSnSet(exprs = Chr8.pdxRNA %>% as.matrix(),
                 pData = pca.meta.df)
 plot_pca(m_RNA, phenotype = "Chr8_status") + ggtitle("RNA-Seq PCA")
 ggsave("RNAseq_PDX_PCA_byChr8Status_knownChr8StatusOnly.pdf")
 
-overlap.RNA.df <- RNA.df[, c("X2.055_pdx", "X2.079_pdx", "WU.487_pdx", "mn2_pdx")]
+overlap.pdxRNA <- pdxRNA[, c("X2.055_pdx", "X2.079_pdx", "WU.487_pdx", "mn2_pdx")]
 # create metadata for RNA-Seq
-Tube <- colnames(overlap.RNA.df)
+Tube <- colnames(overlap.pdxRNA)
 pca.meta.df <- as.data.frame(Tube)
 pca.meta.df$SampleID <- c("JH-2-055", "JH-2-079", "WU-487", "MN-2")
 pca.meta.df$Sample <- "Sample"
@@ -155,7 +214,7 @@ pca.meta.df$Chr8_status <- "Amplified"
 non.chr8.amp.rna <- c("JH-2-055", "WU-487")
 pca.meta.df[pca.meta.df$SampleID %in% non.chr8.amp.rna, ]$Chr8_status <- "Not amplified"
 
-m_RNA <- MSnSet(exprs = overlap.RNA.df %>% as.matrix(),
+m_RNA <- MSnSet(exprs = overlap.pdxRNA %>% as.matrix(),
                 pData = pca.meta.df)
 plot_pca(m_RNA, phenotype = "SampleID") + ggtitle("RNA-Seq PCA")
 ggsave("RNAseq_PDX_PCA_betterSampleID_overlappingKnownChr8StatusOnly.pdf")
@@ -174,8 +233,7 @@ contrast.type <- "Chr8_strongly_amplified"
 temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "new database")
 run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
                                    omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-                                   gmt.list2 = "chr8", file.exists("chr8_gmt2_run_contrasts_global_phospho_human.rds"), 
-                                   temp.path = temp.path,
+                                   gmt.list2 = "chr8", base.path = base.path, temp.path = temp.path,
                                    subfolder = FALSE,
                                    synapse_id = "syn54042241")
 
@@ -259,6 +317,47 @@ genesets <- list('Chr8' = chr8,
                  "TGF_Beta" = tgf)
 
 # compile differential expression results
+# Chr8_strongly_amp_vs_not: new database
+temp.base <- paste0("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/",
+             "Chr8_strongly_amp_vs_not/new\ database/")
+setwd(temp.base)
+dir.create("heatmaps")
+setwd("heatmaps")
+diffexp <- read.csv("global/Differential_expression/Differential_expression_results.csv")
+phospho_diffexp <- read.csv("phospho/Differential_expression/Differential_expression_results.csv")
+abs.max.Log2FC <- 0
+abs.max.minusLogFDR <- 0
+omics <- list("Global" = diffexp,
+              "Phospho" = phospho_diffexp)
+for (i in 1:length(omics)) {
+  if (names(omics)[i] == "Phospho") {
+    feature.names <- "SUB_SITE"
+  } else {
+    feature.names <- "Gene"
+  }
+  DEG.df <- omics[[i]]
+  DEG.df$minusLogFDR <- -log(DEG.df$adj.P.Val, 10)
+  for (j in 1:length(genesets)) {
+    # filter for gene set
+    temp.DEG.df <- DEG.df[DEG.df[,feature.names] %in% genesets[[j]], ]
+    if (nrow(temp.DEG.df) > 0) {
+      # generate data frames for heatmaps
+      Log2FC.df <- temp.DEG.df[,c(feature.names, "Log2FC")]
+      minusLogFDR.df <- temp.DEG.df[,c(feature.names, "minusLogFDR")]
+      write.csv(Log2FC.df, paste0(names(omics)[i], "_", names(genesets)[j], "_Log2FC.csv"), row.names = FALSE)
+      write.csv(minusLogFDR.df, paste0(names(omics)[i], "_", names(genesets)[j], "_minusLogFDR.csv"), row.names = FALSE)
+      
+      if (max(abs(temp.DEG.df$Log2FC), na.rm = TRUE) > abs.max.Log2FC) {
+        abs.max.Log2FC <- max(abs(temp.DEG.df$Log2FC), na.rm = TRUE)
+      } # 9.591479, so using range of -10, 10 for heatmap colors
+      
+      if (max(abs(temp.DEG.df$minusLogFDR), na.rm = TRUE) > abs.max.minusLogFDR) {
+        abs.max.minusLogFDR <- max(abs(temp.DEG.df$minusLogFDR), na.rm = TRUE)
+      } # 0.1577173, so using range of 0, 0.2 for heatmap sizes 
+    }
+  }
+}
+
 # all samples w known Chr8 status
 setwd(paste0("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/data/",
              "global_with_mouse_data/analysis/"))
@@ -369,6 +468,42 @@ for (i in 1:length(omics)) {
 }
 
 # compile expression data
+setwd(base.path)
+dir.create("heatmaps")
+
+global.samples <- meta.df[meta.df$id %in% colnames(global.df),]$SampleID
+colnames(global.df) <- c(global.samples, "Gene")
+global.df <- global.df[, c("Gene", global.samples)]
+
+global.w.mouse.samples <- meta.df[meta.df$id %in% colnames(global.w.mouse.df),]$SampleID
+colnames(global.w.mouse.df) <- c(global.w.mouse.samples, "Gene")
+global.w.mouse.df <- global.w.mouse.df[, c("Gene", global.w.mouse.samples)]
+
+phospho.samples <- meta.df[meta.df$id %in% colnames(phospho.df),]$SampleID
+colnames(phospho.df) <- c(phospho.samples, "SUB_SITE")
+phospho.df <- phospho.df[, c("SUB_SITE", phospho.samples)]
+
+omics <- list('Global_old' = global.w.mouse.df,
+              'RNA-Seq' = pdxRNA,
+              'Global' = global.df,
+              'phospho' = phospho.df)
+
+for (i in 1:length(omics)) {
+  if (names(omics)[i] == "phospho") {
+    feature.names <- "SUB_SITE"
+  } else {
+    feature.names <- "Gene"
+  }
+  for (j in 1:length(genesets)) {
+    # filter for gene set
+    expr.df <- omics[[i]]
+    expr.df <- expr.df[expr.df[,feature.names] %in% genesets[[j]], ]
+    write.csv(expr.df, paste0(names(omics)[i], "_", names(genesets)[j], ".csv"), row.names = FALSE)
+  }
+}
+
+
+
 setwd(
   "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/data/"
 )
@@ -418,15 +553,15 @@ phospho.overlap <- phospho.df[ , c("Gene", "WU-487_rep1", "MN-2_rep1",
 setwd(
   "~/OneDrive - PNNL/Documents/GitHub/Chr8/transcriptomics/"
 )
-RNA.df <- read.table("salmon.merged.gene_counts.tsv", sep = "\t", 
-                     header = TRUE)
-RNA.df$gene_id <- NULL
-colnames(RNA.df) <- c("Gene", "JH-2-009", "JH-2-055", "JH-2-079", "WU-487",
-                      "WU-536", "WU-561", "MN-2", "MN-3")
-RNA.overlap <- RNA.df[ , c("Gene", "JH-2-055", "JH-2-079", "WU-487", "MN-2")]
+# pdxRNA <- read.table("salmon.merged.gene_counts.tsv", sep = "\t", 
+#                      header = TRUE)
+# pdxRNA$gene_id <- NULL
+# colnames(pdxRNA) <- c("Gene", "JH-2-009", "JH-2-055", "JH-2-079", "WU-487",
+#                       "WU-536", "WU-561", "MN-2", "MN-3")
+RNA.overlap <- pdxRNA[ , c("Gene", "JH-2-055", "JH-2-079", "WU-487", "MN-2")]
 
 omics <- list('PDX_global' = global.w.mouse.df,
-              'PDX_RNAseq' = RNA.df,
+              'PDX_RNAseq' = pdxRNA,
               'global' = global.df,
               'phospho' = phospho.df,
               'PDX_global_overlap' = global.w.mouse.overlap,
