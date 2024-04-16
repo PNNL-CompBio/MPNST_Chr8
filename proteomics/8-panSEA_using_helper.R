@@ -126,8 +126,12 @@ rnaseq<-do.call('rbind',lapply(setdiff(combined$RNASeq,NA),function(x){
   # }
 }))
 rnaseq <- na.omit(rnaseq)
+valid.chr8 <- c("Not amplified", "Amplified", "Strongly amplified")
+Chr8.samples <- manifest[manifest$PDX_Chr8_status %in% valid.chr8,]$common_name # 13
+rnaseq <- rnaseq[rnaseq$sample %in% Chr8.samples,]
 rna <- reshape2::dcast(rnaseq, sampleType + gene_symbol ~ sample, mean, value.var = "TPM")
 colnames(rna)[2] <- "Gene"
+
 pdxRNA <- rna[rna$sampleType=="PDX", colnames(rna)[2:ncol(rna)]]
 tumorRNA <- rna[rna$sampleType=="Tumor", colnames(rna)[2:ncol(rna)]]
 
@@ -148,21 +152,21 @@ venn.list <- list('Global old' = unique(global.w.mouse.df$Gene),
                   'RNA-Seq' = unique(pdxRNA$Gene),
                   'Phospho' = unique(phospho.venn$Gene))
 ggvenn::ggvenn(venn.list, set_name_size = 3)
-ggplot2::ggsave("Chr8_venn_diagram_20240410.pdf")
+ggplot2::ggsave("Chr8_venn_diagram_20240415.pdf")
 ggvenn::ggvenn(venn.list, set_name_size = 3, show_percentage = FALSE)
-ggplot2::ggsave("Chr8_venn_diagram_wo_percent_20240410.pdf")
+ggplot2::ggsave("Chr8_venn_diagram_wo_percent_20240415.pdf")
 
 venn.list <- list('Proteomics' = unique(global.w.mouse.df$Gene),
                   'RNA-Seq' = unique(pdxRNA$Gene),
                   'Phospho' = unique(phospho.venn$Gene))
 ggvenn::ggvenn(venn.list, set_name_size = 4, show_percentage = FALSE)
-ggplot2::ggsave("Chr8_venn_diagram_global_old_20240410.pdf")
+ggplot2::ggsave("Chr8_venn_diagram_global_old_20240415.pdf")
 
 venn.list <- list('Proteomics' = unique(global.df$Gene),
                   'RNA-Seq' = unique(pdxRNA$Gene),
                   'Phospho' = unique(phospho.venn$Gene))
 ggvenn::ggvenn(venn.list, set_name_size = 4, show_percentage = FALSE)
-ggplot2::ggsave("Chr8_venn_diagram_global_new_20240410.pdf")
+ggplot2::ggsave("Chr8_venn_diagram_global_new_20240415.pdf")
 
 #### 2. PCA plots ####
 library(MSnSet.utils)
@@ -170,57 +174,22 @@ library(ggplot2)
 
 ### Transcriptomics PCA
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/transcriptomics/")
-pdxRNA_pca <- pdxRNA
-pdxRNA_pca$Gene <- NULL
 
 # create metadata for RNA-Seq
-pca.meta.df <- manifest[,c("common_name", "Sex", "Chr8 Status")]
-rownnames(pca.meta.df) <- pca.meta.df$common_name
-
-m_RNA <- MSnSet(exprs = pdxRNA_pca %>% as.matrix(),
+phenos <- c("common_name", "Sex", 
+            "PDX_Chr8_status", "Tumor_Chr8_status")
+pca.meta.df <- manifest[manifest$common_name %in% Chr8.samples, phenos]
+row.names(pca.meta.df) <- pca.meta.df$common_name
+m_RNA <- MSnSet(exprs = pdxRNA[,Chr8.samples] %>% as.matrix(),
                 pData = pca.meta.df)
-MSnSet.utils::plot_pca(m_RNA, phenotype = "SampleID") + ggtitle("RNA-Seq PCA")
-ggsave(paste0("RNAseq_PDX_PCA_betterSampleID_", Sys.Date(), ".pdf"))
-
-Chr8.pdxRNA <- pdxRNA[, c("X2.055_pdx", "X2.079_pdx", "WU.487_pdx", "WU.561_pdx", "mn2_pdx")]
-# create metadata for RNA-Seq
-Tube <- colnames(Chr8.pdxRNA)
-pca.meta.df <- as.data.frame(Tube)
-pca.meta.df$SampleID <- c("JH-2-055", "JH-2-079", "WU-487", "WU-561", "MN-2")
-pca.meta.df$Sample <- "Sample"
-rownames(pca.meta.df) <- pca.meta.df$Tube
-pca.meta.df$Chr8_status <- "Amplified"
-non.chr8.amp.rna <- c("JH-2-055", "WU-487")
-pca.meta.df[pca.meta.df$SampleID %in% non.chr8.amp.rna, ]$Chr8_status <- "Not amplified"
-
-m_RNA <- MSnSet(exprs = Chr8.pdxRNA %>% as.matrix(),
+m_RNA_tumor <- MSnSet(exprs = tumorRNA[,Chr8.samples] %>% as.matrix(),
                 pData = pca.meta.df)
-plot_pca(m_RNA, phenotype = "SampleID") + ggtitle("RNA-Seq PCA")
-ggsave("RNAseq_PDX_PCA_betterSampleID_knownChr8StatusOnly.pdf")
-
-m_RNA <- MSnSet(exprs = Chr8.pdxRNA %>% as.matrix(),
-                pData = pca.meta.df)
-plot_pca(m_RNA, phenotype = "Chr8_status") + ggtitle("RNA-Seq PCA")
-ggsave("RNAseq_PDX_PCA_byChr8Status_knownChr8StatusOnly.pdf")
-
-overlap.pdxRNA <- pdxRNA[, c("X2.055_pdx", "X2.079_pdx", "WU.487_pdx", "mn2_pdx")]
-# create metadata for RNA-Seq
-Tube <- colnames(overlap.pdxRNA)
-pca.meta.df <- as.data.frame(Tube)
-pca.meta.df$SampleID <- c("JH-2-055", "JH-2-079", "WU-487", "MN-2")
-pca.meta.df$Sample <- "Sample"
-rownames(pca.meta.df) <- pca.meta.df$Tube
-pca.meta.df$Chr8_status <- "Amplified"
-non.chr8.amp.rna <- c("JH-2-055", "WU-487")
-pca.meta.df[pca.meta.df$SampleID %in% non.chr8.amp.rna, ]$Chr8_status <- "Not amplified"
-
-m_RNA <- MSnSet(exprs = overlap.pdxRNA %>% as.matrix(),
-                pData = pca.meta.df)
-plot_pca(m_RNA, phenotype = "SampleID") + ggtitle("RNA-Seq PCA")
-ggsave("RNAseq_PDX_PCA_betterSampleID_overlappingKnownChr8StatusOnly.pdf")
-
-plot_pca(m_RNA, phenotype = "Chr8_status") + ggtitle("RNA-Seq PCA")
-ggsave("RNAseq_PDX_PCA_byChr8Status_overlappingKnownChr8StatusOnly.pdf")
+for (i in 1:length(phenos)) {
+  MSnSet.utils::plot_pca(m_RNA, phenotype = phenos[i]) + ggtitle("PDX RNA-Seq PCA") # 250 complete rows for PCA
+  ggsave(paste0("RNAseq_PDX_PCA_", phenos[i], "_", Sys.Date(), ".pdf"))
+  #MSnSet.utils::plot_pca(m_RNA_tumor, phenotype = phenos[i]) + ggtitle("Tumor RNA-Seq PCA") # <2 complete rows for PCA
+  #ggsave(paste0("RNAseq_tumor_PCA_", phenos[i], "_", Sys.Date(), ".pdf"))
+}
 
 #### Global & phospho - new database ####
 setwd(base.path)
