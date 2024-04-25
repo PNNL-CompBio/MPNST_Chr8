@@ -127,7 +127,7 @@ rnaseq<-do.call('rbind',lapply(setdiff(combined$RNASeq,NA),function(x){
 }))
 rnaseq <- na.omit(rnaseq)
 valid.chr8 <- c("Not amplified", "Amplified", "Strongly amplified")
-Chr8.samples <- manifest[manifest$PDX_Chr8_status %in% valid.chr8,]$common_name # 13
+Chr8.samples <- manifest[manifest$PDX_Chr8_status_BG %in% valid.chr8,]$common_name # 13
 rnaseq <- rnaseq[rnaseq$sample %in% Chr8.samples,]
 rna <- reshape2::dcast(rnaseq, sampleType + gene_symbol ~ sample, mean, value.var = "TPM")
 colnames(rna)[2] <- "Gene"
@@ -177,64 +177,299 @@ setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/transcriptomics/")
 
 # create metadata for RNA-Seq
 phenos <- c("common_name", "Sex", 
-            "PDX_Chr8_status", "Tumor_Chr8_status")
+            "PDX_Chr8_status_BG", "Tumor_Chr8_status_BG")
 pca.meta.df <- manifest[manifest$common_name %in% Chr8.samples, phenos]
 row.names(pca.meta.df) <- pca.meta.df$common_name
 m_RNA <- MSnSet(exprs = pdxRNA[,Chr8.samples] %>% as.matrix(),
                 pData = pca.meta.df)
 m_RNA_tumor <- MSnSet(exprs = tumorRNA[,Chr8.samples] %>% as.matrix(),
                 pData = pca.meta.df)
+# WU-561 tumor is all NaN so removing
+Chr8.tumor.samples <- Chr8.samples[Chr8.samples != "WU-561"]
+tumorRNA <- tumorRNA[,c("Gene", Chr8.tumor.samples)]
+pca.tumor.meta.df <- manifest[manifest$common_name %in% Chr8.tumor.samples, phenos]
+row.names(pca.tumor.meta.df) <- pca.tumor.meta.df$common_name
+m_RNA_tumor <- MSnSet(exprs = tumorRNA[,Chr8.tumor.samples] %>% as.matrix(),
+                      pData = pca.tumor.meta.df)
 for (i in 1:length(phenos)) {
-  MSnSet.utils::plot_pca(m_RNA, phenotype = phenos[i]) + ggtitle("PDX RNA-Seq PCA") # 250 complete rows for PCA
+  MSnSet.utils::plot_pca(m_RNA, phenotype = phenos[i]) + ggtitle("PDX RNA-Seq PCA") # 250 complete rows for PCA out of 28,803
   ggsave(paste0("RNAseq_PDX_PCA_", phenos[i], "_", Sys.Date(), ".pdf"))
-  #MSnSet.utils::plot_pca(m_RNA_tumor, phenotype = phenos[i]) + ggtitle("Tumor RNA-Seq PCA") # <2 complete rows for PCA
-  #ggsave(paste0("RNAseq_tumor_PCA_", phenos[i], "_", Sys.Date(), ".pdf"))
+  MSnSet.utils::plot_pca(m_RNA_tumor, phenotype = phenos[i]) + ggtitle("Tumor RNA-Seq PCA") # 321 complete rows for PCA out of 28,672
+  ggsave(paste0("RNAseq_tumor_PCA_", phenos[i], "_", Sys.Date(), ".pdf"))
+}
+# outliers:
+# tumor: JH-2-023 (not amp but near strongly amplified group on PCA); JH-2-002 is near strongly amplified on PCA despite just being amp
+# PDX: WU-356 and JH-2-031 strong amp but closer to not amp on PCA
+
+# try with % coverage threshold for samples because only 0.01% of genes are used for PCA plots
+#pdxRNA50 <- as.data.frame(pdxRNA[ , which(colMeans(!is.na(pdxRNA)) >= 0.5)]) # require at least 50% of genes quantified in each sample - no samples pass
+#pdxRNA20 <- as.data.frame(pdxRNA[ , which(colMeans(!is.na(pdxRNA)) >= 0.2)]) # require at least 20% of genes quantified in each sample - all 13 samples pass
+#pdxRNA25 <- as.data.frame(pdxRNA[ , which(colMeans(!is.na(pdxRNA)) >= 0.25)]) # require at least 25% of genes quantified in each sample - all 13 samples pass
+#pdxRNA30 <- as.data.frame(pdxRNA[ , which(colMeans(!is.na(pdxRNA)) >= 0.3)]) # require at least 30% of genes quantified in each sample - all 13 samples pass
+#pdxRNA35 <- as.data.frame(pdxRNA[ , which(colMeans(!is.na(pdxRNA)) >= 0.35)]) # require at least 35% of genes quantified in each sample - all 13 samples pass
+#pdxRNA40 <- as.data.frame(pdxRNA[ , which(colMeans(!is.na(pdxRNA)) >= 0.4)]) # require at least 40% of genes quantified in each sample - 1 sample passes
+
+# instead try filtering genes for being measured in at least 50% of samples
+pdxRNA50 <- as.data.frame(pdxRNA[which(rowMeans(!is.na(pdxRNA)) >= 0.5),]) # 9629 out of 28803 pass
+#pdxRNA502 <- as.data.frame(pdxRNA50[,which(colMeans(!is.na(pdxRNA50)) >= 0.5)]) # all 13 samples pass
+tumorRNA50 <- as.data.frame(tumorRNA[which(rowMeans(!is.na(tumorRNA)) >= 0.5),]) # 8474 out of 28672 pass
+#tumorRNA502 <- as.data.frame(tumorRNA50[,which(colMeans(!is.na(tumorRNA50)) >= 0.5)]) # all 13 samples pass
+
+m_RNA <- MSnSet(exprs = pdxRNA50[,Chr8.samples] %>% as.matrix(),
+                pData = pca.meta.df)
+m_RNA_tumor <- MSnSet(exprs = tumorRNA50[,Chr8.tumor.samples] %>% as.matrix(),
+                      pData = pca.tumor.meta.df)
+for (i in 1:length(phenos)) {
+  MSnSet.utils::plot_pca(m_RNA, phenotype = phenos[i]) + ggtitle("PDX RNA-Seq PCA") # still 250 complete rows for PCA
+  ggsave(paste0("RNAseq_PDX_PCA_afterMissingnessFilter_", phenos[i], "_", Sys.Date(), ".pdf"))
+  MSnSet.utils::plot_pca(m_RNA_tumor, phenotype = phenos[i]) + ggtitle("Tumor RNA-Seq PCA") # still 321 complete rows for PCA
+  ggsave(paste0("RNAseq_tumor_PCA_afterMissingnessFilter_", phenos[i], "_", Sys.Date(), ".pdf"))
 }
 
-#### Global & phospho - new database ####
+# also try only looking at samples which match Chr8 status across tumor & PDX
+Chr8.matching <- manifest[manifest$PDX_Chr8_status_BG == manifest$Tumor_Chr8_status_BG,]$common_name
+Chr8.matching <- Chr8.matching[Chr8.matching%in% Chr8.samples]
+pdxRNAmatch <- pdxRNA[,c("Gene",Chr8.matching)]
+tumorRNAmatch <- tumorRNA[,c("Gene",Chr8.matching[Chr8.matching != "WU-561"])]
+m_RNA <- MSnSet(exprs = pdxRNAmatch[,2:ncol(pdxRNAmatch)] %>% as.matrix(),
+                pData = pca.meta.df[colnames(pdxRNAmatch)[2:ncol(pdxRNAmatch)],])
+m_RNA_tumor <- MSnSet(exprs = tumorRNAmatch[,2:ncol(tumorRNAmatch)] %>% as.matrix(),
+                pData = pca.tumor.meta.df[colnames(tumorRNAmatch)[2:ncol(tumorRNAmatch)],])
+for (i in 1:length(phenos)) {
+  MSnSet.utils::plot_pca(m_RNA, phenotype = phenos[i]) + ggtitle("PDX RNA-Seq PCA") # 392 complete rows for PCA
+  ggsave(paste0("RNAseq_PDX_PCA_matchingTumor_", phenos[i], "_", Sys.Date(), ".pdf"))
+  MSnSet.utils::plot_pca(m_RNA_tumor, phenotype = phenos[i]) + ggtitle("Tumor RNA-Seq PCA") # 596 complete rows for PCA
+  ggsave(paste0("RNAseq_tumor_PCA_matchingPDX_", phenos[i], "_", Sys.Date(), ".pdf"))
+}
+
+pdxRNAmatch50 <- as.data.frame(pdxRNAmatch[which(rowMeans(!is.na(pdxRNAmatch)) >= 0.5),]) # 11840 out of 28803 pass
+#pdxRNAmatch502 <- as.data.frame(pdxRNAmatch50[,which(colMeans(!is.na(pdxRNAmatch50)) >= 0.5)]) # all 9 samples pass
+tumorRNAmatch50 <- as.data.frame(tumorRNAmatch[which(rowMeans(!is.na(tumorRNAmatch)) >= 0.5),]) # 10189 out of 28672 pass
+#tumorRNAmatch502 <- as.data.frame(tumorRNAmatch50[,which(colMeans(!is.na(tumorRNAmatch50)) >= 0.5)]) # all 8 samples pass (8 instead of 9 because no WU-561)
+
+m_RNA <- MSnSet(exprs = pdxRNAmatch50[,2:ncol(pdxRNAmatch50)] %>% as.matrix(),
+                pData = pca.meta.df[colnames(pdxRNAmatch50)[2:ncol(pdxRNAmatch50)],])
+m_RNA_tumor <- MSnSet(exprs = tumorRNAmatch50[,2:ncol(tumorRNAmatch50)] %>% as.matrix(),
+                      pData = pca.tumor.meta.df[colnames(tumorRNAmatch50)[2:ncol(tumorRNAmatch50)],])
+for (i in 1:length(phenos)) {
+  MSnSet.utils::plot_pca(m_RNA, phenotype = phenos[i]) + ggtitle("PDX RNA-Seq PCA") # still 392 complete rows for PCA
+  ggsave(paste0("RNAseq_PDX_PCA_matchingTumor_afterMissingnessFilter_", phenos[i], "_", Sys.Date(), ".pdf"))
+  MSnSet.utils::plot_pca(m_RNA_tumor, phenotype = phenos[i]) + ggtitle("Tumor RNA-Seq PCA") # still 596 complete rows for PCA
+  ggsave(paste0("RNAseq_tumor_PCA_matchingPDX_afterMissingnessFilter_", phenos[i], "_", Sys.Date(), ".pdf"))
+}
+
+# also look at histograms
+
+
+### Proteomics PCA
+setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
+dir.create("PCA")
+setwd("PCA")
+
+
+# create metadata for RNA-Seq
+phenos <- c("common_name", "Sex", 
+            "PDX_Chr8_status_BG", "Tumor_Chr8_status_BG")
+global.meta.df <- merge(pca.meta.df, meta.df, by.x="common_name", by.y="SampleID")
+Chr8.sample.ids <- global.meta.df[global.meta.df$common_name %in% Chr8.samples,]$id
+rownames(global.meta.df) <- global.meta.df$id
+m_global <- MSnSet(exprs = global.df[,Chr8.sample.ids] %>% as.matrix(),
+                pData = global.meta.df)
+m_global_old <- MSnSet(exprs = global.w.mouse.df[,Chr8.sample.ids] %>% as.matrix(),
+                   pData = global.meta.df)
+m_phospho <- MSnSet(exprs = phospho.df[,Chr8.sample.ids] %>% as.matrix(),
+                   pData = global.meta.df)
+for (i in 1:length(phenos)) {
+  MSnSet.utils::plot_pca(m_global, phenotype = phenos[i]) + ggtitle("Global Proteomics PCA") # 8609 complete rows for PCA
+  ggsave(paste0("Global_proteomics_PCA_", phenos[i], "_", Sys.Date(), ".pdf"))
+  
+  MSnSet.utils::plot_pca(m_global_old, phenotype = phenos[i]) + ggtitle("Global Proteomics PCA") # 6196 complete rows for PCA
+  ggsave(paste0("Global_proteomics_oldDB_PCA_", phenos[i], "_", Sys.Date(), ".pdf"))
+  
+  MSnSet.utils::plot_pca(m_phospho, phenotype = phenos[i]) + ggtitle("Phospho-proteomics PCA") # 28592 complete rows for PCA
+  ggsave(paste0("Phospho_proteomics_PCA_", phenos[i], "_", Sys.Date(), ".pdf"))
+}
+
+Chr8.match.ids <- global.meta.df[global.meta.df$common_name %in% Chr8.matching,]$id
+global.df.match <- global.df[,c("Gene",Chr8.match.ids)]
+global.w.mouse.df.match <- global.w.mouse.df[,c("Gene",Chr8.match.ids)]
+phospho.df.match <- phospho.df[,c("SUB_SITE",Chr8.match.ids)]
+m_global <- MSnSet(exprs = global.df.match[,2:ncol(global.df.match)] %>% as.matrix(),
+                pData = global.meta.df[colnames(global.df.match)[2:ncol(global.df.match)],])
+m_global_old <- MSnSet(exprs = global.w.mouse.df.match[,2:ncol(global.w.mouse.df.match)] %>% as.matrix(),
+                   pData = global.meta.df[colnames(global.w.mouse.df.match)[2:ncol(global.w.mouse.df.match)],])
+m_phospho <- MSnSet(exprs = phospho.df.match[,2:ncol(phospho.df.match)] %>% as.matrix(),
+                   pData = global.meta.df[colnames(phospho.df.match)[2:ncol(phospho.df.match)],])
+for (i in 1:length(phenos)) {
+  MSnSet.utils::plot_pca(m_global, phenotype = phenos[i]) + ggtitle("Global Proteomics PCA") # 8622 complete rows for PCA
+  ggsave(paste0("Global_proteomics_PCA_matchingTumor_", phenos[i], "_", Sys.Date(), ".pdf"))
+  
+  MSnSet.utils::plot_pca(m_global_old, phenotype = phenos[i]) + ggtitle("Global Proteomics PCA") # 6200 complete rows for PCA
+  ggsave(paste0("Global_proteomics_oldDB_PCA_matchingTumor_", phenos[i], "_", Sys.Date(), ".pdf"))
+  
+  MSnSet.utils::plot_pca(m_phospho, phenotype = phenos[i]) + ggtitle("Phospho-proteomics PCA") # 28652 complete rows for PCA
+  ggsave(paste0("Phospho_proteomics_PCA_matchingTumor_", phenos[i], "_", Sys.Date(), ".pdf"))
+}
+
+# histograms
+omics <- list("PDX RNA-Seq" = pdxRNA,
+              "PDX RNA-Seq with Missingness Filter" = pdxRNA50,
+              "PDX RNA-Seq Matching with Tumor" = pdxRNAmatch,
+              "PDX RNA-Seq Matching with Tumor with Missingness Filter" = pdxRNAmatch50,
+              "Tumor RNA-Seq" = tumorRNA,
+              "Tumor RNA-Seq with Missingness Filter" = tumorRNA50,
+              "Tumor RNA-Seq Matching with PDX" = tumorRNAmatch,
+              "Tumor RNA-Seq Matching with PDX with Missingness Filter" = tumorRNAmatch50,
+              "PDX Global Proteomics" = global.df,
+              "PDX Global Proteomics Matching with Tumor" = global.df.match,
+              "PDX Global Proteomics (Old Database)" = global.w.mouse.df,
+              "PDX Global Proteomics (Old Database) Matching with Tumor" = global.w.mouse.df.match,
+              "PDX Phospho-proteomics" = phospho.df,
+              "PDX Phospho-proteomics Matching with Tumor" = phospho.df.match)
+for (i in 1:length(omics)) {
+  # histogram
+  melted.df <- reshape2::melt(omics[[i]])
+  xlab <- names(omics)[i]
+  pdf(file.path(paste0(names(omics)[i], "_histogram_", Sys.Date(), ".pdf")))
+  hist(melted.df$value, xlab = xlab)
+  dev.off()
+}
+
+# run panSEA
 setwd(base.path)
-meta <- meta.df[meta.df$Sample == "Sample",]
-omics <- list("global" = global.df,
-              "phospho" = phospho.df)
-contrasts <- list(c(TRUE, FALSE))
 
-contrast.type <- "Chr8_strongly_amplified"
-temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "new database")
-run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
-                                   omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-                                   gmt.list2 = "chr8", base.path = base.path, temp.path = temp.path,
-                                   subfolder = FALSE,
-                                   synapse_id = "syn54042241")
+# make sure meta data has right contrasts
+global.meta.df$Chr8_amplified <- TRUE
+global.meta.df$Chr8_strongly_amplified <- TRUE
+global.meta.df[global.meta.df$PDX_Chr8_status_BG == "Not amplified", ]$Chr8_amplified <- FALSE
+global.meta.df[global.meta.df$PDX_Chr8_status_BG == "Not amplified" | 
+                 global.meta.df$PDX_Chr8_status_BG == "Amplified", ]$Chr8_strongly_amplified <- FALSE
 
-contrast.type <- "Chr8_amplified"
-temp.path <- file.path(base.path, "Chr8_amp_vs_not", "new database")
-run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
-                                   omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-                                   gmt.list2 = "chr8", base.path = base.path, temp.path = temp.path,
-                                   subfolder = FALSE,
-                                   synapse_id = "syn54042236")
+pca.meta.df$Chr8_amplified <- TRUE
+pca.meta.df$Chr8_strongly_amplified <- TRUE
+pca.meta.df[pca.meta.df$PDX_Chr8_status_BG == "Not amplified", ]$Chr8_amplified <- FALSE
+pca.meta.df[pca.meta.df$PDX_Chr8_status_BG == "Not amplified" | 
+                 pca.meta.df$PDX_Chr8_status_BG == "Amplified", ]$Chr8_strongly_amplified <- FALSE
 
-#### Global - old database ####
-omics <- list("global" = global.w.mouse.df)
-contrasts <- list(c(TRUE, FALSE))
+prot <- list("Global" = global.df,
+             "Phospho" = phospho.df)
+prot.feat <- c("Gene", "SUB_SITE")
+prot.old <- list("Global" = global.w.mouse.df)
+prot.old.feat <- "Gene"
+rna.list <- list("PDX" = pdxRNA,
+                 "Tumor" = tumorRNA)
+rna.feat <- c("Gene", "Gene")
+omics <- list("Proteomics" = prot,
+              "Proteomics (Old Database)" = prot.old,
+              "RNA-Seq" = rna.list)
+pca.meta.df$id <- pca.meta.df$common_name
+meta.list <- list("Proteomics" = global.meta.df,
+                  "Proteomics (Old Database)" = global.meta.df,
+                  "RNA-Seq" = pca.meta.df)
+contrasts <- c("Chr8_amplified", "Chr8_strongly_amplified")
+outliers <- list("Proteomics" = "JH-2-002",
+                 "Proteomics (Old Database)" = "JH-2-002",
+                 "RNA-Seq" = list("PDX" = c("WU-356", "JH-2-031"),
+                                  "Tumor" = "JH-2-023"))
+feature.list <- list("Proteomics" = prot.feat, 
+                     "Proteomics (Old Database)" = prot.old.feat, 
+                     "RNA-Seq" = rna.feat)
+for (i in 1:length(omics)){
+  for (j in 1:length(contrasts)) {
+    # run contrast w/ sex factor
+    run_contrasts(contrasts[j], id.type = "id", meta.df = meta.list[[i]],
+                  omics = omics[[i]],
+                  types = names(omics)[i], feature.names = feature.list[[i]],
+                  base.path = base.path, synapse_id = synapse_id)
+    
+    # re-run without outliers
+    if (is.list(outliers[[i]])) {
+      for (k in 1:length(outliers[[i]])) {
+        temp.out <- outliers[[i]][[k]]
+        omics.wo.out <- omics[[i]][,!(colnames(omics[[i]]) %in% temp.out)]
+        run_contrasts(contrasts[j], id.type = "id", meta.df = meta.list[[i]],
+                      omics = omics.wo.out,
+                      types = names(omics)[i], feature.names = feature.list[[i]],
+                      base.path = base.path, synapse_id = synapse_id)
+      }
+    } else {
+      temp.out <- outliers[[i]]
+      omics.wo.out <- omics[[i]][,!(colnames(omics[[i]]) %in% temp.out)]
+      run_contrasts(contrasts[j], id.type = "id", meta.df = meta.list[[i]],
+                    omics = omics.wo.out,
+                    types = names(omics)[i], feature.names = feature.list[[i]],
+                    base.path = base.path, synapse_id = synapse_id) 
+    }
+  }
+}
 
-contrast.type <- "Chr8_strongly_amplified"
-temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "old database")
-run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-                           omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
-                                                "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
-                           base.path = base.path, temp.path = temp.path,
-                           subfolder = FALSE,
-                           synapse_id = "syn54042244")
-
-contrast.type <- "Chr8_amplified"
-temp.path <- file.path(base.path, "Chr8_amp_vs_not", "old database")
-run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-                           omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
-                                                "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
-                           base.path = base.path, temp.path = temp.path,
-                           subfolder = FALSE,
-                           synapse_id = "syn54042237")
+# #### Global & phospho - new database ####
+# setwd(base.path)
+# meta <- meta.df[meta.df$Sample == "Sample",]
+# omics <- list("global" = global.df,
+#               "phospho" = phospho.df)
+# contrasts <- list(c(TRUE, FALSE))
+# 
+# contrast.type <- "Chr8_strongly_amplified"
+# temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "new database")
+# run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
+#                                    omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
+#                                    gmt.list2 = "chr8", base.path = base.path, temp.path = temp.path,
+#                                    subfolder = FALSE,
+#                                    synapse_id = "syn54042241")
+# 
+# contrast.type <- "Chr8_amplified"
+# temp.path <- file.path(base.path, "Chr8_amp_vs_not", "new database")
+# run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
+#                                    omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
+#                                    gmt.list2 = "chr8", base.path = base.path, temp.path = temp.path,
+#                                    subfolder = FALSE,
+#                                    synapse_id = "syn54042236")
+# 
+# #### Global - old database ####
+# omics <- list("global" = global.w.mouse.df)
+# contrasts <- list(c(TRUE, FALSE))
+# 
+# contrast.type <- "Chr8_strongly_amplified"
+# temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "old database")
+# run_contrasts_global_human(contrasts, contrast.type, "id", meta,
+#                            omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+#                                                 "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
+#                            base.path = base.path, temp.path = temp.path,
+#                            subfolder = FALSE,
+#                            synapse_id = "syn54042244")
+# 
+# contrast.type <- "Chr8_amplified"
+# temp.path <- file.path(base.path, "Chr8_amp_vs_not", "old database")
+# run_contrasts_global_human(contrasts, contrast.type, "id", meta,
+#                            omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+#                                                 "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
+#                            base.path = base.path, temp.path = temp.path,
+#                            subfolder = FALSE,
+#                            synapse_id = "syn54042237")
+# 
+# #### PDX RNAseq ####
+# omics <- list("PDX RNA-Seq" = pdxRNA,
+#               "Tumor RNA-Seq" = tumorRNA)
+# contrasts <- list(c(TRUE, FALSE))
+# 
+# contrast.type <- "Chr8_strongly_amplified"
+# temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "old database")
+# run_contrasts_global_human(contrasts, contrast.type, "id", meta,
+#                            omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+#                                                 "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
+#                            base.path = base.path, temp.path = temp.path,
+#                            subfolder = FALSE,
+#                            synapse_id = "syn54042244")
+# 
+# contrast.type <- "Chr8_amplified"
+# temp.path <- file.path(base.path, "Chr8_amp_vs_not", "old database")
+# run_contrasts_global_human(contrasts, contrast.type, "id", meta,
+#                            omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
+#                                                 "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
+#                            base.path = base.path, temp.path = temp.path,
+#                            subfolder = FALSE,
+#                            synapse_id = "syn54042237")
 
 #### 6. Pathways of interest: expression, log2FC heatmaps; TYK2, pSTAT3 boxplot ####
 # look at individual genes: Chr8q, Chr8 cancer, Myc targets, JAK/STAT (esp. TYK2, pSTAT3), TGF beta

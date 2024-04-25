@@ -77,3 +77,14 @@ ppts
 comparisons/Short summary of analysis so far.pptx
 *.png
 *.docx
+*.csv
+*.pdf
+*.svg
+*.json
+*.html
+*.rds
+/proteomics/analysis
+/transcriptomics/analysis
+/transcriptomics/only_using_merged_counts
+/transcriptomics/analysis
+*.gz
