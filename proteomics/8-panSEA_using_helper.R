@@ -2,7 +2,7 @@
 # Chr8: amplified vs. not amplified
 # Author: Belinda B. Garana
 # Created: 2023-12-06
-# Last edit: 2024-03-12
+# Last edit: 2024-04-25
 
 # now including WU-225 in addition to samples shared w RNA-seq
 # overview:
@@ -18,7 +18,6 @@ library(readxl); library(panSEA); library(synapser)
 library(stringr); library(tidyr); library(plyr)
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
 source("panSEA_helper.R")
-#source("01_mpnst_get_omics.R")
 
 #### 1. Import metadata & crosstabs ####
 setwd(
@@ -127,7 +126,8 @@ rnaseq<-do.call('rbind',lapply(setdiff(combined$RNASeq,NA),function(x){
 }))
 rnaseq <- na.omit(rnaseq)
 valid.chr8 <- c("Not amplified", "Amplified", "Strongly amplified")
-Chr8.samples <- manifest[manifest$PDX_Chr8_status_BG %in% valid.chr8,]$common_name # 13
+Chr8.samples <- manifest[manifest$PDX_Chr8_status_BG %in% valid.chr8 | 
+                           manifest$Tumor_Chr8_status_BG %in% valid.chr8,]$common_name # 13
 rnaseq <- rnaseq[rnaseq$sample %in% Chr8.samples,]
 rna <- reshape2::dcast(rnaseq, sampleType + gene_symbol ~ sample, mean, value.var = "TPM")
 colnames(rna)[2] <- "Gene"
@@ -358,118 +358,148 @@ prot.old <- list("Global" = global.w.mouse.df)
 prot.old.feat <- "Gene"
 rna.list <- list("PDX" = pdxRNA,
                  "Tumor" = tumorRNA)
+rna.list.50 <- list("PDX" = pdxRNA50,
+                 "Tumor" = tumorRNA50)
 rna.feat <- c("Gene", "Gene")
 omics <- list("Proteomics" = prot,
               "Proteomics (Old Database)" = prot.old,
-              "RNA-Seq" = rna.list)
+              "RNA-Seq" = rna.list,
+              "RNA-Seq (50% Missingness Filter)" = rna.list.50)
 pca.meta.df$id <- pca.meta.df$common_name
 meta.list <- list("Proteomics" = global.meta.df,
                   "Proteomics (Old Database)" = global.meta.df,
-                  "RNA-Seq" = pca.meta.df)
+                  "RNA-Seq" = pca.meta.df,
+                  "RNA-Seq (50% Missingness Filter)" = pca.meta.df)
 contrasts <- c("Chr8_amplified", "Chr8_strongly_amplified")
 outliers <- list("Proteomics" = "JH-2-002",
                  "Proteomics (Old Database)" = "JH-2-002",
                  "RNA-Seq" = list("PDX" = c("WU-356", "JH-2-031"),
+                                  "Tumor" = "JH-2-023"),
+                 "RNA-Seq (50% Missingness Filter)" = list("PDX" = c("WU-356", "JH-2-031"),
                                   "Tumor" = "JH-2-023"))
+#Chr8.match.ids <- global.meta.df[global.meta.df$common_name %in% Chr8.matching,]$id
+match <- list("Proteomics" = Chr8.match.ids,
+                 "Proteomics (Old Database)" = Chr8.match.ids,
+                 "RNA-Seq" = Chr8.matching,
+              "RNA-Seq (50% Missingness Filter)" = Chr8.matching)
 feature.list <- list("Proteomics" = prot.feat, 
                      "Proteomics (Old Database)" = prot.old.feat, 
-                     "RNA-Seq" = rna.feat)
-for (i in 1:length(omics)){
-  for (j in 1:length(contrasts)) {
-    # run contrast w/ sex factor
-    run_contrasts(contrasts[j], id.type = "id", meta.df = meta.list[[i]],
-                  omics = omics[[i]],
-                  types = names(omics)[i], feature.names = feature.list[[i]],
-                  base.path = base.path, synapse_id = synapse_id)
+                     "RNA-Seq" = rna.feat,
+                     "RNA-Seq (50% Missingness Filter)" = rna.feat)
+syn_base <- "syn58649770"
+synapser::synLogin()
+for (j in 1:length(contrasts)){
+  setwd(base.path)
+  dir.create(contrasts[j])
+  setwd(contrasts[j])
+  contrastFolder <- synapser::synStore(synapser::Folder(contrasts[j], syn_base))
+  
+  for (i in 1:length(omics)) {
+    dir.create(names(omics)[i])
+    setwd(names(omics)[i])
+    omicsFolder <- synapser::synStore(synapser::Folder(names(omics)[i], contrastFolder))
     
-    # re-run without outliers
+    # run contrast w/ sex factor
+    dir.create("no_filter")
+    setwd("no_filter")
+    noFiltFolder <- synapser::synStore(synapser::Folder("no_filter", omicsFolder))
+    temp.path <- file.path(base.path, names(omics)[i], contrasts[j], 
+                           "no_filter")
+    run_contrasts2(contrasts[j], gmt.list1 = "chr8", gmt.list2 = "chr8", 
+                   meta.df = meta.list[[i]], omics = omics[[i]],
+                   types = names(omics[[i]]), feature.names = feature.list[[i]],
+                   base.path = base.path, temp.path = temp.path, 
+                   subfolder = NULL, synapse_id = noFiltFolder)
+    
+    # re-run with only samples for which PDX Chr8 status matches tumor
+    setwd(file.path(base.path, names(omics)[i], contrasts[j]))
+    dir.create("PDX_Chr8_status_matches_tumor")
+    setwd("PDX_Chr8_status_matches_tumor")
+    matchFolder <- synapser::synStore(synapser::Folder("PDX_Chr8_status_matches_tumor", omicsFolder))
+    temp.path <- file.path(base.path, names(omics)[i], contrasts[j], 
+                           "PDX_Chr8_status_matches_tumor")
+    omics.match <- list(omics[[i]][,colnames(omics[[i]]) %in% match[[i]]])
+    names(omics.match) <- names(omics)[i]
+    run_contrasts2(contrasts[j], gmt.list1 = "chr8", gmt.list2 = "chr8", 
+                   meta.df = meta.list[[i]], 
+                   omics = omics.match, types = names(omics[[i]]), 
+                   feature.names = feature.list[[i]], base.path = base.path, 
+                   temp.path = temp.path, subfolder = NULL, 
+                   synapse_id = matchFolder)
+    
+    # re-run without outliers and w/wo samples which don't match across PDX/tumor
+    setwd(file.path(base.path, names(omics)[i], contrasts[j]))
+    dir.create("no_outliers")
+    setwd("no_outliers")
     if (is.list(outliers[[i]])) {
       for (k in 1:length(outliers[[i]])) {
         temp.out <- outliers[[i]][[k]]
-        omics.wo.out <- omics[[i]][,!(colnames(omics[[i]]) %in% temp.out)]
-        run_contrasts(contrasts[j], id.type = "id", meta.df = meta.list[[i]],
-                      omics = omics.wo.out,
-                      types = names(omics)[i], feature.names = feature.list[[i]],
-                      base.path = base.path, synapse_id = synapse_id)
+        outlier.name <- paste0(temp.out, collapse="_")
+        dir.create(paste0("no_", outlier.name))
+        setwd(paste0("no_", outlier.name))
+        noOutFolder <- synapser::synStore(synapser::Folder(paste0("no_", outlier.name), omicsFolder))
+        temp.path <- file.path(base.path, names(omics)[i], contrasts[j], 
+                               "no_outliers", paste0("no_", outlier.name))
+        omics.wo.out <- list(omics[[i]][,!(colnames(omics[[i]]) %in% temp.out)])
+        names(omics.wo.out) <- names(omics)[i]
+        run_contrasts2(contrasts[j], gmt.list1 = "chr8", gmt.list2 = "chr8", 
+                       meta.df = meta.list[[i]], 
+                       omics = omics.wo.out, types = names(omics[[i]]), 
+                       feature.names = feature.list[[i]], base.path = base.path, 
+                       temp.path = temp.path, subfolder = NULL, 
+                       synapse_id = noOutFolder)
+        
+        # also run with only samples matching across PDX/tumor
+        dir.create("PDX_Chr8_status_matches_tumor")
+        setwd("PDX_Chr8_status_matches_tumor")
+        noOutMatchFolder <- synapser::synStore(synapser::Folder("PDX_Chr8_status_matches_tumor", noOutFolder))
+        temp.path <- file.path(base.path, names(omics)[i], contrasts[j], 
+                               "no_outliers", paste0("no_", outlier.name), 
+                               "PDX_Chr8_status_matches_tumor")
+        omics.wo.out.match <- list(omics.wo.out[,colnames(omics[[i]]) %in% match[[i]]])
+        names(omics.wo.out.match) <- names(omics)[i]
+        run_contrasts2(contrasts[j], gmt.list1 = "chr8", gmt.list2 = "chr8", 
+                       meta.df = meta.list[[i]], 
+                       omics = omics.wo.out.match, types = names(omics[[i]]), 
+                       feature.names = feature.list[[i]], 
+                       base.path = base.path, temp.path = temp.path, 
+                       subfolder = NULL, synapse_id = noOutMatchFolder)
       }
     } else {
       temp.out <- outliers[[i]]
-      omics.wo.out <- omics[[i]][,!(colnames(omics[[i]]) %in% temp.out)]
-      run_contrasts(contrasts[j], id.type = "id", meta.df = meta.list[[i]],
-                    omics = omics.wo.out,
-                    types = names(omics)[i], feature.names = feature.list[[i]],
-                    base.path = base.path, synapse_id = synapse_id) 
+      outlier.name <- paste0(temp.out, collapse="_")
+      dir.create(paste0("no_", outlier.name))
+      setwd(paste0("no_", outlier.name))
+      noOutFolder <- synapser::synStore(synapser::Folder(paste0("no_", outlier.name), omicsFolder))
+      temp.path <- file.path(base.path, names(omics)[i], contrasts[j], 
+                             "no_outliers", paste0("no_", outlier.name))
+      omics.wo.out <- list(omics[[i]][,!(colnames(omics[[i]]) %in% temp.out)])
+      names(omics.wo.out) <- names(omics)[i]
+      run_contrasts2(contrasts[j], gmt.list1 = "chr8", gmt.list2 = "chr8", 
+                     meta.df = meta.list[[i]], 
+                     omics = omics.wo.out, types = names(omics[[i]]), 
+                     feature.names = feature.list[[i]], base.path = base.path, 
+                     temp.path = temp.path, subfolder = NULL, 
+                     synapse_id = noOutFolder) 
+      
+      # also run with only samples matching across PDX/tumor
+      dir.create("PDX_Chr8_status_matches_tumor")
+      setwd("PDX_Chr8_status_matches_tumor")
+      noOutMatchFolder <- synapser::synStore(synapser::Folder("PDX_Chr8_status_matches_tumor", noOutFolder))
+      temp.path <- file.path(base.path, names(omics)[i], contrasts[j], 
+                             "no_outliers", paste0("no_", outlier.name), 
+                             "PDX_Chr8_status_matches_tumor")
+      omics.wo.out.match <- list(omics.wo.out[,colnames(omics[[i]]) %in% match[[i]]])
+      names(omics.wo.out.match) <- names(omics)[i]
+      run_contrasts2(contrasts[j], gmt.list1 = "chr8", gmt.list2 = "chr8", 
+                     meta.df = meta.list[[i]], 
+                     omics = omics.wo.out.match, types = names(omics[[i]]), 
+                     feature.names = feature.list[[i]], base.path = base.path, 
+                     temp.path = temp.path, subfolder = NULL, 
+                     synapse_id = noOutMatchFolder)
     }
   }
 }
-
-# #### Global & phospho - new database ####
-# setwd(base.path)
-# meta <- meta.df[meta.df$Sample == "Sample",]
-# omics <- list("global" = global.df,
-#               "phospho" = phospho.df)
-# contrasts <- list(c(TRUE, FALSE))
-# 
-# contrast.type <- "Chr8_strongly_amplified"
-# temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "new database")
-# run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
-#                                    omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-#                                    gmt.list2 = "chr8", base.path = base.path, temp.path = temp.path,
-#                                    subfolder = FALSE,
-#                                    synapse_id = "syn54042241")
-# 
-# contrast.type <- "Chr8_amplified"
-# temp.path <- file.path(base.path, "Chr8_amp_vs_not", "new database")
-# run_contrasts_global_phospho_human(contrasts, contrast.type, "id", meta,
-#                                    omics, gmt.list1 = "chr8", EA.types = c("KEGG", "Hallmark", "Positional", "Positional_Chr8_cancer"),
-#                                    gmt.list2 = "chr8", base.path = base.path, temp.path = temp.path,
-#                                    subfolder = FALSE,
-#                                    synapse_id = "syn54042236")
-# 
-# #### Global - old database ####
-# omics <- list("global" = global.w.mouse.df)
-# contrasts <- list(c(TRUE, FALSE))
-# 
-# contrast.type <- "Chr8_strongly_amplified"
-# temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "old database")
-# run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-#                            omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
-#                                                 "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
-#                            base.path = base.path, temp.path = temp.path,
-#                            subfolder = FALSE,
-#                            synapse_id = "syn54042244")
-# 
-# contrast.type <- "Chr8_amplified"
-# temp.path <- file.path(base.path, "Chr8_amp_vs_not", "old database")
-# run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-#                            omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
-#                                                 "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
-#                            base.path = base.path, temp.path = temp.path,
-#                            subfolder = FALSE,
-#                            synapse_id = "syn54042237")
-# 
-# #### PDX RNAseq ####
-# omics <- list("PDX RNA-Seq" = pdxRNA,
-#               "Tumor RNA-Seq" = tumorRNA)
-# contrasts <- list(c(TRUE, FALSE))
-# 
-# contrast.type <- "Chr8_strongly_amplified"
-# temp.path <- file.path(base.path, "Chr8_strongly_amp_vs_not", "old database")
-# run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-#                            omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
-#                                                 "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
-#                            base.path = base.path, temp.path = temp.path,
-#                            subfolder = FALSE,
-#                            synapse_id = "syn54042244")
-# 
-# contrast.type <- "Chr8_amplified"
-# temp.path <- file.path(base.path, "Chr8_amp_vs_not", "old database")
-# run_contrasts_global_human(contrasts, contrast.type, "id", meta,
-#                            omics, gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
-#                                                 "msigdb_Homo sapiens_H"), EA.types = c("KEGG", "Hallmark"),
-#                            base.path = base.path, temp.path = temp.path,
-#                            subfolder = FALSE,
-#                            synapse_id = "syn54042237")
 
 #### 6. Pathways of interest: expression, log2FC heatmaps; TYK2, pSTAT3 boxplot ####
 # look at individual genes: Chr8q, Chr8 cancer, Myc targets, JAK/STAT (esp. TYK2, pSTAT3), TGF beta

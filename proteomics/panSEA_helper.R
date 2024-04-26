@@ -10,7 +10,7 @@ library(dplyr)
 ## get gmt information for GSEA
 get_gmt1 <- function(gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
                                    "msigdb_Homo sapiens_H",
-                                   "msigdb_Homo sapiens_C1")) {
+                                   "msigdb_Homo sapiens_C1"), min.per.set=6) {
   if (file.exists("gmt1_run_contrasts_global_phospho_human.rds")) {
     gmt1 <- readRDS("gmt1_run_contrasts_global_phospho_human.rds")
   } else {
@@ -53,7 +53,7 @@ get_gmt1 <- function(gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
 get_chr8_gmt1 <- function(gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
                                    "msigdb_Homo sapiens_H",
                                    "msigdb_Homo sapiens_C1",
-                                   "chr8_cancer_human")) {
+                                   "chr8_cancer_human"), min.per.set=6) {
   if (file.exists("chr8_gmt1_run_contrasts_global_phospho_human.rds")) {
     gmt1 <- readRDS("chr8_gmt1_run_contrasts_global_phospho_human.rds")
   } else {
@@ -350,8 +350,8 @@ run_contrasts_global_phospho_human <- function(contrasts, contrast.type, id.type
     c2 <- contrasts[[k]][2]
     group.names <- c(c1, c2)
     contrast.name <- paste0(contrast.type, "_", contrasts[[k]][1], "_vs_", contrasts[[k]][2])
-    group.samples <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type] == c1, id.type]))[[id.type]],
-                          as.vector(na.omit(meta.df[meta.df[,contrast.type] == c2, id.type]))[[id.type]])
+    group.samples <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type] == c1, id.type])),
+                          as.vector(na.omit(meta.df[meta.df[,contrast.type] == c2, id.type])))
     
     if (length(group.samples[[1]]) > 0 & length(group.samples[[2]]) > 0) {
       # run panSEA across omics types
@@ -707,10 +707,10 @@ run_contrasts_global_phospho_human <- function(contrasts, contrast.type, id.type
   }
 }
 
-run_contrasts2 <- function(contrast.type, contrast.type2 = NULL, 
-                          contrasts = as.list(rep(c(TRUE, FALSE), length(contrast.type))),
-                          contrasts2 = as.list(rep(c(TRUE, FALSE), length(contrast.type2))), 
-                          id.type, meta.df, omics, 
+run_contrasts2 <- function(contrast.type, contrast.type2 = "Sex", 
+                          contrasts = list(c(TRUE, FALSE)),
+                          contrasts2 = list(c("Male", "Female")), 
+                          id.type = "id", meta.df, omics, 
                           types = c("global", "phospho"), 
                           feature.names = c("Gene", "SUB_SITE"),
                           gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
@@ -718,7 +718,7 @@ run_contrasts2 <- function(contrast.type, contrast.type2 = NULL,
                                         "msigdb_Homo sapiens_C1"),
                           EA.types = c("KEGG", "Hallmark", "Positional"),
                           gmt.list2 = c("ksdb_human", "sub"),
-                          expr = as.list(rep("adherent CCLE", length(types) + ifelse(grepl("phospho", types, ignore.case = TRUE),length(gmt.list2)-1,0))),
+                          expr = as.list(rep("adherent CCLE", length(types) + ifelse(any(grepl("phospho", types, ignore.case = TRUE)),length(gmt.list2)-1,0))),
                           gmt.drug = "PRISM", drug.sens = "PRISM", 
                           base.path = "~/OneDrive - PNNL/Documents/GitHub/Exp24_patient_cells/proteomics/analysis/",
                           temp.path = base.path, subfolder = TRUE, synapse_id = NULL,
@@ -731,7 +731,7 @@ run_contrasts2 <- function(contrast.type, contrast.type2 = NULL,
     gmt1 <- get_gmt1(gmt.list1)
   }
   
-  if (grepl("phospho", types, ignore.case = TRUE)) {
+  if (any(grepl("phospho", types, ignore.case = TRUE))) {
     if (gmt.list2[1] == "chr8") {
       gmt2 <- get_chr8_gmt2()
     } else {
@@ -766,8 +766,8 @@ run_contrasts2 <- function(contrast.type, contrast.type2 = NULL,
     c2 <- contrasts[[k]][2]
     group.names <- c(c1, c2)
     contrast.name <- paste0(contrast.type, "_", contrasts[[k]][1], "_vs_", contrasts[[k]][2])
-    group.samples <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type] == c1, id.type]))[[id.type]],
-                          as.vector(na.omit(meta.df[meta.df[,contrast.type] == c2, id.type]))[[id.type]])
+    group.samples <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type] == c1, id.type])),
+                          as.vector(na.omit(meta.df[meta.df[,contrast.type] == c2, id.type])))
     
     # identify samples for second contrast if relevant
     if (!is.null(contrast.type2) & !is.null(contrasts2)) {
@@ -775,8 +775,8 @@ run_contrasts2 <- function(contrast.type, contrast.type2 = NULL,
       c2a <- contrasts2[[k]][2]
       group.names2 <- c(c1a, c2a)
       contrast.name2 <- paste0(contrast.type2, "_", contrasts2[[k]][1], "_vs_", contrasts2[[k]][2])
-      group.samples2 <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type2] == c1a, id.type]))[[id.type]],
-                            as.vector(na.omit(meta.df[meta.df[,contrast.type2] == c2a, id.type]))[[id.type]])
+      group.samples2 <- list(as.vector(na.omit(meta.df[meta.df[,contrast.type2] == c1a, id.type])),
+                            as.vector(na.omit(meta.df[meta.df[,contrast.type2] == c2a, id.type])))
       if (length(group.samples2[[1]]) == 0 | length(group.samples2[[2]]) == 0) {
         group.names2 <- NULL
         group.samples2 <- NULL
@@ -803,7 +803,7 @@ run_contrasts2 <- function(contrast.type, contrast.type2 = NULL,
       gsea1.inputs <- deg
       KSEA <- FALSE
       SSEA <- FALSE
-      if (grepl("phospho", names(deg), ignore.case = TRUE)) {
+      if (any(grepl("phospho", names(deg), ignore.case = TRUE))) {
         n.phospho <- grep("phospho", names(deg), ignore.case = TRUE)
         gsea2.inputs <- list(deg[[n.phospho]], deg[[n.phospho]])
         gsea2 <- panSEA::mGSEA(gsea2.inputs, gmt2, types = c("phospho_ksdb", "phospho_sub"),
@@ -1181,7 +1181,7 @@ run_contrasts <- function(contrast.type,
                                         "msigdb_Homo sapiens_C1"),
                           EA.types = c("KEGG", "Hallmark", "Positional"),
                           gmt.list2 = c("ksdb_human", "sub"),
-                          expr = as.list(rep("adherent CCLE", length(types) + ifelse(grepl("phospho", types, ignore.case = TRUE),length(gmt.list2)-1,0))),
+                          expr = as.list(rep("adherent CCLE", length(types) + ifelse(any(grepl("phospho", types, ignore.case = TRUE)),length(gmt.list2)-1,0))),
                           gmt.drug = "PRISM", drug.sens = "PRISM", 
                           base.path = "~/OneDrive - PNNL/Documents/GitHub/Exp24_patient_cells/proteomics/analysis/",
                           temp.path = base.path, subfolder = TRUE, synapse_id = NULL,
@@ -1194,7 +1194,7 @@ run_contrasts <- function(contrast.type,
     gmt1 <- get_gmt1(gmt.list1)
   }
   
-  if (grepl("phospho", types, ignore.case = TRUE)) {
+  if (any(grepl("phospho", types, ignore.case = TRUE))) {
     if (gmt.list2[1] == "chr8") {
       gmt2 <- get_chr8_gmt2()
     } else {
@@ -1248,7 +1248,7 @@ run_contrasts <- function(contrast.type,
       gsea1.inputs <- deg
       KSEA <- FALSE
       SSEA <- FALSE
-      if (grepl("phospho", names(deg), ignore.case = TRUE)) {
+      if (any(grepl("phospho", names(deg), ignore.case = TRUE))) {
         n.phospho <- grep("phospho", names(deg), ignore.case = TRUE)
         gsea2.inputs <- list(deg[[n.phospho]], deg[[n.phospho]])
         gsea2 <- panSEA::mGSEA(gsea2.inputs, gmt2, types = c("phospho_ksdb", "phospho_sub"),
@@ -1389,7 +1389,7 @@ run_contrasts <- function(contrast.type,
         temp.DEG.files <- list("Differential_expression_results.csv" = 
                                  deg[[i]])
         
-        if (grepl("phospho", types[i], ignore.case = TRUE)) {
+        if (any(grepl("phospho", types[i], ignore.case = TRUE))) {
           if (KSEA) {
             kin.DMEA.mtn <- get_top_mtn_plots(dmea.results$all.results[["phospho_ksdb"]],
                                               sets = "Drug_set",
@@ -1639,7 +1639,7 @@ run_contrast_combos <- function(contrast.type, contrasts = as.list(rep(c(TRUE, F
     gmt1 <- get_gmt1(gmt.list1)
   }
   
-  if (grepl("phospho", types, ignore.case = TRUE)) {
+  if (any(grepl("phospho", types, ignore.case = TRUE))) {
     if (gmt.list2[1] == "chr8") {
       gmt2 <- get_chr8_gmt2()
     } else {
