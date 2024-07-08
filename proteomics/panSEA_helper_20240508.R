@@ -291,7 +291,7 @@ get_gmt1 <- function(gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
   return(gmt1)
 }
 
-get_gmt2 <- function(gmt.list2 = c("ksdb_human", "sub")) {
+get_gmt2 <- function(gmt.list2 = c("ksdb_human", "sub"), phospho) {
   if (file.exists("gmt2.rds")) {
     gmt2 <- readRDS("gmt2.rds")
   } else if ("chr8" %in% gmt.list2) {
@@ -304,7 +304,7 @@ get_gmt2 <- function(gmt.list2 = c("ksdb_human", "sub")) {
             org <- stringr::str_split(gmt.list2[i], "_")[[1]][2]
             gmt2[[i]] <- get_ksdb(organism = org)
           } else if (gmt.list2[i] == "sub") {
-            SUB_SITE <- omics[[2]]$SUB_SITE
+            SUB_SITE <- phospho$SUB_SITE
             phospho.ref <- data.frame(SUB_SITE)
             phospho.ref <- phospho.ref %>% tidyr::extract(SUB_SITE, "KINASE",
                                                           remove = FALSE)
@@ -317,6 +317,36 @@ get_gmt2 <- function(gmt.list2 = c("ksdb_human", "sub")) {
         }
       } 
     saveRDS(gmt2, "gmt2.rds") 
+  }
+  return(gmt2)
+}
+
+get_gmt2_v2 <- function(gmt.list2 = c("ksdb_human", "sub"), phospho) {
+  if (file.exists("gmt2_v2.rds")) {
+    gmt2 <- readRDS("gmt2_v2.rds")
+  } else if ("chr8" %in% gmt.list2) {
+    gmt2 <- get_chr8_gmt2(gmt.list2)
+  } else {
+    gmt2 <- list()
+    for (i in 1:length(gmt.list2)) {
+      if (is.character(gmt.list2[i])) {
+        if (grepl("ksdb", gmt.list2[i], ignore.case = TRUE)) {
+          org <- stringr::str_split(gmt.list2[i], "_")[[1]][2]
+          gmt2[[i]] <- get_ksdb_v2(organism = org)
+        } else if (gmt.list2[i] == "sub") {
+          SUB_SITE <- phospho$SUB_SITE
+          phospho.ref <- data.frame(SUB_SITE)
+          phospho.ref <- phospho.ref %>% tidyr::extract(SUB_SITE, "KINASE",
+                                                        remove = FALSE)
+          SUB_SITE <- NULL
+          gmt2[[i]] <- DMEA::as_gmt(phospho.ref, "SUB_SITE", "KINASE")
+        }
+      } else {
+        gmt2 <- gmt.list2
+        break
+      }
+    } 
+    saveRDS(gmt2, "gmt2_v2.rds") 
   }
   return(gmt2)
 }
@@ -349,6 +379,30 @@ get_ksdb <- function(organism="human"){
     gmt <- DMEA::as_gmt(ksdb, "SUB_SITE", "KINASE",
                         descriptions = "KIN_ACC_ID")
     saveRDS(gmt, file.path(paste0("ksdb_", organism, ".rds")))
+  } 
+  return(gmt)
+}
+
+get_ksdb_v2 <- function(organism="human"){
+  if (!is.character(organism)) {
+    stop("organism must be character entry")
+  }
+  
+  if (file.exists(file.path(paste0("gmt_ksdb_", organism, "_v2.rds")))) {
+    gmt <- readRDS(file.path(paste0("gmt_ksdb_", organism, "_v2.rds")))
+  } else {
+    ksdb <- read.csv(paste0("https://raw.githubusercontent.com/BelindaBGarana/",
+                            "panSEA/shiny-app/data/ksdb_20231101.csv"))
+    if (organism %in% unique(na.omit(ksdb$KIN_ORGANISM)) &
+        organism %in% unique(na.omit(ksdb$SUB_ORGANISM))) {
+      ksdb <- ksdb[ksdb$KIN_ORGANISM == organism &
+                     ksdb$SUB_ORGANISM == organism, ]
+    }
+    ksdb <- ksdb %>% unite("SUB_SITE", c("SUBSTRATE", "SUB_MOD_RSD"),
+                           sep = "-", remove = FALSE)
+    gmt <- DMEA::as_gmt(ksdb, "SUB_SITE", "KINASE",
+                        descriptions = "KIN_ACC_ID")
+    saveRDS(gmt, file.path(paste0("ksdb_", organism, "_v2.rds")))
   } 
   return(gmt)
 }
@@ -870,7 +924,7 @@ prep_for_panSEA2 <- function(meta.df, omics,
   non.phospho.types <- types[!grepl("phospho", types, ignore.case = TRUE)]
   
   # make sure samples in omics all match and have annotations in meta.df
-  meta.df <- na.omit(meta.df)
+  #meta.df <- na.omit(meta.df)
   meta.samples <- rownames(meta.df)
   sample.names <- colnames(dplyr::select_if(omics[[1]], is.numeric))
   feature.names <- colnames(omics[[1]])[!(colnames(omics[[1]]) %in% sample.names)]
@@ -894,7 +948,8 @@ prep_for_panSEA2 <- function(meta.df, omics,
   gmt1 <- get_gmt1(gmt.list1)
   
   if (any(grepl("phospho", types, ignore.case = TRUE))) {
-    gmt2 <- get_gmt2(gmt.list2)
+    phospho.index <- grep("phospho", names(omics), ignore.case = TRUE)
+    gmt2 <- get_gmt2(gmt.list2, omics[[phospho.index]])
   } else {
     gmt2 <- list()
   }
@@ -1208,7 +1263,6 @@ panSEA2 <- function(contrasts, contrast2 = NULL, meta.df, omics,
                            expr,
                            gmt.drug, drug.sens, 
                            base.path)
-  meta.df <- prep$meta
   feature.names <- prep$features
   gmt1 <- prep$gmt1
   names(gmt1) <- EA.types
@@ -1601,4 +1655,5 @@ panSEA2_combos <- function(contrasts, contrast2 = NULL, meta.df, omics,
     save_to_synapse(all.DEG.files, synapse_id)
   }
 }
+
 

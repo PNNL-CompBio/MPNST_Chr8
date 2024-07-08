@@ -387,11 +387,11 @@ rna.meta.df$Chr8_v2 <- rna.meta.df$Chr8
 rna.meta.df[rna.meta.df$Sample == "JH-2-002",]$Chr8_v2 <- "Not_amplified"
 
 # only keep RNA-Seq samples also in proteomics
-common.names <- unique(global.meta.df2$Sample)
-pdxRNA <- pdxRNA[,c("Gene", common.names)]
-tumorRNA <- tumorRNA[,c("Gene", common.names)]
-pdxRNA50 <- pdxRNA50[,c("Gene", common.names)]
-tumorRNA50 <- tumorRNA50[,c("Gene", common.names)]
+# common.names <- unique(global.meta.df2$Sample)
+# pdxRNA <- pdxRNA[,c("Gene", common.names)]
+# tumorRNA <- tumorRNA[,c("Gene", common.names)]
+# pdxRNA50 <- pdxRNA50[,c("Gene", common.names)]
+# tumorRNA50 <- tumorRNA50[,c("Gene", common.names)]
 
 omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
              "RNA-Seq" = list("PDX" = pdxRNA,"Tumor" = tumorRNA),
@@ -723,10 +723,13 @@ cnv.samples <- read.csv("mpnst_samples.csv")
 cnv.samples <- dplyr::distinct(cnv.samples[,c("common_name", "improve_sample_id")])
 prot.cnv.samples <- cnv.samples[cnv.samples$common_name %in% global.meta.df2$Sample,]
 prot.cnv <- merge(prot.cnv.samples, cnv, by="improve_sample_id")
+cnv <- merge(cnv.samples, cnv, by="improve_sample_id")
 genes <- read.csv("genes.csv")
 genes <- dplyr::distinct(genes[,c("entrez_id", "gene_symbol")])
 prot.cnv <- merge(genes, prot.cnv, by="entrez_id")
+cnv <- merge(genes, cnv, by="entrez_id")
 pdxCNV <- prot.cnv[prot.cnv$study == "MPNST PDX MT",]
+pdxCNV <- cnv[cnv$study == "MPNST PDX MT",]
 omics2 <- list("Copy Number" = pdxCNV,
                "RNA-Seq" = pdxRNA,
                "Proteomics" = global.df)
@@ -792,16 +795,21 @@ for (i in 1:length(omics2)) {
 # get annotations as df
 dir.create("Single_sample_positional_medians")
 setwd("Single_sample_positional_medians")
+dir.create("Single_sample_positional_medians_allSamples")
+setwd("Single_sample_positional_medians_allSamples")
+omics2 <- list("PDX Copy Number" = pdxCNV,
+               "PDX RNA-Seq" = pdxRNA,
+               "Tumor RNA-Seq" = tumorRNA)
 library(plyr); library(dplyr)
 library(ggplot2)
 msigdb.info <- msigdbr::msigdbr("Homo sapiens", "C1")
 reduced.msigdb <- dplyr::distinct(msigdb.info[,c("gs_name", "gene_symbol")])
 for (i in 1:length(omics2)) {
-  setwd(file.path(base.path, "Chr8_quant", "Single_sample_positional_medians"))
+  setwd(file.path(base.path, "Chr8_quant", "Single_sample_positional_medians_allSamples"))
   dir.create(names(omics2)[i])
   setwd(names(omics2)[i])
   pos.GSEA <- list()
-  if (names(omics2)[i] == "Copy Number") {
+  if (names(omics2)[i] == "PDX Copy Number") {
     temp.samples <- unique(omics2[[i]]$common_name)
 
     for (j in temp.samples) { # assumes first column is feature names
@@ -893,31 +901,33 @@ for (i in 1:length(omics2)) {
   write.csv(med.chr8q, paste0(names(omics2)[i], "_Chr8q_mean.csv"), row.names = FALSE)
   
   # Myc expression
-  pdf(paste0(names(omics2)[i], "_MYC_histogram.pdf"))
-  hist(omics2[[i]][omics2[[i]]$Gene == "MYC",], xlab = "MYC Expression", main = NULL)
-  dev.off()
-  med.chr8q <- omics2[[i]][omics2[[i]]$Gene == "MYC",]
-  
-  # reshape long if necessary
-  if (names(omics2)[i] == "Copy Number") {
-    temp.input <- omics2[[i]][,c("common_name", "gene_symbol", "copy_number")]
-  } else {
-    temp.input <- reshape2::dcast()
+  if (nrow(omics2[[i]][omics2[[i]]$Gene == "MYC",]) == 1) {
+    pdf(paste0(names(omics2)[i], "_MYC_histogram.pdf"))
+    hist(omics2[[i]][omics2[[i]]$Gene == "MYC",], xlab = "MYC Expression", main = NULL)
+    dev.off()
   }
+  #med.chr8q <- read.csv(paste0(names(omics2)[i], "_Chr8q_mean.csv"))
   
-  med.chr8q$'Sample ID' <- med.chr8q$Sample
-  for (j in 1:nrow(med.chr8q)) {
-    med.chr8q$Sample[j] <- stringr::str_split(med.chr8q$`Sample ID`[j], "_")[[1]][1]
-  }
-  ggplot2::ggplot(med.chr8q, aes(x=`Sample ID`, y=`Chr8q Mean`, fill = Sample)) + 
-    ggplot2::geom_bar(stat="identity", position="dodge") + 
-    scale_x_discrete(limits = med.chr8q$`Sample ID`) + ggplot2::theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) +
-    geom_errorbar(aes(ymin=`Chr8q Mean` - sd_mean_copy_number, 
-                      ymax = `Chr8q Mean` + sd_mean_copy_number), width=0.2,
-                  position=position_dodge(0.9))
-  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_mean.pdf"))
-  write.csv(med.chr8q, paste0(names(omics2)[i], "_Chr8q_mean.csv"), row.names = FALSE)
+  # # reshape long if necessary
+  # if (names(omics2)[i] == "PDX Copy Number") {
+  #   temp.input <- omics2[[i]][,c("common_name", "gene_symbol", "copy_number")]
+  # } else {
+  #   temp.input <- reshape2::dcast()
+  # }
+  # 
+  # med.chr8q$'Sample ID' <- med.chr8q$Sample
+  # for (j in 1:nrow(med.chr8q)) {
+  #   med.chr8q$Sample[j] <- stringr::str_split(med.chr8q$`Sample ID`[j], "_")[[1]][1]
+  # }
+  # ggplot2::ggplot(med.chr8q, aes(x=`Sample ID`, y=`Chr8q Mean`, fill = Sample)) + 
+  #   ggplot2::geom_bar(stat="identity", position="dodge") + 
+  #   scale_x_discrete(limits = med.chr8q$`Sample ID`) + ggplot2::theme_minimal() +
+  #   theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) +
+  #   geom_errorbar(aes(ymin=`Chr8q Mean` - sd_mean_copy_number, 
+  #                     ymax = `Chr8q Mean` + sd_mean_copy_number), width=0.2,
+  #                 position=position_dodge(0.9))
+  # ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_mean.pdf"))
+  # write.csv(med.chr8q, paste0(names(omics2)[i], "_Chr8q_mean.csv"), row.names = FALSE)
 }
 
 
@@ -1107,7 +1117,7 @@ for (i in 1:length(omics)) {
   }
   save_to_synapse(omics.files)
 }
-
+setwd("Chr8_quant")
 cnv.med.chr8q <- read.csv("Single_sample_positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
 global.meta.df2$Chr8q_median <- NA
 for (i in 1:nrow(global.meta.df2)) {
@@ -1121,15 +1131,54 @@ for (i in 1:nrow(rna.meta.df)) {
 }
 #global.meta.df3 <- merge(cnv.med.chr8q, global.meta.df2, by= "Sample", all.y=TRUE)
 
+setwd(base.path)
+setwd("Chr8_quant")
+cnv.med.chr8q <- read.csv("Single_sample_positional_medians_allSamples/PDX Copy Number/PDX Copy Number_Chr8q_median.csv")
+global.meta.df2$Chr8q_median <- NA
+for (i in 1:nrow(global.meta.df2)) {
+  temp.sample <- global.meta.df2$Sample[i]
+  global.meta.df2$Chr8q_median[i] <- cnv.med.chr8q[cnv.med.chr8q$Sample == temp.sample,]$Chr8q.Median
+}
+rna.meta.df <- manifest[!is.na(manifest$PDX_RNASeq),c("common_name", "Sex")]
+colnames(rna.meta.df)[1] <- "Sample"
+rownames(rna.meta.df) <- rna.meta.df$Sample
+rna.meta.df$Chr8q_median <- NA
+for (i in 1:nrow(rna.meta.df)) {
+  temp.sample <- rna.meta.df$Sample[i]
+  if (temp.sample %in% cnv.med.chr8q$Sample) {
+    rna.meta.df$Chr8q_median[i] <- cnv.med.chr8q[cnv.med.chr8q$Sample == temp.sample,]$Chr8q.Median 
+  }
+}
+pdx.rna.meta.df <- rna.meta.df[colnames(pdxRNA)[2:ncol(pdxRNA)],]
+tumor.rna.meta.df <- rna.meta.df[colnames(tumorRNA)[2:ncol(tumorRNA)],]
+
+omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
+              "RNA-Seq" = list("PDX" = pdxRNA,"Tumor" = tumorRNA))
+prot.feat <- c("Gene", "SUB_SITE")
+rna.feat <- c("Gene", "Gene")
+
+meta.list <- list("Proteomics" = global.meta.df2,
+                  "RNA-Seq" = pdx.rna.meta.df)
+expr.list <- list("Proteomics" = list("CCLE proteomics"),
+                  "RNA-Seq" = list("adherent CCLE", "adherent CCLE"))
+feature.list <- list("Proteomics" = prot.feat,
+                     "RNA-Seq" = rna.feat)
+dir.create("all_RNA_samples")
+setwd("all_RNA_samples")
 for (i in 1:length(omics)) {
   setwd(file.path(base.path, "Chr8_quant"))
+  #setwd(file.path(base.path, "Chr8_quant","all_RNA_samples"))
   dir.create(names(omics)[i])
   setwd(names(omics)[i])
   temp.features <- feature.list[[i]]
   temp.omics <- omics[[i]]
-  meta.df <- meta.list[[i]]
-  red.meta <- meta.df[,c("Sample", "Chr8q_median")]
-  red.meta$Sample <- rownames(red.meta)
+  meta.df <- as.data.frame(meta.list[[i]])
+  #red.meta <- meta.df[,c("Sample", "Chr8q_median")]
+  #red.meta$Sample <- rownames(red.meta)
+  rownames(meta.df) <- meta.df[,1]
+  meta.df$Sample <- rownames(meta.df)
+  red.meta <- meta.df[,c("Sample", "Gain of C8")]
+  cc.df.global <- meta.df[,c("Sample", "Ave CEP8", "Ave CMYC", "Gain of C8")]
   
   omics.files <- list()
   for (j in 1:length(temp.omics)) {
@@ -1284,33 +1333,25 @@ for (i in 1:length(omics)) {
         global.mtn <- get_top_mtn_plots(
           gsea1[[gsea.name]]$all.results[[m]], 
           EA.type = names(gmt1)[k])
+        temp.gsea.files <- list("GSEA_results.csv" =
+                                  gsea1[[gsea.name]]$all.results[[m]]$result,
+                                "GSEA_volcano_plot.pdf" =
+                                  gsea1[[gsea.name]]$all.results[[m]]$volcano.plot,
+                                "mtn_plots" = global.mtn)
         if (length(global.mtn) > 1) {
-          global.net <- panSEA::netSEA(list(gsea1.inputs[[m]]),
+          temp.gsea.files[["GSEA_network_graph.html"]] <- panSEA::netSEA(list(gsea1.inputs[[m]]),
                                        list(gsea1[[gsea.name]]$all.results[[m]]$result),
                                        element.names = features1,
                                        rank.var = rank.var,
-                                       n.network.sets = 10)
-          temp.gsea.files <- list("GSEA_results.csv" =
-                                    gsea1[[gsea.name]]$all.results[[m]]$result,
-                                  "GSEA_volcano_plot.pdf" =
-                                    gsea1[[gsea.name]]$all.results[[m]]$volcano.plot,
-                                  "GSEA_network_graph.html" = 
-                                    global.net$interactive,
-                                  "mtn_plots" = global.mtn)
-        } else {
-          temp.gsea.files <- list("GSEA_results.csv" =
-                                    gsea1[[gsea.name]]$all.results[[m]]$result,
-                                  "GSEA_volcano_plot.pdf" =
-                                    gsea1[[gsea.name]]$all.results[[m]]$volcano.plot,
-                                  "mtn_plots" = global.mtn)
+                                       n.network.sets = 10)$interactive
         }
         if (!grepl("phospho", names(temp.omics)[j], ignore.case = TRUE) & length(global.mtn) > 0) {
-          temp.gsea.files[["Pathways_of_interest"]] <- 
-            get_pathways_of_interest(temp.omics[[names(temp.omics)[j]]], 
-                                     gsea1[[gsea.name]]$all.results[[m]]$result, 
+          temp.gsea.files[["Pathways_of_interest"]] <-
+            get_pathways_of_interest(temp.omics[[names(temp.omics)[j]]],
+                                     gsea1[[gsea.name]]$all.results[[m]]$result,
                                      gmt1[[k]], cc.df.global, n = 10,
-                                     show_colnames = FALSE, 
-                                     fontsize = 10, scale = TRUE, cluster = TRUE) 
+                                     show_colnames = FALSE,
+                                     fontsize = 10, scale = TRUE, cluster = TRUE)
         }
         global.gsea.files[[names(gsea1.inputs)[m]]] <- temp.gsea.files
       }
@@ -1350,8 +1391,122 @@ for (i in 1:length(omics)) {
     temp.omics.files[["DMEA"]] <- global.DMEA.files
     omics.files[[names(temp.omics)[j]]] <- temp.omics.files
   }
-  save_to_synapse(omics.files)
+  #save_to_synapse(omics.files, "syn60223460") # just proteomics samples
+  #save_to_synapse(omics.files, "syn60930162") # all samples
+  save_to_synapse(omics.files, "syn61629081") # tumor proteomics based on FISH for exp 4007
+  save_to_synapse(omics.files, "syn61640761") # tumor proteomics based on FISH for exp 4008
 }
+
+# try more CPs, GOs
+# gmt1 <- get_gmt1(gmt.list1 = c("msigdb_Homo sapiens_C3_TFT:GTRD",
+#                                "msigdb_Homo sapiens_C3_MIR:MIRDB",
+#                                "msigdb_Homo sapiens_C5_GO:BP",
+#                                "msigdb_Homo sapiens_C5_GO:CC",
+#                                "msigdb_Homo sapiens_C5_GO:MF",
+#                                "msigdb_Homo sapiens_C6",
+#                                "msigdb_Homo sapiens_C2_CP:BIOCARTA",
+#                                "msigdb_Homo sapiens_C2_CP:MEDICUS", # also tried CP:KEGG_MEDICUS but not valid, used CP:KEGG instead (item 8)
+#                                "msigdb_Homo sapiens_C2_CP:PID",
+#                                "msigdb_Homo sapiens_C2_CP:REACTOME",
+#                                "msigdb_Homo sapiens_C2_CP:WIKIPATHWAYS"))
+# names(gmt1) <- c("TFT_GTRD", "MIR_MIRDB", "GO_BP", "GO_CC", "GO_MF", 
+#                  "Oncogenic_signatures", "BioCarta", "KEGG", "PID", 
+#                  "Reactome", "WikiPathways")
+# saveRDS(gmt1, "gmt1.rds")
+setwd(base.path)
+setwd("Chr8_quant")
+gmt1 <- readRDS("gmt1.rds")
+dir.create("all_RNA_samples")
+setwd("all_RNA_samples")
+dir.create("more_pathways")
+setwd("more_pathways")
+
+for (i in 2:length(omics)) {
+  setwd(file.path(base.path, "Chr8_quant", "all_RNA_samples", "more_pathways"))
+  dir.create(names(omics)[i])
+  setwd(names(omics)[i])
+  #parent_syn <- "syn60219614" # only samples in proteomics
+  parent_syn <- "syn60930162" # all samples
+  omicsFolder <- synapser::synStore(synapser::Folder(names(omics)[i], 
+                                                     parent = parent_syn))
+  temp.features <- feature.list[[i]]
+  temp.omics <- omics[[i]]
+  meta.df <- meta.list[[i]]
+  red.meta <- meta.df[,c("Sample", "Chr8q_median", "Sex")]
+  red.meta$Sample <- rownames(red.meta)
+  
+  omics.files <- list()
+  for (j in 1:length(temp.omics)) {
+    if (!grepl("phospho", names(temp.omics)[j], ignore.case = TRUE)) {
+      tempFolder <- synapser::synStore(synapser::Folder(names(temp.omics)[j],
+                                                        parent = omicsFolder))
+      diffFolder <- synapser::synStore(synapser::Folder("Differential_expression",
+                                                        parent = tempFolder))
+      gseaFolder <- synapser::synStore(synapser::Folder("GSEA",
+                                                        parent = tempFolder))
+      
+      contrastDEGs <- as.list(synapser::synGetChildren(diffFolder, list("file"), sortBy = 'NAME'))
+      if (length(contrastDEGs) > 0) {
+        for (m in 1:length(contrastDEGs)) {
+          if (contrastDEGs[[m]]$name == "Differential_expression_results.csv") {
+            contrastFile <- synapser::synGet(contrastDEGs[[m]]$id)
+            deg <- read.csv(contrastFile$path)
+            break
+          }
+        }
+        # prep for GSEA
+        gsea1.inputs <- list(deg)
+        names(gsea1.inputs) <- names(temp.omics)[j]
+        features1 <- temp.features[j]
+        rank.var <- "Pearson.est"
+        
+        # run GSEA
+        gsea1 <- list()
+        all.global.gsea.files <- list()
+        for (k in 1:length(gmt1)) {
+          gsea.name <- paste0("GSEA_", names(gmt1)[k])
+          gsea1[[gsea.name]] <- panSEA::mGSEA(gsea1.inputs, list(gmt1[[k]]), 
+                                              types = names(gsea1.inputs), 
+                                              feature.names = rep(features1,1),
+                                              rank.var = rep(rank.var,1)) 
+          # cannot run GSEA on KSEA results
+          global.gsea.files <- list()
+          for (m in 1:length(gsea1.inputs)) {
+            temp.gsea.files <- list()
+            global.mtn <- get_top_mtn_plots(
+              gsea1[[gsea.name]]$all.results[[m]], 
+              EA.type = names(gmt1)[k])
+            temp.gsea.files <- list("GSEA_results.csv" =
+                                      gsea1[[gsea.name]]$all.results[[m]]$result,
+                                    "GSEA_volcano_plot.pdf" =
+                                      gsea1[[gsea.name]]$all.results[[m]]$volcano.plot,
+                                    "mtn_plots" = global.mtn)
+            if (length(global.mtn) > 1) {
+              temp.gsea.files[["GSEA_network_graph.html"]] <- panSEA::netSEA(list(gsea1.inputs[[m]]),
+                                                                             list(gsea1[[gsea.name]]$all.results[[m]]$result),
+                                                                             element.names = features1,
+                                                                             rank.var = rank.var,
+                                                                             n.network.sets = 10)$interactive
+            }
+            if (!grepl("phospho", names(temp.omics)[j], ignore.case = TRUE) & length(global.mtn) > 0) {
+              temp.gsea.files[["Pathways_of_interest"]] <-
+                get_pathways_of_interest(temp.omics[[names(temp.omics)[j]]],
+                                         gsea1[[gsea.name]]$all.results[[m]]$result,
+                                         gmt1[[k]], red.meta, n = 10,
+                                         show_colnames = FALSE,
+                                         fontsize = 10, scale = TRUE, cluster = TRUE)
+            }
+            global.gsea.files[[names(gsea1.inputs)[m]]] <- temp.gsea.files
+          }
+          all.global.gsea.files[[gsea.name]] <- global.gsea.files
+        }
+        save_to_synapse(all.global.gsea.files, gseaFolder)
+      }
+    }
+  }
+}
+
+# try all RNAseq - not just samples in proteomics
 
 # protein correlation volcano plot
 # shape by: on Chr8q or not
@@ -1506,7 +1661,7 @@ sub.dir <- c("", "GSEA_KEGG/Global", "GSEA_phospho_ksdb")
 ea.results <- c("DMEA", "GSEA", "Phospho_enrichment")
 temp.omics <- c("Global", "Global", "Phospho")
 ea.sets <- c("Drug_set", "Feature_set", "Feature_set")
-FDR <- 0.25
+FDR <- 0.05
 library(ggplot2)
 for (i in 2:length(ea.results)) {
   setwd(file.path(base.path, "Chr8_quant", "Proteomics"))
@@ -1586,3 +1741,65 @@ for (i in 2:length(ea.results)) {
   }
   ggsave(paste0(ea.results[i], "_volcano_plot_larger_font_v5.pdf"), volc, height=7, width=7) # v4: size 6 labels, v5: size 4
 }
+
+# compare CDKN2A copy number to Chr8q median copy number
+cnv <- read.csv("mpnst_copy_number.csv")
+CDKN2A.cnv <- cnv[cnv$entrez_id == "1029",]
+sample.info <- read.csv("mpnst_samples.csv")
+head(cnv)
+CDKN2A.cnv <- merge(CDKN2A.cnv, sample.info)
+CDKN2A.cnv <- merge(CDKN2A.cnv, cnv.med.chr8q)
+cnv.corr <- cor.test(CDKN2A.cnv$copy_number, CDKN2A.cnv$Chr8q.Median)
+# Pearson's product-moment correlation
+# 
+# data:  CDKN2A.cnv$copy_number and CDKN2A.cnv$Chr8q.Median
+# t = -3.4261e-17, df = 226, p-value = 1
+# alternative hypothesis: true correlation is not equal to 0
+# 95 percent confidence interval:
+#  -0.1299257  0.1299257
+# sample estimates:
+#           cor 
+# -2.279029e-18 
+
+# try with tumor FISH
+synapser::synLogin()
+tumor.global1 <- synapser::synGet("syn26955139")
+tumor.global2 <- synapser::synGet("syn26999591")
+tumor.phospho1 <- synapser::synGet("syn26999590")
+tumor.phospho2 <- synapser::synGet("syn26955138")
+tumor.meta <- synapser::synGet("syn26955140")
+global1 <- read.table(tumor.global1$path, sep = "\t")
+global1$Gene <- rownames(global1)
+global1 <- global1[,c("Gene", colnames(global1)[1:(ncol(global1)-1)])]
+global2 <- read.table(tumor.global2$path, sep = "\t")
+global2$Gene <- rownames(global2)
+global2 <- global2[,c("Gene", colnames(global2)[1:(ncol(global2)-1)])]
+phospho1 <- read.table(tumor.phospho1$path, sep = "\t")
+phospho1$SUB_SITE <- rownames(phospho1)
+phospho1 <- phospho1[,c("SUB_SITE", colnames(phospho1)[1:(ncol(phospho1)-1)])]
+phospho2 <- read.table(tumor.phospho2$path, sep = "\t")
+phospho2$SUB_SITE <- rownames(phospho2)
+phospho2 <- phospho2[,c("SUB_SITE", colnames(phospho2)[1:(ncol(phospho2)-1)])]
+meta <- readxl::read_excel(tumor.meta$path)
+
+omics <- list("Proteomics_4007" = list("Global" = global1, "Phospho" = phospho1),
+              "Proteomics_4008" = list("Global" = global2, "Phospho" = phospho2))
+prot.feat <- c("Gene", "SUB_SITE")
+
+meta.list <- list("Proteomics_4007" = meta,
+                  "Proteomics_4008" = meta)
+expr.list <- list("Proteomics_4007" = list("CCLE proteomics"),
+                  "Proteomics_4008" = list("CCLE proteomics"))
+feature.list <- list("Proteomics_4007" = prot.feat,
+                     "Proteomics_4008" = prot.feat)
+
+#load gmt1 from Chr8_quant
+# add Hallmark and positional gene sets
+setwd(base.path)
+gmt1.og <- readRDS("gmt1.rds")
+names(gmt1.og) <- c("KEGG", "Hallmark", "Positional", "Positional_custom")
+gmt1[12:14] <- gmt1.og[2:4]
+names(gmt1)[12:14] <- names(gmt1.og)[2:4]
+saveRDS(gmt1, "gmt1_more.rds")
+gmt2 <- get_gmt2(phospho=phospho1)
+saveRDS(gmt2, "gmt2.rds")
