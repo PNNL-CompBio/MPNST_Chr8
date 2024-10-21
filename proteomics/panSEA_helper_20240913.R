@@ -2518,10 +2518,10 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
       for (k in 1:length(gmt1)) {
         gsea.name <- paste0("GSEA_", names(gmt1)[k])
         if (check_coverage(gsea1.inputs[[1]], gmt1[[k]], features1, rank.var)) {
-          gsea1[[gsea.name]] <- try(R.utils::withTimeout(panSEA::mGSEA(gsea1.inputs, list(gmt1[[k]]), 
+          gsea1[[gsea.name]] <- panSEA::mGSEA(gsea1.inputs, list(gmt1[[k]]), 
                                               types = names(gsea1.inputs), 
                                               feature.names = rep(features1,1),
-                                              rank.var = rep(rank.var,1), ties=ties), timeout = timeout, onTimeout="error"), silent = TRUE)
+                                              rank.var = rep(rank.var,1), ties=ties)
           GSEA.forCompile[[gsea.name]][[names(omics)[i]]] <- gsea1[[gsea.name]]$all.results[[1]]
           global.gsea.files <- list()
           for (m in 1:length(gsea1.inputs)) {

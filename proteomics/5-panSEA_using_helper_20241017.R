@@ -413,7 +413,18 @@ my.syn <- "syn63138110"
 setwd(base.path)
 setwd("Chr8_quant")
 gmt1 <- get_gmt1_v2()
-gmt2 <- get_gmt2()
+gmt1[[11]] <- NULL
+names(gmt1) <- c("TFT_GTRD", "MIR_MIRDB", "GO_BP", "GO_CC", "GO_MF",
+                 "Oncogenic_signatures", "BioCarta", "KEGG", "PID", "Reactome",
+                 "Hallmark", "Positional", "Positional_custom")
+temp.gmt <- msigdbr::msigdbr(species = "Homo sapiens", category="C2", subcategory="CP:WIKIPATHWAYS")
+temp.gmt <- DMEA::as_gmt(as.data.frame(temp.gmt), element.names = "gene_symbol", set.names = "gs_name", descriptions = "gs_description")
+gmt1[["WikiPathways"]] <- temp.gmt
+saveRDS(gmt1,"gmt1_more.rds")
+gmt1 <- gmt1[c(1,6,7,8,9,11,12,13,14)]
+saveRDS(gmt1,"gmt1_less.rds")
+# also make sure to include WikiPathways
+# considering excluding Reactome (1736 gene sets), GO (1-7k+), and MIR_MIRDB (2377 gene sets) for now
 synapser::synLogin()
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1,
@@ -435,13 +446,7 @@ my.syn <- "syn63138110"
 setwd(base.path)
 setwd("Chr8_quant")
 gmt1 <- get_gmt1_v2()
-#gmt1[[11]] <- NULL
-#gmt[[13]] <- NULL
-# names(gmt1) <- c("TFT_GTRD", "MIR_MIRDB", "GO_BP", "GO_CC", "GO_MF", 
-#                  "Oncogenic_signatures", "BioCarta", "KEGG", "PID", "Reactome", 
-#                  "Hallmark", "Positional")
-# also make sure to include WikiPathways
-# considering excluding Reactome (1736 gene sets), GO (1-7k+), and MIR_MIRDB (2377 gene sets) for now
+
 
 synapser::synLogin()
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",

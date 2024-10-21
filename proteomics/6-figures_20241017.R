@@ -263,10 +263,10 @@ synapser::synLogin()
 
 #### Figure 1 ####
 # from Spearman folder
-path.map <- list("DNA" = "Copy_Number_overlapping",
-                 "RNA" = "RNA-Seq_overlapping",
+path.map <- list("DNA" = "Copy_number_overlapping/Copy_number_overlapping",
+                 "RNA" = "RNA-Seq_overlapping/RNA-Seq_overlapping",
                  "Protein" = "Proteomics/Proteomics",
-                 "Phospho" = "Proteomics/Phospho")
+                 "Phospho" = "Proteomics/Phospho/Phospho")
 
 ### number of diffexp features ###
 ## compile diffexp features across omics
@@ -274,8 +274,8 @@ all.degs <- data.frame()
 all.deg.list <- list()
 up.deg.list <- list()
 dn.deg.list <- list()
-for (i in 1:length(pathway.map)) {
-  setwd(base.path, "Chr8q_quant/Spearman")
+for (i in 1:length(path.map)) {
+  setwd(file.path(base.path, "Chr8_quant/Spearman"))
   setwd(path.map[[i]])
   setwd("Differential_expression")
   temp.degs <- read.csv("Differential_expression_results.csv")
@@ -283,44 +283,55 @@ for (i in 1:length(pathway.map)) {
  
   # dot plot of top genes
   temp.degs$Direction <- "Upregulated"
-  if (nrow(temp.degs[temp.degs$Log2FC < 0,]) > 0) {
-    temp.degs[temp.degs$Log2FC < 0,]$Direction <- "Downregulated"
+  if (nrow(temp.degs[!is.na(temp.degs$Spearman.est) & 
+                     temp.degs$Spearman.est < 0,]) > 0) {
+    temp.degs[!is.na(temp.degs$Spearman.est) &
+                temp.degs$Spearman.est < 0,]$Direction <- "Downregulated"
   }
   temp.degs$Significant <- FALSE
-  if (nrow(temp.degs[temp.degs$adj.P.Val <= 0.05,]) > 0) {
-    temp.degs[temp.degs$adj.P.Val <= 0.05,]$Significant <- TRUE
+  if (nrow(temp.degs[!is.na(temp.degs$Spearman.q) &
+                     temp.degs$Spearman.q <= 0.05,]) > 0) {
+    temp.degs[!is.na(temp.degs$Spearman.q) &
+                temp.degs$Spearman.q <= 0.05,]$Significant <- TRUE
   }
-  all.degs <- rbind(all.degs, temp.degs)
+  temp.degs$Feature <- temp.degs[,1]
+  temp.degs$Feature_type <- colnames(temp.degs)[1]
+  all.degs <- rbind(all.degs, temp.degs[,2:ncol(temp.degs)])
   all.deg.list[[names(path.map)[i]]] <- temp.degs
   up.deg.list[[names(path.map)[i]]] <- temp.degs[temp.degs$Significant & temp.degs$Direction == "Upregulated",]
   dn.deg.list[[names(path.map)[i]]] <- temp.degs[temp.degs$Significant & temp.degs$Direction == "Downregulated",]
 }
-setwd(base.path, "Chr8q_quant/Spearman")
+setwd(file.path(base.path, "Chr8_quant/Spearman"))
 dir.create("Compiled_results")
 setwd("Compiled_results")
 dir.create("Differential_expression")
 setwd("Differential_expression")
 write.csv(all.degs, "All_differential_expression_results.csv", row.names = FALSE)
-filt.degs <- all.degs[all.degs$adj.P.Val <= 0.05, ]
+filt.degs <- all.degs[!is.na(all.degs$Spearman.q) & all.degs$Spearman.q <= 0.05, ]
 write.csv(filt.degs, "All_differential_expression_results_maxFDR0.05.csv", row.names = FALSE)
 
-bar.plot <- ggplot2::ggplot(all.degs, aes(x=Omics)) + geom_bar(stat="count") + ggplot2::theme_bw()
+bar.plot <- ggplot2::ggplot(all.degs, aes(x=forcats::fct_infreq(Omics))) + 
+  geom_bar(stat="count") + ggplot2::theme_classic() + 
+  ggplot2::xlab("Omics Type") +
+  ggplot2::ylab("Number of Quantified Features")
 ggplot2::ggsave("Chr8_numberOfFeatures_barPlot.pdf", bar.plot, width = 7, height = 7, device = "pdf")
 
-all.degs$Significant <- FALSE
-if (nrow(filt.degs) > 0) {
-  all.degs[all.degs$adj.P.Val <= 0.05,]$Significant <- TRUE
-}
-bar.plot1 <- ggplot2::ggplot(all.degs, aes(x=Omics, group = Significant)) + geom_bar(stat="count") + ggplot2::theme_bw()
+bar.plot1 <- ggplot2::ggplot(all.degs, aes(fill = Significant, x=forcats::fct_infreq(Omics))) + 
+  geom_bar(position = "dodge", stat="count") + ggplot2::theme_classic() + 
+  ggplot2::xlab("Omics Type") +
+  ggplot2::ylab("Number of Quantified Features")
 ggplot2::ggsave("Chr8_numberOfFeatures_sigGroup_barPlot.pdf", bar.plot1, width = 7, height = 7, device = "pdf")
 
-filt.degs <- temp.degs[temp.degs$adj.P.Val <= 0.05, ]
-bar.plot2 <- ggplot2::ggplot(filt.degs, aes(x=Omics, group = Direction)) + geom_bar(stat="count") + ggplot2::theme_bw()
+bar.plot2 <- ggplot2::ggplot(filt.degs, aes(fill = Direction,
+                                            x=forcats::fct_infreq(Omics))) + 
+  geom_bar(position = "dodge", stat="count") + ggplot2::theme_classic() + 
+  ggplot2::xlab("Omics Type") +
+  ggplot2::ylab("Number of Quantified Features")
 ggplot2::ggsave("Chr8_numberOfSigFeatures_directionGroup_barPlot.pdf", bar.plot2, width = 7, height = 7, device = "pdf")
 
-all.degs.compiled <- panSEA::compile_mDEG(all.deg.list)
-up.degs.compiled <- panSEA::compile_mDEG(up.deg.list)
-dn.degs.compiled <- panSEA::compile_mDEG(dn.deg.list)
+all.degs.compiled <- compile_mCorr(all.deg.list)
+up.degs.compiled <- compile_mCorr(up.deg.list)
+dn.degs.compiled <- compile_mCorr(dn.deg.list)
 
 combo.files <- list()
 all.compiled.deg.results <- list("All_features" = all.degs.compiled,
