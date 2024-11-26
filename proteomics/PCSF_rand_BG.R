@@ -85,7 +85,7 @@ function(ppi, terminals, n = 10, r = 0.1, w = 2, b = rep(1, length(terminals)),
       stop("  Less than 1% of your terminal nodes are matched in the interactome, check your terminals!")
     cat(paste0("  ", percent, "% of your terminal nodes are included in the interactome\n"))
     terminal_names = terminal_names[!is.na(index)]
-    terminal_values = terminal_values[!is.na(index)]
+    terminal_values = abs(terminal_values[!is.na(index)])
     index = index[!is.na(index)]
     node_prz[index] =  node_prz[index] + b[j]*terminal_values # in case node is in more than 1 terminal input
   }
@@ -109,7 +109,7 @@ function(ppi, terminals, n = 10, r = 0.1, w = 2, b = rep(1, length(terminals)),
     for (j in 1:length(terminals)) {
       dummies <- c(dummies, names(terminals[[j]]))
     }
-    dummies <- unique(dummies)
+    #dummies <- unique(dummies)
   }
   from = c(rep("DUMMY", length(dummies)), edges[,1])
   to = c(dummies, edges[,2])
