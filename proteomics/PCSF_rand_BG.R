@@ -50,7 +50,7 @@
 # BG 20241114: adapt so that different types of terminals can have different beta, mu values
 PCSF_rand_BG <-
 function(ppi, terminals, n = 10, r = 0.1, w = 2, b = rep(1, length(terminals)), 
-         mu = 0.0005,dummies){
+         mu = 0.0005, deg.exp = 1, dummies){
   # Checking function arguments
   if (missing(ppi)){
     stop("Need to specify an interaction network \"ppi\".")
@@ -95,7 +95,7 @@ function(ppi, terminals, n = 10, r = 0.1, w = 2, b = rep(1, length(terminals)),
   
   # Calculate the hub penalization scores
   node_degrees = igraph::degree(ppi)
-  hub_penalization = - mu*node_degrees 
+  hub_penalization = - mu*(node_degrees^deg.exp)
   
   # Update the node prizes
   node_prizes = node_prz
@@ -137,7 +137,7 @@ function(ppi, terminals, n = 10, r = 0.1, w = 2, b = rep(1, length(terminals)),
   # Calculate graph statistics
   node_frequency = table(all_nodes)
   node_names = names(node_frequency)
-  node_prizes =  as.numeric(node_frequency)
+  node_frequency =  as.numeric(node_frequency)
   
   # Combine the graphs in order to get unionized graph
   adj_matrix = matrix(0, length(node_names), length(node_names))
@@ -168,6 +168,7 @@ function(ppi, terminals, n = 10, r = 0.1, w = 2, b = rep(1, length(terminals)),
     # Construct the igraph object from the union graph
     subnet = graph_from_adjacency_matrix(adj_matrix, weighted=TRUE, mode="undirected")
     index = match(V(subnet)$name, node_names)
+    V(subnet)$frequency = node_frequency[index]
     V(subnet)$prize = node_prizes[index]
     
     #   # Associate the type of nodes to shape

@@ -11,7 +11,7 @@
 #' @export
 computeProteinNetwork_BG<-function(vals=list(),nrand=100,
                             betas=rep(2, length(vals.list)),
-                            mu=0.0005, w=4,fname){
+                            mu=0.0005, w=4, deg.exp = 1,fname){
   
   require(dplyr)
   if(!require('PCSF')){
@@ -30,7 +30,7 @@ computeProteinNetwork_BG<-function(vals=list(),nrand=100,
   ##now run the code
   subnet<-NULL
   try(
-    subnet <- PCSF_rand_BG(ppi,vals, n=nrand, r=0.2,w = w, b = betas, mu = mu)
+    subnet <- PCSF_rand_BG(ppi,vals, n=nrand, r=0.2,w = w, b = betas, mu = mu, deg.exp = deg.exp)
   )
   
   if(is.null(subnet))
@@ -41,7 +41,7 @@ computeProteinNetwork_BG<-function(vals=list(),nrand=100,
   lfcs[is.na(lfcs)]<-0.0
   
   ##assign proteins
-  types<-rep('proteins',length(names(V(subnet))))
+  types<-rep('Protein',length(names(V(subnet))))
   names(types)<-names(V(subnet))
   
   ##assign node types
