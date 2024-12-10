@@ -25,7 +25,7 @@ source("~/Downloads/PCSF_rand_BG.R")
 #source("https://raw.githubusercontent.com/PNNL-CompBio/amlresistancenetworks/master/R/proteinNetworks.R")
 
 processPCSF <- function(pcsf.result, all.dfs, temp.runID, betas, mu, omega, 
-                        base.path2, min.per.set = c(3,4,5,6), deg.exp) {
+                        base.path2, min.per.set = c(3,4,5,6), deg.exp, temp.fname) {
   if (!inherits(pcsf.result, "try-error")) {
     # get data frames from list
     all.centrality <- all.dfs[[1]]
@@ -271,7 +271,8 @@ setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
 #temp.path <- paste0("PCSF_TFProteinKinase_", "2024-12-02","_kinasesRenamed_FDRadjP0.05")
 #temp.path <- paste0("PCSF_TFProteinKinase_", "2024-12-02","_scaled_0.75-1_kinasesRenamed_FDRadjP0.05")
 #temp.path <- paste0("PCSF_TFProteinKinase_", "2024-11-22")
-temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date(), "_kinasesRenamed")
+temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date()-1, "_kinasesRenamed")
+#temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date(), "_kinasesRenamed")
 #temp.path <- paste0("PCSF_TFProtein_", Sys.Date())
 #temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date(), "_degExp2")
 #temp.path <- paste0("PCSF_TFProteinKinase_2024-12-04_kinasesRenamed")
@@ -281,7 +282,10 @@ if (file.exists(temp.path)) {
   all.edges <- read.csv("edges.csv")
   all.enrichr <- read.csv("enrichr.csv")
   all.gsea <- read.csv("GSEA_positional.csv")
-  enr.8q24 <- read.csv("chr8q24_enrichment.csv")
+  enr.8q24 <- try(read.csv("chr8q24_enrichment.csv"),silent=TRUE)
+  if (inherits(enr.8q24, "try-error")) {
+    enr.8q24 <- data.frame() 
+  }
   all.centrality <- read.csv("centrality.csv")
   runs.so.far <- unique(all.vertices$runID)
 } else {
@@ -297,16 +301,20 @@ if (file.exists(temp.path)) {
   run.times <- c()
 }
 
+
 base.path2 <- getwd()
 #beta.vals <- c(2, 4, 6, 8, 10) # 2 was the default before
 #mu.vals <- c(1E-7, 1E-6, 1E-5, 1E-4, 1E-3) # 5E-4 was the default before
 #omega.vals <- c(1, 2, 3, 4) # 4 was default before
 min.per.set <- c(3,4,5,6)
-deg.exp.vals <- c(4,8)
+deg.exp.vals <- c(4,8,1,2)
+deg.exp.vals <- 22.3677
+deg.exp.vals <- 1
 all.dfs <- list(all.centrality, all.edges, all.enrichr, 
                 all.gsea, all.vertices, enr.8q24)
-beta.vals <- c(1, 10) # next try adding 5
-mu.vals <- c(1E-3) # next try adding 1, 1E-7, 1E-3, 1E-5
+beta.vals <- c(5, 6, 11) # next try adding 5
+#beta.vals <- c(1E-3, 1, 1E3)
+mu.vals <- c(1E3) # next try adding 1, 1E-7, 1E-3, 1E-5
 omega.vals <- c(3) # next try adding 1, 2
 inputs <- list("Transcription_factor" = rna.allSamples.result, "Protein" = global.result, "Kinase" = mit.kin)
 #inputs <- list("Transcription_factor" = rna.allSamples.result, "Protein" = global.result)
@@ -376,15 +384,15 @@ for (j in directions) {
         setwd(paste0("omega_",omega))
         
         if (length(final.inputs) == 3) {
-          for (beta.tf in beta.vals) {
-            for (beta.prot in beta.vals) {
-              for (beta.kin in beta.vals) {
+          for (beta.tf in 5) {
+            for (beta.prot in 11) {
+              for (beta.kin in 6) {
                 setwd(file.path(base.path2, j, paste0("degExp_",deg.exp), paste0("mu_",mu), paste0("omega_",omega)))
                 
                 # run PCSF
                 temp.b <- c(beta.tf, beta.prot, beta.kin)
                 temp.fname <- paste0("beta_TF_", beta.tf, "_prot_", beta.prot, "_kin_", beta.kin)
-                temp.runID <- paste0(j, "_omega_",omega,"_mu_",mu,"_",temp.fname)
+                temp.runID <- paste0(j, "_degExp_", deg.exp, "_omega_",omega,"_mu_",mu,"_",temp.fname)
                 if (!(temp.runID %in% runs.so.far)) {
                   cat("Running PCSF\n")
                   time.start <- Sys.time()
@@ -408,7 +416,7 @@ for (j in directions) {
               # run PCSF
               temp.b <- c(beta.tf, beta.prot)
               temp.fname <- paste0("beta_TF_", beta.tf, "_prot_", beta.prot)
-              temp.runID <- paste0(j, "_omega_",omega,"_mu_",mu,"_",temp.fname)
+              temp.runID <- paste0(j, "_degExp_", deg.exp, "_omega_",omega,"_mu_",mu,"_",temp.fname)
               if (!(temp.runID %in% runs.so.far)) {
                 cat("Running PCSF\n")
                 time.start <- Sys.time()
@@ -429,7 +437,7 @@ for (j in directions) {
             
             # run PCSF
             temp.fname <- paste0("beta_prot_", beta.prot)
-            temp.runID <- paste0(j, "_omega_",omega,"_mu_",mu,"_",temp.fname)
+            temp.runID <- paste0(j, "_degExp_", deg.exp, "_omega_",omega,"_mu_",mu,"_",temp.fname)
             if (!(temp.runID %in% runs.so.far)) {
               cat("Running PCSF\n")
               time.start <- Sys.time()
@@ -848,6 +856,7 @@ optFunc <- function(params, mode = "default", betaTF, betaProt, betaKin,
   other.indices <- which(!grepl("Kinase", types))
   
   score <- 1-t.test(node_prizes[kin.indices], node_prizes[other.indices], alternative="greater")$p.value
+  cat("p =", -as.numeric(1-score), "\n")
   return(score)
 }
 optim.test <- optim(c(1,10,1,1E-3,22.3677), optFunc, method = "L-BFGS-B", lower = 0, hessian = TRUE)
@@ -892,3 +901,642 @@ mode.vals <- c(22.3677, 1E6, 100, 100, 1000) # after 3rd try but error after 1 r
 1-optim.test$value # p=0.09082033
 optim.test <- optFunc(c(mode.vals[4], mode.vals[5], mode.vals[3], mode.vals[2], mode.vals[1])) # first tried 32, then 100, then 200 but kept approaching limit
 # returns NA
+
+# try Rcgmin
+packageurl <- "http://cran.r-project.org/src/contrib/Archive/Rcgmin/Rcgmin_2022-4.30.tar.gz"
+install.packages("optextras")
+install.packages(packageurl, repos=NULL, type="source")
+
+optF <- function(params) {
+  terminals <- readRDS("Positive_inputs.rds")
+  if (length(params) == 5) {
+    b <- params[1:3]
+    mu <- params[4]
+    deg.exp <- params[5]
+  } else {
+    stop("invalid number of parameters")
+  }
+  cat("Calculating prizes with betas",b, "mu", mu, "degExp",deg.exp,"\n")
+  
+  # load string network
+  require(dplyr)
+  if(!require('PCSF')){
+    remotes::install_github('sgosline/PCSF')
+    require('PCSF')
+  }
+  data("STRING")
+  ppi <- construct_interactome(STRING)
+  
+  # calculate prizes for terminal nodes
+  terminal_types <- names(terminals)
+  node_names = V(ppi)$name
+  node_prz = vector(mode = "numeric", length = length(node_names)) # 0 vector
+  for (j in 1:length(terminal_types)) {
+    terminal_names = names(terminals[[j]])
+    terminal_values = as.numeric(terminals[[j]])
+    
+    # Incorporate the node prizes
+    index = match(terminal_names, node_names)
+    percent = signif((length(index) - sum(is.na(index)))/length(index)*100, 4)
+    if (percent < 5)
+      stop("  Less than 1% of your terminal nodes are matched in the interactome, check your terminals!")
+    cat(paste0("  ", percent, "% of your terminal nodes are included in the interactome\n"))
+    terminal_names = terminal_names[!is.na(index)]
+    terminal_values = abs(terminal_values[!is.na(index)])
+    index = index[!is.na(index)]
+    node_prz[index] =  node_prz[index] + b[j]*terminal_values # in case node is in more than 1 terminal input
+  }
+  
+  # Calculate the hub penalization scores
+  node_degrees = igraph::degree(ppi)
+  hub_penalization = - mu*(node_degrees^deg.exp)
+  
+  # Update the node prizes
+  node_prizes = node_prz
+  index = which(node_prizes==0)
+  node_prizes[index] = hub_penalization[index]
+  
+  ## assign node types
+  terms=unlist(terminals)
+  lfcs<-terms[match(names(V(ppi)),names(terms))]
+  lfcs[is.na(lfcs)]<-0.0
+  
+  types<-rep('Steiner',length(names(V(ppi))))
+  names(types)<-names(V(ppi))
+  
+  ##assign node types (e.g., kinase, protein, TF)
+  val.types <- names(terminals)
+  types.so.far <- c()
+  for (i in 1:length(val.types)) {
+    types[intersect(names(V(ppi)),names(terminals[[i]]))]<-val.types[i]
+    
+    types.so.far <- c(types.so.far, val.types[i])
+    other.types <- val.types[!(val.types %in% types.so.far)]
+    if (length(other.types) > 0) {
+      for (j in 1:length(other.types)) {
+        temp.other.vals <- names(terminals[other.types[j]])
+        types[intersect(names(V(ppi)),
+                        intersect(names(terminals[[i]]),temp.other.vals))] <- 
+          paste0(types[intersect(names(V(ppi)),
+                                 intersect(names(terminals[[i]]),temp.other.vals))],
+                 "+",other.types[j])
+      } 
+    }
+  }
+  kin.indices <- which(grepl("Kinase", types))
+  other.indices <- which(!grepl("Kinase", types))
+  
+  score <- abs(mean(node_prizes[kin.indices]) - mean(node_prizes[other.indices]))
+  cat("absDiff =", score, "\n")
+  return(score)
+}
+
+# calculates gradient of prize function instead of typical prizes
+optG <- function(params) {
+  terminals <- readRDS("Positive_inputs.rds")
+  if (length(params) == 5) {
+    b <- params[1:3]
+    mu <- params[4]
+    deg.exp <- params[5]
+  } else {
+    stop("invalid number of parameters")
+  }
+  cat("Calculating prizes with betas",b, "mu", mu, "degExp",deg.exp,"\n")
+  
+  # load string network
+  require(dplyr)
+  if(!require('PCSF')){
+    remotes::install_github('sgosline/PCSF')
+    require('PCSF')
+  }
+  data("STRING")
+  ppi <- construct_interactome(STRING)
+  
+  # calculate prizes for terminal nodes
+  terminal_types <- names(terminals)
+  node_names = V(ppi)$name
+  node_prz = vector(mode = "numeric", length = length(node_names)) # 0 vector
+  for (j in 1:length(terminal_types)) {
+    terminal_names = names(terminals[[j]])
+    terminal_values = as.numeric(terminals[[j]])
+    
+    # Incorporate the node prizes
+    index = match(terminal_names, node_names)
+    percent = signif((length(index) - sum(is.na(index)))/length(index)*100, 4)
+    if (percent < 5)
+      stop("  Less than 1% of your terminal nodes are matched in the interactome, check your terminals!")
+    cat(paste0("  ", percent, "% of your terminal nodes are included in the interactome\n"))
+    terminal_names = terminal_names[!is.na(index)]
+    terminal_values = abs(terminal_values[!is.na(index)])
+    index = index[!is.na(index)]
+    node_prz[index] =  node_prz[index] + terminal_values # in case node is in more than 1 terminal input
+  }
+  
+  # Calculate the hub penalization scores
+  node_degrees = igraph::degree(ppi)
+  hub_penalization = - mu*(node_degrees^deg.exp)*log(node_degrees) - (node_degrees^deg.exp)
+  
+  # Update the node prizes
+  node_prizes = node_prz
+  index = which(node_prizes==0)
+  node_prizes[index] = hub_penalization[index]
+  
+  ## assign node types
+  terms=unlist(terminals)
+  lfcs<-terms[match(names(V(ppi)),names(terms))]
+  lfcs[is.na(lfcs)]<-0.0
+  
+  types<-rep('Steiner',length(names(V(ppi))))
+  names(types)<-names(V(ppi))
+  
+  ##assign node types (e.g., kinase, protein, TF)
+  val.types <- names(terminals)
+  types.so.far <- c()
+  for (i in 1:length(val.types)) {
+    types[intersect(names(V(ppi)),names(terminals[[i]]))]<-val.types[i]
+    
+    types.so.far <- c(types.so.far, val.types[i])
+    other.types <- val.types[!(val.types %in% types.so.far)]
+    if (length(other.types) > 0) {
+      for (j in 1:length(other.types)) {
+        temp.other.vals <- names(terminals[other.types[j]])
+        types[intersect(names(V(ppi)),
+                        intersect(names(terminals[[i]]),temp.other.vals))] <- 
+          paste0(types[intersect(names(V(ppi)),
+                                 intersect(names(terminals[[i]]),temp.other.vals))],
+                 "+",other.types[j])
+      } 
+    }
+  }
+  kin.indices <- which(grepl("Kinase", types))
+  other.indices <- which(!grepl("Kinase", types))
+  
+  score <- abs(mean(node_prizes[kin.indices]) - mean(node_prizes[other.indices]))
+  cat("absDiffGradient =", score, "\n")
+  return(score)
+}
+
+mode.types <- c("betaTF", "betaProt","betaKin","mu", "degExp")
+mode.vals <- c(5,10,1,10,10) # initially started with degExp = 1, mu = 1E-3
+optim.test <- Rcgmin::Rcgmin(par=mode.vals, fn=optF, gr=optG, 
+                             #lower=rep(0, length(mode.vals)),
+                             #upper=rep(1E9,length(mode.vals)),
+                             bdmsk = rep(1,length(mode.vals)))
+# last try was: 
+mode.vals <- c(-6.164362e+33, -6.164362e+33, -6.164362e+33, -6.164362e+33, -6.164362e+33)
+optim.test <- Rcgmin::Rcgmin(par=mode.vals, fn=optF, gr=optG, 
+                             bdmsk = rep(1,length(mode.vals)))
+
+# Calculating prizes with betas -6.164362e+33 -6.164362e+33 -6.164362e+33 mu -6.164362e+33 degExp -6.164362e+33 
+# 100% of your terminal nodes are included in the interactome
+# 96.59% of your terminal nodes are included in the interactome
+# 100% of your terminal nodes are included in the interactome
+# absDiff = 9.140631e+33 
+# Calculating prizes with betas -6.164362e+33 -6.164362e+33 -6.164362e+33 mu -6.164362e+33 degExp -6.164362e+33 
+# 100% of your terminal nodes are included in the interactome
+# 96.59% of your terminal nodes are included in the interactome
+# 100% of your terminal nodes are included in the interactome
+# absDiff = 1.482819 
+
+mode.vals <- rep(1,5)
+optim.test <- Rcgmin::Rcgmin(par=mode.vals, fn=optF, gr=optG, 
+                             bdmsk = rep(1,length(mode.vals)))
+# result: -19.28594 -19.28594 -19.28594 -19.28594 -19.28594 
+
+# try nleqslv
+install.packages("nleqslv")
+
+optComparison <- function(params, comparison) {
+  terminals <- readRDS("Positive_inputs.rds")
+  if (length(params) == 5) {
+    b <- params[1:3]
+    mu <- params[4]
+    deg.exp <- params[5]
+  } else {
+    stop("invalid number of parameters")
+  }
+  cat("Calculating prizes with betas",b, "mu", mu, "degExp",deg.exp,"\n")
+  
+  # load string network
+  require(dplyr)
+  if(!require('PCSF')){
+    remotes::install_github('sgosline/PCSF')
+    require('PCSF')
+  }
+  data("STRING")
+  ppi <- construct_interactome(STRING)
+  
+  # calculate prizes for terminal nodes
+  terminal_types <- names(terminals)
+  node_names = V(ppi)$name
+  node_prz = vector(mode = "numeric", length = length(node_names)) # 0 vector
+  for (j in 1:length(terminal_types)) {
+    terminal_names = names(terminals[[j]])
+    terminal_values = as.numeric(terminals[[j]])
+    
+    # Incorporate the node prizes
+    index = match(terminal_names, node_names)
+    percent = signif((length(index) - sum(is.na(index)))/length(index)*100, 4)
+    if (percent < 5)
+      stop("  Less than 1% of your terminal nodes are matched in the interactome, check your terminals!")
+    cat(paste0("  ", percent, "% of your terminal nodes are included in the interactome\n"))
+    terminal_names = terminal_names[!is.na(index)]
+    terminal_values = abs(terminal_values[!is.na(index)])
+    index = index[!is.na(index)]
+    node_prz[index] =  node_prz[index] + b[j]*terminal_values # in case node is in more than 1 terminal input
+  }
+  
+  # Calculate the hub penalization scores
+  node_degrees = igraph::degree(ppi)
+  hub_penalization = - mu*(node_degrees^deg.exp)
+  
+  # Update the node prizes
+  node_prizes = node_prz
+  index = which(node_prizes==0)
+  node_prizes[index] = hub_penalization[index]
+  
+  ## assign node types
+  terms=unlist(terminals)
+  lfcs<-terms[match(names(V(ppi)),names(terms))]
+  lfcs[is.na(lfcs)]<-0.0
+  
+  types<-rep('Steiner',length(names(V(ppi))))
+  names(types)<-names(V(ppi))
+  
+  ##assign node types (e.g., kinase, protein, TF)
+  val.types <- names(terminals)
+  types.so.far <- c()
+  for (i in 1:length(val.types)) {
+    types[intersect(names(V(ppi)),names(terminals[[i]]))]<-val.types[i]
+    
+    types.so.far <- c(types.so.far, val.types[i])
+    other.types <- val.types[!(val.types %in% types.so.far)]
+    if (length(other.types) > 0) {
+      for (j in 1:length(other.types)) {
+        temp.other.vals <- names(terminals[other.types[j]])
+        types[intersect(names(V(ppi)),
+                        intersect(names(terminals[[i]]),temp.other.vals))] <- 
+          paste0(types[intersect(names(V(ppi)),
+                                 intersect(names(terminals[[i]]),temp.other.vals))],
+                 "+",other.types[j])
+      } 
+    }
+  }
+  kin.indices <- which(grepl(comparison[2], types))
+  other.indices <- which(grepl(comparison[1], types))
+  
+  score <- abs(mean(node_prizes[kin.indices]) - mean(node_prizes[other.indices]))
+  cat("absDiff between", comparison[1], "and", comparison[2], "=", score, "\n")
+  return(score)
+}
+
+optSingle <- function(params, type) {
+  terminals <- readRDS("Positive_inputs.rds")
+  if (length(params) == 5) {
+    b <- params[1:3]
+    mu <- params[4]
+    deg.exp <- params[5]
+  } else {
+    stop("invalid number of parameters")
+  }
+  cat("Calculating prizes with betas",b, "mu", mu, "degExp",deg.exp,"\n")
+  
+  # load string network
+  require(dplyr)
+  if(!require('PCSF')){
+    remotes::install_github('sgosline/PCSF')
+    require('PCSF')
+  }
+  data("STRING")
+  ppi <- construct_interactome(STRING)
+  
+  # calculate prizes for terminal nodes
+  terminal_types <- names(terminals)
+  node_names = V(ppi)$name
+  node_prz = vector(mode = "numeric", length = length(node_names)) # 0 vector
+  for (j in 1:length(terminal_types)) {
+    terminal_names = names(terminals[[j]])
+    terminal_values = as.numeric(terminals[[j]])
+    
+    # Incorporate the node prizes
+    index = match(terminal_names, node_names)
+    percent = signif((length(index) - sum(is.na(index)))/length(index)*100, 4)
+    if (percent < 5)
+      stop("  Less than 1% of your terminal nodes are matched in the interactome, check your terminals!")
+    cat(paste0("  ", percent, "% of your terminal nodes are included in the interactome\n"))
+    terminal_names = terminal_names[!is.na(index)]
+    terminal_values = abs(terminal_values[!is.na(index)])
+    index = index[!is.na(index)]
+    node_prz[index] =  node_prz[index] + terminal_values # in case node is in more than 1 terminal input
+  }
+  
+  # Calculate the hub penalization scores
+  node_degrees = igraph::degree(ppi)
+  hub_penalization = - mu*(node_degrees^deg.exp)*log(node_degrees) - (node_degrees^deg.exp)
+  
+  # Update the node prizes
+  node_prizes = node_prz
+  index = which(node_prizes==0)
+  node_prizes[index] = hub_penalization[index]
+  
+  ## assign node types
+  terms=unlist(terminals)
+  lfcs<-terms[match(names(V(ppi)),names(terms))]
+  lfcs[is.na(lfcs)]<-0.0
+  
+  types<-rep('Steiner',length(names(V(ppi))))
+  names(types)<-names(V(ppi))
+  
+  ##assign node types (e.g., kinase, protein, TF)
+  val.types <- names(terminals)
+  types.so.far <- c()
+  for (i in 1:length(val.types)) {
+    types[intersect(names(V(ppi)),names(terminals[[i]]))]<-val.types[i]
+    
+    types.so.far <- c(types.so.far, val.types[i])
+    other.types <- val.types[!(val.types %in% types.so.far)]
+    if (length(other.types) > 0) {
+      for (j in 1:length(other.types)) {
+        temp.other.vals <- names(terminals[other.types[j]])
+        types[intersect(names(V(ppi)),
+                        intersect(names(terminals[[i]]),temp.other.vals))] <- 
+          paste0(types[intersect(names(V(ppi)),
+                                 intersect(names(terminals[[i]]),temp.other.vals))],
+                 "+",other.types[j])
+      } 
+    }
+  }
+  kin.indices <- which(grepl(type, types))
+  
+  score <- mean(node_prizes[kin.indices])
+  cat("Gradient for", type, "=", score, "\n")
+  return(score)
+}
+
+soe <- function(params) {
+  diffEqTF <- optComparison(params, comparison = c("Transcription_factor", "Kinase"))
+  diffEqCorr <- optComparison(params, comparison = c("Protein", "Kinase"))
+  gradEqTF <- optSingle(params, type = "Transcription_factor")
+  gradEqCorr <- optSingle(params, type = "Protein")
+  gradEqKin <- optSingle(params, type = "Kinase")
+  return(c(diffEqTF, diffEqCorr, gradEqTF, gradEqCorr, gradEqKin))
+}
+
+optim.test.soe <- nleqslv::nleqslv(mode.vals, soe, control=list("allowSingular"=TRUE))
+# last run: Calculating prizes with betas 0.6063449 1.325895 0.7378821 mu 1 degExp 1
+# absDiff between Transcription_factor and Kinase = 5.150322e-10 
+# absDiff between Protein and Kinase = 4.133756e-10  
+# absDiffGradient = 1.82 
+# absDiffGradient = 0.8323039
+# absDiffGradient = 1.495561 
+
+mode.vals <- optim.test.soe$x
+optim.test.soe2 <- nleqslv::nleqslv(mode.vals, soe, control=list("allowSingular"=TRUE))
+saveRDS(optim.test.soe, "Chr8_PCSF_optimization_nleqslv.rds")
+mode.vals # 0.6063449 1.3258952 0.7378821 1.0000000 1.0000000
+optim.test.soe$x # 0.6063449 1.3258952 0.7378821 1.0000000 1.0000000
+optim.test.soe2$x # 0.6063449 1.3258952 0.7378821 1.0000000 1.0000000
+optim.test.soe$fvec # 5.150322e-10 4.133756e-10 1.820000e+00 8.323039e-01 1.495561e+00
+optim.test.soe2$fven # 3.404592e-10 1.350362e-10 1.820000e+00 8.323039e-01 1.495561e+00
+optim.test.soe$termcd # 3
+optim.test.soe2$termcd # 3
+optim.test.soe$message # "No better point found (algorithm has stalled)"
+optim.test.soe2$message # "No better point found (algorithm has stalled)"
+optim.test.soe$scalex # 1 1 1 1 1
+optim.test.soe2$scalex # 1 1 1 1 1
+optim.test.soe$nfcnt # 13
+optim.test.soe2$nfcnt # 1
+optim.test.soe$njcnt # 2
+optim.test.soe2$njcnt # 1
+optim.test.soe$iter # 3
+optim.test.soe2$iter # 1
+
+# same beta ratios would be TF = 5, prot = 11, kin = 6
+mode.vals <- c(5, 11, 6, 1, 1)
+optim.test.soe3 <- nleqslv::nleqslv(mode.vals, soe, control=list("allowSingular"=TRUE))
+optim.test.soe3$x #  5.005833 10.946261  6.091771  1.000000  1.000000
+saveRDS(optim.test.soe3, "Chr8_PCSF_optimization_nleqslv3.rds")
+
+# try maintaining betas and only optimize mu, degExp for min diff
+soe_mu_deg <- function(params) {
+  diffEqTF <- optComparison(c(5,11,6,params), comparison = c("Transcription_factor", "Kinase"))
+  diffEqCorr <- optComparison(c(5,11,6,params), comparison = c("Protein", "Kinase"))
+  return(c(diffEqTF, diffEqCorr))
+}
+optim.test.soe3 <- nleqslv::nleqslv(mode.vals[4:5], soe_mu_deg, control=list("allowSingular"=TRUE))
+optim.test.soe3$message # "Jacobian is completely unusable (all zero entries?)"
+
+optim.test.soe3 <- nleqslv::nleqslv(c(1E-3,1), soe_mu_deg, control=list("allowSingular"=TRUE))
+optim.test.soe3$message # "Jacobian is completely unusable (all zero entries?)"
+
+# try maintaining mu, n and only optimize beta ratios for min diff
+soe_betas <- function(params) {
+  diffEqTF <- optComparison(c(params[1],1,params[2],1E-3,1), comparison = c("Transcription_factor", "Kinase"))
+  diffEqCorr <- optComparison(c(params[1],1,params[2],1E-3,1), comparison = c("Protein", "Kinase"))
+  return(c(diffEqTF, diffEqCorr))
+}
+mode.vals <- c(0.6,0.7)
+setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed")
+optim.test.soe.b <- nleqslv::nleqslv(mode.vals, soe_betas, control=list("allowSingular"=TRUE))
+optim.test.soe.b$message # 'Function criterion near zero.' Convergence of function values has been achieved.
+mode.vals <- optim.test.soe.b$x # 0.4573098 0.5565161
+optim.test.soe.b$termcd # 1
+optim.test.soe.b$scalex # 1 1
+optim.test.soe.b$nfcnt # 1
+optim.test.soe.b$njcnt # 1
+optim.test.soe.b$iter # 1
+
+optim.test.soe.b2 <- nleqslv::nleqslv(mode.vals, soe_betas, control=list("allowSingular"=TRUE))
+optim.test.soe.b2$message # 'Function criterion near zero.' Convergence of function values has been achieved.
+mode.vals <- optim.test.soe.b2$x # 0.4573098 0.5565161
+optim.test.soe.b2$termcd # 1
+optim.test.soe.b2$scalex # 1 1
+optim.test.soe.b2$nfcnt # 0
+optim.test.soe.b2$njcnt # 0
+optim.test.soe.b2$iter # 0
+
+mode.vals*11 # 5.030408 6.121678
+
+# try to optimize steiner nodes via mu, degExp now
+getPCSFResults <- function(all.dfs, j = "positive") {
+  all.vertices <- all.dfs[[5]]
+  if (!("betaKin" %in% colnames(all.vertices))) {
+    all.vertices$betaKin <- NA
+  }
+  param.info <- dplyr::distinct(all.vertices[all.vertices$Direction == j,c("omega", "mu", "betaTF", "betaProt", "betaKin","degExp","runID")])
+  param.info <- reshape2::melt(param.info, id = "runID", variable.name = "parameter")
+  param.info <- param.info[order(param.info$runID),] # sort by runID to match order of node degree plot
+  param.info$rowNum <- seq(1, nrow(param.info))
+  # inspired by: https://r-graph-gallery.com/79-levelplot-with-ggplot2.html
+  library(viridis)
+  param.info$value <- as.numeric(param.info$value)
+  params <- unique(param.info$parameter)
+  param.plot <- ggplot2::ggplot(param.info[param.info$parameter == params[1],], 
+                                aes(x=rowNum, y = parameter, fill = value)) +
+    geom_tile() + scale_fill_gradient(low="white", high = "black") + theme_classic() + 
+    ylab(element_blank()) + xlab(element_blank()) + theme(legend.position = "none")
+  library(patchwork)
+  for (i in params[2:length(params)]) {
+    param.plot <- param.plot / (ggplot2::ggplot(param.info[param.info$parameter == i,], 
+                                                aes(x=rowNum, y = parameter, fill = value)) +
+                                  geom_tile() + scale_fill_gradient(low="white", high = "black") + theme_classic() + 
+                                  ylab(element_blank()) + xlab(element_blank()) + theme(legend.position = "none"))
+    
+  }
+  
+  ### node degrees (steiner vs. terminal) for each parameter setting
+  node.types <- dplyr::distinct(all.vertices[all.vertices$Direction == j, 
+                                             c("name", "type", "runID")])
+  all.centrality <- all.dfs[[1]]
+  degree.info <- merge(node.types, dplyr::distinct(all.centrality[,c("name","runID","degree")]), by=c("name","runID"))
+  library(plyr)
+  rank.summary <- plyr::ddply(degree.info, .(type, runID), summarize,
+                              degree_sum = sum(degree))
+  rank.summary <- rank.summary[order(rank.summary$runID),]
+  
+  # create line plot of node degrees vs. runID
+  deg.plot <- ggplot2::ggplot(rank.summary, aes(x = runID, y = degree_sum, group = type, color = type)) +
+    geom_line() + ylab("Sum of Node Degrees") + theme_classic()
+  
+  ### heatmap of nodes in vs. out clustered with parameter setting information
+  # convert to wide
+  temp.nodes <- all.vertices[all.vertices$Direction == j,]
+  temp.nodes$Included <- 1
+  temp.nodes <- reshape2::dcast(temp.nodes, 
+                                name ~ runID, value.var = "Included", fill = 0)
+  rownames(temp.nodes) <- temp.nodes$name
+  temp.nodes <- temp.nodes[,order(colnames(temp.nodes))]
+  #temp.nodes <- temp.nodes %>% mutate_if(is.character, as.numeric) %>% select_if(colSums(.) != 0)
+  #temp.nodes <- temp.nodes[,colSums(temp.nodes) > 0]
+  node.mat <- as.matrix(temp.nodes[,2:ncol(temp.nodes)])
+  node.mat <- node.mat[,colSums(node.mat) > 0]
+  
+  # temp.heatmap <- pheatmap::pheatmap(node.mat, color = c("white","black"),
+  #                                     cluster_rows = FALSE, cluster_cols = FALSE,
+  #                                     scale = "row", annotation_col = dplyr::distinct(node.types[,c("name","type")]), 
+  #                                     angle_col = "45", show_colnames = TRUE,
+  #                                     fontsize = 6) 
+  # Error in check.length("fill") : 
+  #   'gpar' element 'fill' must not be length 0
+  
+  ### % of terminal nodes included in output for each parameter setting
+  perc.term <- plyr::ddply(node.types, .(runID), summarize,
+                           N_terminal = length(unique(name[type == "Terminal"])))
+  if (j == "positive") {
+    #pos.inputs <- list(mit.kin, rna.allSamples.result, global.result[global.result$Spearman.est > 0,])
+    #N.inputs <- length(unique(unlist(pos.inputs))) 
+    N.inputs <- 288
+  } else {
+    N.inputs <- nrow(global.result[global.result$Spearman.est < 0,]) 
+  }
+  perc.term$N_inputs <- N.inputs
+  perc.term$percent_terminal <- perc.term$N_terminal * 100 / perc.term$N_inputs
+  perc.term <- perc.term[order(perc.term$runID),]
+  
+  perc.plot <- ggplot2::ggplot(perc.term, aes(x = runID, y = percent_terminal, group = 1)) +
+    geom_line() + ylab("% Terminal Nodes") + theme_classic()
+  
+  ### chr8q24 enrichment plot - expect negative NES because highest prize would be at bottom of list even though unweighted calculation
+  # is the score still affected by input order in unweighted GSEA? yes, well mostly affected by prize (i.e., rank metric) then input order
+  # this paper uses betweenness centrality to rank nodes: https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2021.577623/full
+  enr.8q24 <- all.dfs[[6]]
+  temp.8q24 <- enr.8q24[enr.8q24$Direction == j & 
+                          enr.8q24$Feature_set == "chr8q24" & enr.8q24$minPerSet == 6,]
+  if (nrow(temp.8q24) > 0) {
+    temp.8q24 <- temp.8q24[order(temp.8q24$runID),]
+    temp.8q24$chr8q24 <- rank(-log(temp.8q24$FDR_q_value, 10) * temp.8q24$NES)
+    chr8.plot <- ggplot2::ggplot(temp.8q24,
+                                 aes(x = runID, y = Feature_set, 
+                                     size = -log(p_value, base = 10),
+                                     color = NES)) + ggplot2::geom_point() +
+      viridis::scale_color_viridis() + theme_classic() +
+      ggplot2::labs(color = "NES", size = "-Log(p-value)")
+  }
+  
+  ### mean rank (min NES for chr8q24, min diff in node degrees, max percent terminal) - could maybe specify SUMO1, other general nodes to exclude
+  rank.df <- data.frame(runID = perc.term$runID,
+                        #chr8q24 = rank(-log(temp.8q24$FDR_q_value, 10) * temp.8q24$NES),
+                        degree_diff = rank(abs(rank.summary[rank.summary$type == "Steiner",]$degree_sum - rank.summary[rank.summary$type == "Terminal",]$degree_sum)),
+                        perc_terminal = rank(1-perc.term$percent_terminal))
+  if (nrow(temp.8q24) > 0) {
+    rank.df <- merge(temp.8q24[,c("runID", "chr8q24")], rank.df, by="runID")
+    rank.summary2 <- plyr::ddply(rank.df, .(runID), summarize,
+                                chr8q24 = chr8q24,
+                                degree_diff = degree_diff,
+                                perc_terminal = perc_terminal,
+                                rank = mean(c(chr8q24, degree_diff, perc_terminal)))
+  } else {
+    rank.summary2 <- plyr::ddply(rank.df, .(runID), summarize,
+                                degree_diff = degree_diff,
+                                perc_terminal = perc_terminal,
+                                rank = mean(c(degree_diff, perc_terminal))) 
+  }
+  rank.summary2 <- reshape2::melt(rank.summary2, id = "runID", variable.name = "Parameter")
+  rank.summary2 <- rank.summary2[order(rank.summary2$runID),]
+  rank.plot <- ggplot2::ggplot(rank.summary2, aes(x = runID, y = value, group = Parameter, color = Parameter)) +
+    geom_line() + ylab("Rank") + theme_classic()
+  
+  ### combine plots
+  library(patchwork)
+  if (nrow(temp.8q24) > 0) {
+    combo.plot <- rank.plot / chr8.plot / perc.plot / deg.plot / param.plot
+  } else {
+    combo.plot <- rank.plot / perc.plot / deg.plot / param.plot
+  }
+
+  ggplot2::ggsave(paste0(j, "_parameter_sweep.pdf"), combo.plot, width = 11, height = 44)
+  saveRDS(combo.plot, paste0(j, "_parameter_sweep.rds"))
+  return(list(q24 = temp.8q24$chr8q24,
+              perc.term = (1-perc.term$percent_terminal),
+              degree.diff = abs(rank.summary[rank.summary$type == "Steiner",]$degree_sum - rank.summary[rank.summary$type == "Terminal",]$degree_sum)))
+}
+
+soe_steiner <- function(params) {
+  base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed"
+  all.dfs <- list(data.frame(), data.frame(), data.frame(), data.frame(),
+                  data.frame(), data.frame())
+  temp.fname <- paste0("beta_TF_", 5, "_prot_", 11, "_kin_", 6)
+  temp.runID <- paste0("positive", "_degExp_", params[2], "_omega_",params[3],"_mu_",params[1],"_",temp.fname)
+  final.inputs <- readRDS(file.path(base.path,"Positive_inputs.rds"))
+  cat("Running PCSF with mu =", params[1], "degExp =", params[2], "omega =", params[3], "\n")
+  pcsf.result <- computeProteinNetwork_BG(final.inputs, 
+                                              betas = c(5,11,6), 
+                                              mu = params[1], w = params[3],
+                                              deg.exp = params[2],
+                                              fname = temp.runID)
+  cat("Processing output\n")
+  all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, c(5,11,6), params[1],
+                         params[3], getwd(), deg.exp = params[2], temp.fname = temp.runID)
+  cat("Getting result\n")
+  rankSummary <- getPCSFResults(all.dfs)
+  
+  #diffEqTF <- optComparison(c(5,11,6,params), comparison = c("Transcription_factor", "Kinase"))
+  #diffEqCorr <- optComparison(c(5,11,6,params), comparison = c("Protein", "Kinase"))
+  cat("Results:", -(1-rankSummary$perc.term),"terminals used,\n",
+      rankSummary$degree.diff,"absDiff in sum of degrees,\n",
+      #diffEqTF, "absDiff in kinase & TF prizes,\n",
+      #diffEqCorr,"absDiff in corr & TF prizes,\n",
+      rankSummary$q24, "chr8q24 enrichment strength\n")
+  return(c(rankSummary$perc.term, rankSummary$degree.diff, 
+           #diffEqTF, diffEqCorr, 
+           rankSummary$q24))
+}
+mode.vals <- c(1E-3,1,3)
+setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed")
+optim.soe <- nleqslv::nleqslv(mode.vals, soe_steiner, control=list("allowSingular"=TRUE))
+optim.test.soe$message # 'Function criterion near zero.' Convergence of function values has been achieved.
+mode.vals <- optim.test.soe$x # 0.4573098 0.5565161
+optim.test.soe$termcd # 1
+optim.test.soe$scalex # 1 1
+optim.test.soe$nfcnt # 1
+optim.test.soe$njcnt # 1
+optim.test.soe.b$iter # 1
+
+optim.test.soe2 <- nleqslv::nleqslv(mode.vals, soe_steiner, control=list("allowSingular"=TRUE))
+optim.test.soe2$message # 'Function criterion near zero.' Convergence of function values has been achieved.
+mode.vals <- optim.test.soe2$x # 0.4573098 0.5565161
+optim.test.soe2$termcd # 1
+optim.test.soe2$scalex # 1 1
+optim.test.soe2$nfcnt # 0
+optim.test.soe2$njcnt # 0
+optim.test.soe2$iter # 0
