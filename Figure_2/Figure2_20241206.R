@@ -542,6 +542,7 @@ myc.dot.plot2 <- myc.dot.plot +
 shh.dot.plot2 <- shh.dot.plot +  
   scale_color_gradient2(low="blue",high="red", limits = c(-absMaxEst, absMaxEst)) +
   scale_size(limits=c(0,maxLogFDR), range = c(0.5,5))
+source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/guides_build_mod.R")
 myc.shh.dot.plots <- (myc.dot.plot2 / shh.dot.plot2) + plot_layout(guides='collect')
 #myc.shh.dot.plots <-  (shh.dot.plot2 + theme(legend.position = "none"))/ myc.dot.plot2
 #myc.shh.dot.plots <- myc.shh.dot.plots + plot_annotation(caption="Key\nBold: correlated in both RNA & protein\n Italics: correlated in RNA\n Plain: correlated in Protein")
