@@ -25,7 +25,8 @@ source("~/Downloads/PCSF_rand_BG.R")
 #source("https://raw.githubusercontent.com/PNNL-CompBio/amlresistancenetworks/master/R/proteinNetworks.R")
 
 processPCSF <- function(pcsf.result, all.dfs, temp.runID, betas, mu, omega, 
-                        base.path2, min.per.set = c(3,4,5,6), deg.exp) {
+                        base.path2, min.per.set = c(3,4,5,6), deg.exp, 
+                        j = "positive", temp.fname) {
   if (!inherits(pcsf.result, "try-error")) {
     # get data frames from list
     all.centrality <- all.dfs[[1]]
@@ -276,6 +277,9 @@ temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date()-1, "_kinasesRenamed")
 #temp.path <- paste0("PCSF_TFProtein_", Sys.Date())
 #temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date(), "_degExp2")
 #temp.path <- paste0("PCSF_TFProteinKinase_2024-12-04_kinasesRenamed")
+
+temp.path <- paste0("PCSF_Protein_", Sys.Date())
+temp.path <- paste0("PCSF_Protein_", "2024-12-12")
 if (file.exists(temp.path)) {
   setwd(temp.path)
   all.vertices <- read.csv("vertices.csv")
@@ -313,12 +317,14 @@ deg.exp.vals <- 1
 all.dfs <- list(all.centrality, all.edges, all.enrichr, 
                 all.gsea, all.vertices, enr.8q24)
 beta.vals <- c(5, 6, 11) # next try adding 5
+beta.vals <- c(1,5,10)
 #beta.vals <- c(1E-3, 1, 1E3)
-mu.vals <- c(1E3) # next try adding 1, 1E-7, 1E-3, 1E-5
-omega.vals <- c(3) # next try adding 1, 2
+mu.vals <- c(1E-7, 1E-5, 1E-3) # next try adding 1, 1E-7, 1E-3, 1E-5
+omega.vals <- c(1,2,3) # next try adding 1, 2
 inputs <- list("Transcription_factor" = rna.allSamples.result, "Protein" = global.result, "Kinase" = mit.kin)
+inputs <- list("Protein" = global.result)
 #inputs <- list("Transcription_factor" = rna.allSamples.result, "Protein" = global.result)
-#directions <- c("positive", "negative")
+directions <- c("positive", "negative")
 directions <- "positive"
 
 # # Find out how many cores are available
@@ -335,7 +341,7 @@ min.prot.corr <- min(global.result$Spearman.est)
 max.prot.corr <- max(global.result$Spearman.est)
 #rescale.all <- TRUE
 rescale.all <- FALSE
-
+directions <- "negative"
 for (j in directions) {
   setwd(base.path2)
   dir.create(j)
@@ -403,7 +409,9 @@ for (j in directions) {
                                                               fname = temp.fname), 
                                      silent = TRUE)
                   runs.so.far <- c(runs.so.far, temp.runID)
-                  all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, temp.b, mu, omega, base.path2, min.per.set, deg.exp)
+                  all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, 
+                                         temp.b, mu, omega, base.path2, 
+                                         min.per.set, deg.exp, j, temp.fname)
                 }
               }
             }
@@ -427,7 +435,9 @@ for (j in directions) {
                                                             fname = temp.fname), 
                                    silent = TRUE)
                 runs.so.far <- c(runs.so.far, temp.runID)
-                all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, temp.b, mu, omega, base.path2, min.per.set, deg.exp)
+                all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, 
+                                       temp.b, mu, omega, base.path2, 
+                                       min.per.set, deg.exp, j, temp.fname)
               }
             }
           } 
@@ -449,7 +459,9 @@ for (j in directions) {
                                                           fname = temp.fname), 
                                  silent = TRUE)
               runs.so.far <- c(runs.so.far, temp.runID)
-              all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, beta.prot, mu, omega, base.path2, min.per.set, deg.exp)
+              all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, 
+                                     beta.prot, mu, omega, base.path2, 
+                                     min.per.set, deg.exp, j, temp.fname)
             }
           }
         }
@@ -472,6 +484,8 @@ avg.run.time <- mean(run.times) # 18.61; now 20.43
 max.run.time <- max(run.times) # 19.98 as of mu = 1E-7, omega = 1, beta TF 6, prot 10, kin 10; now 30
 median.run.time <- median(run.times) # 18.94; now 19.53
 
+# negative network: 96.83% of your terminal nodes are included in the interactome
+
 enr.8q24.v2 <- enr.8q24[enr.8q24$minPerSet == 6,]
 enr.8q24.v2$score <- -log(enr.8q24.v2$FDR_q_value, base = 10) * enr.8q24.v2$NES
 enr.8q24.v2$rank <- rank(enr.8q24.v2$score) # best is mu = 1E-7, omega = 4, beta TF & prot = 10, beta kin = 2
@@ -491,7 +505,8 @@ for (j in directions) {
   if (!("betaKin" %in% colnames(all.vertices))) {
     all.vertices$betaKin <- NA
   }
-  param.info <- dplyr::distinct(all.vertices[all.vertices$Direction == j,c("omega", "mu", "betaTF", "betaProt", "betaKin","degExp","runID")])
+  #param.info <- dplyr::distinct(all.vertices[all.vertices$Direction == j,c("omega", "mu", "betaTF", "betaProt", "betaKin","degExp","runID")])
+  param.info <- dplyr::distinct(all.vertices[all.vertices$Direction == j,c("omega", "mu", "betaProt", "runID")])
   param.info <- reshape2::melt(param.info, id = "runID", variable.name = "parameter")
   param.info <- param.info[order(param.info$runID),] # sort by runID to match order of node degree plot
   param.info$rowNum <- seq(1, nrow(param.info))
@@ -502,7 +517,7 @@ for (j in directions) {
   param.plot <- ggplot2::ggplot(param.info[param.info$parameter == params[1],], 
                                 aes(x=rowNum, y = parameter, fill = value)) +
     geom_tile() + scale_fill_gradient(low="white", high = "black") + theme_classic() + 
-    ylab(element_blank()) + xlab(element_blank()) + theme(legend.position = "none")
+    ylab(element_blank()) + xlab(element_blank()) + scale_fill_discrete(labels=c("Low", "High"))
   library(patchwork)
   for (i in params[2:length(params)]) {
     param.plot <- param.plot / (ggplot2::ggplot(param.info[param.info$parameter == i,], 
@@ -511,6 +526,8 @@ for (j in directions) {
                                   ylab(element_blank()) + xlab(element_blank()) + theme(legend.position = "none"))
     
   }
+  source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/guides_build_mod.R")
+  param.plot <- param.plot + plot_layout(guides = 'collect')
   
   ### node degrees (steiner vs. terminal) for each parameter setting
   node.types <- dplyr::distinct(all.vertices[all.vertices$Direction == j, 
@@ -634,6 +651,8 @@ kept.kin.terminals <- kept.terminals[kept.terminals %in% mit.kin$Gene]
 kept.tf.terminals <- kept.terminals[kept.terminals %in% rna.allSamples.result$Gene]
 kept.corr.terminals <- kept.terminals[kept.terminals %in% global.result$Gene]
 
+# 682 terminals kept
+
 # maybe this is because outlier LTK (enrichment score of ~5 has adj p 0.07 and low # of hits, though low set sizes)
 # this should be fixed by filtering kinase enrichment for 0.05 adj p
 
@@ -641,11 +660,14 @@ kept.corr.terminals <- kept.terminals[kept.terminals %in% global.result$Gene]
 pos.inputs <- list(mit.kin, rna.allSamples.result, global.result[global.result$Spearman.est > 0,])
 #n.pos.inputs <- length(unique(unlist(pos.inputs))) 
 n.pos.inputs <- 288
+n.pos.inputs <- nrow(global.result[global.result$Spearman.est > 0,])
 n.neg.inputs <- nrow(global.result[global.result$Spearman.est < 0,])
 n.pos.nodes <- length(unique(all.vertices[all.vertices$Direction == "positive", ]$name))
 n.neg.nodes <- length(unique(all.vertices[all.vertices$Direction == "negative", ]$name))
 pos.plot <- pos.plot + ggtitle(paste0("Positive Network (", n.pos.nodes, " nodes from ", n.pos.inputs, " inputs)"))
+saveRDS(pos.plot,"Positive_plot.rds")
 neg.plot <- neg.plot + ggtitle(paste0("Negative Network (", n.neg.nodes, " nodes from ", n.neg.inputs, " inputs)"))
+saveRDS(neg.plot,"Negative_plot.rds")
 final.combo <- pos.plot + neg.plot
 ggplot2::ggsave("parameter_sweep.pdf", final.combo, width = 22, height = 44)
 
@@ -1457,7 +1479,7 @@ getPCSFResults <- function(all.dfs, j = "positive") {
   rank.df <- data.frame(runID = perc.term$runID,
                         #chr8q24 = rank(-log(temp.8q24$FDR_q_value, 10) * temp.8q24$NES),
                         degree_diff = rank(abs(rank.summary[rank.summary$type == "Steiner",]$degree_sum - rank.summary[rank.summary$type == "Terminal",]$degree_sum)),
-                        perc_terminal = rank(1-perc.term$percent_terminal))
+                        perc_terminal = rank(-perc.term$percent_terminal))
   if (nrow(temp.8q24) > 0) {
     rank.df <- merge(temp.8q24[,c("runID", "chr8q24")], rank.df, by="runID")
     rank.summary2 <- plyr::ddply(rank.df, .(runID), summarize,
@@ -1486,55 +1508,626 @@ getPCSFResults <- function(all.dfs, j = "positive") {
 
   ggplot2::ggsave(paste0(j, "_parameter_sweep.pdf"), combo.plot, width = 11, height = 44)
   saveRDS(combo.plot, paste0(j, "_parameter_sweep.rds"))
-  return(list(q24 = temp.8q24$chr8q24,
-              perc.term = (1-perc.term$percent_terminal),
+  return(list(q24 = temp.8q24$FDR_q_value, # before 20241211 at 9:23 pm PST was: temp.8q24$chr8q24
+              perc.term = perc.term$percent_terminal,
               degree.diff = abs(rank.summary[rank.summary$type == "Steiner",]$degree_sum - rank.summary[rank.summary$type == "Terminal",]$degree_sum)))
 }
 
 soe_steiner <- function(params) {
   base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed"
   all.dfs <- list(data.frame(), data.frame(), data.frame(), data.frame(),
-                  data.frame())
+                  data.frame(), data.frame())
   temp.fname <- paste0("beta_TF_", 5, "_prot_", 11, "_kin_", 6)
-  temp.runID <- paste0("positive", "_degExp_", params[2], "_omega_",params[3],"_mu_",params[1],"_",temp.fname)
+  temp.runID <- paste0("positive", "_degExp_", params[2], "_omega_",3,"_mu_",params[1],"_",temp.fname)
   final.inputs <- readRDS(file.path(base.path,"Positive_inputs.rds"))
-  cat("Running PCSF with mu =", params[1], "degExp =", params[2], "omega =", params[3], "\n")
+  cat("Running PCSF with mu =", params[1], "degExp =", params[2], "omega =", 3, "\n")
   pcsf.result <- computeProteinNetwork_BG(final.inputs, 
                                               betas = c(5,11,6), 
-                                              mu = params[1], w = params[3],
+                                              mu = params[1], w = 3,
                                               deg.exp = params[2],
                                               fname = temp.runID)
+  cat("Processing output\n")
   all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, c(5,11,6), params[1],
-                         params[3], getwd(), deg.exp = params[2])
+                         3, getwd(), deg.exp = params[2], temp.fname = temp.runID)
+  cat("Getting result\n")
   rankSummary <- getPCSFResults(all.dfs)
   
   #diffEqTF <- optComparison(c(5,11,6,params), comparison = c("Transcription_factor", "Kinase"))
   #diffEqCorr <- optComparison(c(5,11,6,params), comparison = c("Protein", "Kinase"))
-  cat("Results:", -(1-rankSummary$perc.term),"terminals used,\n",
-      rankSummary$degree.diff,"absDiff in sum of degrees,\n",
+  cat("Results:", rankSummary$perc.term,"%terminals used,\n",
+      rankSummary$degree.diff,"absDiff in sum of degrees\n"
+      #,
       #diffEqTF, "absDiff in kinase & TF prizes,\n",
       #diffEqCorr,"absDiff in corr & TF prizes,\n",
-      rankSummary$q24, "chr8q24 enrichment strength\n")
-  return(c(rankSummary$perc.term, rankSummary$degree.diff, 
+      #rankSummary$q24, "chr8q24 enrichment strength\n"
+      )
+  return(c((100-rankSummary$perc.term), rankSummary$degree.diff
+           #, 
            #diffEqTF, diffEqCorr, 
-           rankSummary$q24))
+           #rankSummary$q24
+           ))
 }
-mode.vals <- c(1E-3,1,3)
+mode.vals <- c(1E-3,1)
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed")
 optim.soe <- nleqslv::nleqslv(mode.vals, soe_steiner, control=list("allowSingular"=TRUE))
-optim.test.soe$message # 'Function criterion near zero.' Convergence of function values has been achieved.
-mode.vals <- optim.test.soe$x # 0.4573098 0.5565161
-optim.test.soe$termcd # 1
-optim.test.soe$scalex # 1 1
-optim.test.soe$nfcnt # 1
-optim.test.soe$njcnt # 1
-optim.test.soe.b$iter # 1
+optim.soe$message # "No better point found (algorithm has stalled)"
+optim.soe$fvec # -4.166667 1072.000000 (corresponding to 4.166667% terminals used, 1072 absDiff in sum of degrees)
+mode.vals <- optim.soe$x # 1E-3 1
+optim.soe$termcd # 3
+optim.soe$scalex # 1 1
+optim.soe$nfcnt # 1
+optim.soe$njcnt # 1
+optim.soe$iter # 1
 
-optim.test.soe2 <- nleqslv::nleqslv(mode.vals, soe_steiner, control=list("allowSingular"=TRUE))
-optim.test.soe2$message # 'Function criterion near zero.' Convergence of function values has been achieved.
-mode.vals <- optim.test.soe2$x # 0.4573098 0.5565161
-optim.test.soe2$termcd # 1
-optim.test.soe2$scalex # 1 1
-optim.test.soe2$nfcnt # 0
-optim.test.soe2$njcnt # 0
-optim.test.soe2$iter # 0
+optim.soe <- nleqslv::nleqslv(mode.vals, soe_steiner, control=list("allowSingular"=TRUE))
+optim.soe$message # "x-values within tolerance 'xtol'"
+optim.soe$fvec # -4.166667 1058.000000 (corresponding to 4.166667% terminals used, 1072 absDiff in sum of degrees)
+mode.vals <- optim.soe$x # 1E-3 1
+optim.soe$termcd # 2
+optim.soe$scalex # 1 1
+optim.soe$nfcnt # 1
+optim.soe$njcnt # 1
+optim.soe$iter # 1
+
+# after changing from -perc.term to 100-perc.term
+optim.soe <- nleqslv::nleqslv(mode.vals, soe_steiner, control=list("allowSingular"=TRUE))
+optim.soe$message # "x-values within tolerance 'xtol'"
+optim.soe$fvec # 95.83333 1062.00000
+mode.vals <- optim.soe$x # 1E-3 1
+optim.soe$termcd # 2
+optim.soe$scalex # 1 1
+optim.soe$nfcnt # 1
+optim.soe$njcnt # 1
+optim.soe$iter # 1
+
+mode.vals <- c(100, 23)
+optim.soe <- nleqslv::nleqslv(mode.vals, soe_steiner, control=list("allowSingular"=TRUE))
+optim.soe$message # "No better point found (algorithm has stalled)"
+optim.soe$fvec # 95.83333 564.00000
+mode.vals <- optim.soe$x # 1E-3 1
+optim.soe$termcd # 3
+optim.soe$scalex # 1 1
+optim.soe$nfcnt # 1
+optim.soe$njcnt # 1
+optim.soe$iter # 1
+
+# try just optimizing mu
+soe_mu <- function(params) {
+  base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed"
+  all.dfs <- list(data.frame(), data.frame(), data.frame(), data.frame(),
+                  data.frame(), data.frame())
+  temp.fname <- paste0("beta_TF_", 5, "_prot_", 11, "_kin_", 6)
+  temp.runID <- paste0("positive", "_degExp_", 23, "_omega_",3,"_mu_",params,"_",temp.fname)
+  final.inputs <- readRDS(file.path(base.path,"Positive_inputs.rds"))
+  cat("Running PCSF with mu =", params, "degExp =", 23, "omega =", 3, "\n")
+  pcsf.result <- computeProteinNetwork_BG(final.inputs, 
+                                          betas = c(5,11,6), 
+                                          mu = params, w = 3,
+                                          deg.exp = 23,
+                                          fname = temp.runID)
+  cat("Processing output\n")
+  all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, c(5,11,6), params,
+                         3, getwd(), deg.exp = 23, temp.fname = temp.runID)
+  cat("Getting result\n")
+  rankSummary <- getPCSFResults(all.dfs)
+  
+  #diffEqTF <- optComparison(c(5,11,6,params), comparison = c("Transcription_factor", "Kinase"))
+  #diffEqCorr <- optComparison(c(5,11,6,params), comparison = c("Protein", "Kinase"))
+  cat("Results:", rankSummary$perc.term,"%terminals used,\n",
+      rankSummary$degree.diff,"absDiff in sum of degrees\n"
+      #,
+      #diffEqTF, "absDiff in kinase & TF prizes,\n",
+      #diffEqCorr,"absDiff in corr & TF prizes,\n",
+      #rankSummary$q24, "chr8q24 enrichment strength\n"
+  )
+  return((100-rankSummary$perc.term))
+}
+#top.limit = 1E90
+optim.test <- optim(1E6, soe_mu, hessian = TRUE)
+# $par
+# [1] 1e+06
+# 
+# $value
+# [1] 95.83333
+# 
+# $counts
+# function gradient 
+# 2       NA 
+# 
+# $convergence
+# [1] 0
+# 
+# $message
+# NULL
+# 
+# $hessian
+# [,1]
+# [1,]    0
+
+top.limit = 1E90
+optim.test <- optim(1E6, soe_mu, method = "Brent", lower = 0, 
+                            upper = top.limit, hessian = TRUE) 
+# taking a long time and approaching limit
+
+soe_n <- function(params) {
+  base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed"
+  all.dfs <- list(data.frame(), data.frame(), data.frame(), data.frame(),
+                  data.frame(), data.frame())
+  temp.fname <- paste0("beta_TF_", 5, "_prot_", 11, "_kin_", 6)
+  temp.runID <- paste0("positive", "_degExp_", params, "_omega_",3,"_mu_",1,"_",temp.fname)
+  final.inputs <- readRDS(file.path(base.path,"Positive_inputs.rds"))
+  cat("Running PCSF with mu =", 1, "degExp =", params, "omega =", 3, "\n")
+  pcsf.result <- computeProteinNetwork_BG(final.inputs, 
+                                          betas = c(5,11,6), 
+                                          mu = 1, w = 3,
+                                          deg.exp = params,
+                                          fname = temp.runID)
+  cat("Processing output\n")
+  all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, c(5,11,6), 1,
+                         3, getwd(), deg.exp = params, temp.fname = temp.runID)
+  cat("Getting result\n")
+  rankSummary <- getPCSFResults(all.dfs)
+  
+  #diffEqTF <- optComparison(c(5,11,6,params), comparison = c("Transcription_factor", "Kinase"))
+  #diffEqCorr <- optComparison(c(5,11,6,params), comparison = c("Protein", "Kinase"))
+  cat("Results:", rankSummary$perc.term,"%terminals used,\n",
+      rankSummary$degree.diff,"absDiff in sum of degrees\n"
+      #,
+      #diffEqTF, "absDiff in kinase & TF prizes,\n",
+      #diffEqCorr,"absDiff in corr & TF prizes,\n",
+      #rankSummary$q24, "chr8q24 enrichment strength\n"
+  )
+  return((100-rankSummary$perc.term))
+}
+optim.n <- nleqslv::nleqslv(23, soe_n, control=list("allowSingular"=TRUE))
+optim.n$message # "Jacobian is completely unusable (all zero entries?)"
+optim.n$fvec # 95.83333
+mode.vals <- optim.n$x # 23
+optim.n$termcd # 7
+optim.n$scalex # 1
+optim.n$nfcnt # 0
+optim.n$njcnt # 1
+optim.n$iter # 1
+
+# try optimizing betaProt, mu, n
+soe_final <- function(params) {
+  base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed"
+  all.dfs <- list(data.frame(), data.frame(), data.frame(), data.frame(),
+                  data.frame(), data.frame())
+  betaTF <- 0.4573098*params[1]
+  betaKin <- 0.5565161*params[1]
+  temp.fname <- paste0("beta_TF_", betaTF, "_prot_", params[1], "_kin_", betaKin)
+  temp.runID <- paste0("positive", "_degExp_", params[3], "_omega_",3,"_mu_",params[2],"_",temp.fname)
+  final.inputs <- readRDS(file.path(base.path,"Positive_inputs.rds"))
+  cat("Running PCSF with betaProt =", params[1], "mu =", params[2], "degExp =", params[3], "\n")
+  pcsf.result <- computeProteinNetwork_BG(final.inputs, 
+                                          betas = c(betaTF,params[1],betaKin), 
+                                          mu = params[2], w = 3,
+                                          deg.exp = params[3],
+                                          fname = temp.runID)
+  cat("Processing output\n")
+  all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, c(betaTF,params[1],betaKin), params[2],
+                         3, getwd(), deg.exp = params[3], temp.fname = temp.runID)
+  cat("Getting result\n")
+  rankSummary <- getPCSFResults(all.dfs)
+  if (is.null(rankSummary$q24)) {rankSummary$q24 <- 1}
+  
+  #diffEqTF <- optComparison(c(5,11,6,params), comparison = c("Transcription_factor", "Kinase"))
+  #diffEqCorr <- optComparison(c(5,11,6,params), comparison = c("Protein", "Kinase"))
+  cat("Results:", rankSummary$perc.term,"%terminals used,\n",
+      rankSummary$degree.diff,"absDiff in sum of degrees\n",
+      #diffEqTF, "absDiff in kinase & TF prizes,\n",
+      #diffEqCorr,"absDiff in corr & TF prizes,\n",
+      rankSummary$q24, "chr8q24 enrichment strength\n"
+  )
+  return(c((100-rankSummary$perc.term), rankSummary$degree.diff, 
+           100*rankSummary$q24))
+}
+mode.vals <- c(1E3, 1E3, 1E3)
+optim.n <- nleqslv::nleqslv(mode.vals, soe_final, control=list("allowSingular"=TRUE))
+
+optim.n$message # "No better point found (algorithm has stalled)"
+optim.n$fvec # 95.83333 562.00000 100.00000
+mode.vals <- optim.n$x # 23
+optim.n$termcd # 3
+optim.n$scalex # 1 1 1
+optim.n$nfcnt # 1
+optim.n$njcnt # 1
+optim.n$iter # 1
+
+
+#### plot all results ####
+library(patchwork)
+
+### node degrees (steiner vs. terminal) for each parameter setting
+node.types <- dplyr::distinct(all.vertices[,c("name", "type", "Direction", "runID")])
+node.types$runID2 <- sub(".*tive_degExp_1_","",node.types$runID)
+degree.info <- merge(node.types, dplyr::distinct(all.centrality[,c("name","runID","degree")]), by=c("name","runID"))
+library(plyr)
+degree.summary <- plyr::ddply(degree.info, .(type, runID2), summarize,
+                            degree_sum = sum(degree))
+
+### heatmap of nodes in vs. out clustered with parameter setting information
+# convert to wide
+temp.nodes <- all.vertices
+temp.nodes$Included <- 1
+temp.nodes$runID2 <- sub(".*tive_degExp_1_","",temp.nodes$runID)
+temp.nodes <- reshape2::dcast(temp.nodes, 
+                              name ~ runID2, mean, value.var = "Included", fill = 0)
+rownames(temp.nodes) <- temp.nodes$name
+temp.nodes <- temp.nodes[,order(colnames(temp.nodes))]
+#temp.nodes <- temp.nodes %>% mutate_if(is.character, as.numeric) %>% select_if(colSums(.) != 0)
+#temp.nodes <- temp.nodes[,colSums(temp.nodes) > 0]
+node.mat <- as.matrix(temp.nodes[,2:ncol(temp.nodes)])
+node.mat <- node.mat[,colSums(node.mat) > 0]
+
+# temp.heatmap <- pheatmap::pheatmap(node.mat, color = c("white","black"),
+#                                     cluster_rows = FALSE, cluster_cols = FALSE,
+#                                     scale = "row", annotation_col = dplyr::distinct(node.types[,c("name","type")]), 
+#                                     angle_col = "45", show_colnames = TRUE,
+#                                     fontsize = 6) 
+# Error in check.length("fill") : 
+#   'gpar' element 'fill' must not be length 0
+
+### % of terminal nodes included in output for each parameter setting
+perc.term <- plyr::ddply(node.types, .(Direction, runID2), summarize,
+                         N_terminal = length(unique(name[type == "Terminal"])))
+N.pos.inputs <- nrow(global.result[global.result$Spearman.est > 0,]) # 264
+N.neg.inputs <- nrow(global.result[global.result$Spearman.est < 0,]) # 441
+perc.term$N_inputs <- N.neg.inputs
+perc.term[perc.term$Direction == "positive",]$N_inputs <- N.pos.inputs
+perc.term$percent_terminal <- perc.term$N_terminal * 100 / perc.term$N_inputs
+
+### chr8q24 enrichment plot - expect negative NES because highest prize would be at bottom of list even though unweighted calculation
+# is the score still affected by input order in unweighted GSEA? yes, well mostly affected by prize (i.e., rank metric) then input order
+# this paper uses betweenness centrality to rank nodes: https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2021.577623/full
+temp.8q24 <- enr.8q24[enr.8q24$Feature_set == "chr8q24" & enr.8q24$minPerSet == 6,]
+if (nrow(temp.8q24) > 0) {
+  if (any(temp.8q24$FDR_q_value == 0)) {
+    temp.8q24[temp.8q24$FDR_q_value == 0,]$FDR_q_value <- 1E-4
+  }
+  temp.8q24$chr8q24 <- rank(-log(temp.8q24$FDR_q_value, 10) * temp.8q24$NES)
+  temp.8q24$runID2 <- sub(".*tive_degExp_1_","",temp.8q24$runID)
+}
+
+### mean rank (min NES for chr8q24, min diff in node degrees, max percent terminal) - could maybe specify SUMO1, other general nodes to exclude
+rank.df <- data.frame(runID2 = perc.term$runID2,
+                      #chr8q24 = rank(-log(temp.8q24$FDR_q_value, 10) * temp.8q24$NES),
+                      degree_diff = rank(abs(degree.summary[degree.summary$type == "Steiner",]$degree_sum - 
+                                               degree.summary[degree.summary$type == "Terminal",]$degree_sum)),
+                      perc_terminal = rank(100-perc.term$percent_terminal))
+if (nrow(temp.8q24) > 0) {
+  rank.df <- merge(temp.8q24[,c("runID2", "chr8q24")], rank.df, by="runID2")
+  rank.summary <- plyr::ddply(rank.df, .(runID2), summarize,
+                              chr8q24 = mean(chr8q24, na.rm = TRUE),
+                              degree_diff = mean(degree_diff, na.rm = TRUE),
+                              perc_terminal = mean(perc_terminal, na.rm = TRUE),
+                              rank = mean(c(chr8q24, degree_diff, perc_terminal), na.rm=TRUE))
+} else {
+  rank.summary <- plyr::ddply(rank.df, .(runID2), summarize,
+                              degree_diff = mean(degree_diff, na.rm = TRUE),
+                              perc_terminal = mean(perc_terminal, na.rm = TRUE),
+                              rank = mean(c(degree_diff, perc_terminal), na.rm = TRUE)) 
+}
+runOrder <- rank.summary[order(rank.summary$rank),]$runID2
+rank.summary <- reshape2::melt(rank.summary, id = "runID2", variable.name = "Parameter")
+
+rank.plot <- ggplot2::ggplot(rank.summary, 
+                             aes(x = runID2, y = value, group = Parameter, 
+                                 color = Parameter)) +
+  geom_line() + ylab("Rank") + theme_classic() +
+  scale_color_discrete(labels=c("chr8q24\nenrichment", "difference\nin degree","% terminal\nnodes used","overall"))+
+  ggplot2::scale_x_discrete(limits = runOrder) +
+  theme(axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+rank.plot
+
+### create plots now that runID overall ranks are known
+# create line plot of node degrees vs. runID
+#runOrder <- sort(unique(rank.summary$runID))
+deg.plot <- ggplot2::ggplot(degree.summary, aes(x = runID2, y = degree_sum, group = type, color = type)) +
+  geom_line() + ylab("Sum of Node Degrees") + theme_classic() + 
+  ggplot2::scale_x_discrete(limits = runOrder) +
+  labs(color="Node Type")+
+  theme(axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+deg.plot
+
+# percent terminal nodes used
+perc.plot <- ggplot2::ggplot(perc.term, aes(x = runID2, y = percent_terminal, group = 1)) +
+  geom_line() + ylab("% Terminal Nodes") + theme_classic() + 
+  ggplot2::scale_x_discrete(limits = runOrder)+
+  theme(axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+perc.plot
+
+# chr8q24 enrichment
+if (nrow(temp.8q24) > 0) {
+  temp.8q24$sig <- FALSE
+  temp.8q24[temp.8q24$p_value <= 0.05 & temp.8q24$FDR_q_value<=0.25,]$sig <- TRUE
+  maxAbsNES <- max(abs(temp.8q24$NES))
+  chr8.plot <- ggplot2::ggplot(temp.8q24,
+                               aes(x = runID2, y = Direction, 
+                                   size = -log(FDR_q_value, base = 10),
+                                   color = NES, na.rm=TRUE)) + ggplot2::geom_point() +
+    scale_color_gradient2(low="blue",high="red", limits=c(-maxAbsNES, maxAbsNES)) + theme_classic() +
+    ggplot2::labs(color = "chr8q24 NES", size = "-log(FDR)") + 
+    ggplot2::scale_x_discrete(limits = runOrder) +
+    theme(axis.title.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.x = element_blank()) +
+    geom_point(data = subset(temp.8q24, sig), col = "black", stroke = 1.5, shape = 21)
+  chr8.plot
+}
+
+### parameter info
+param.info <- dplyr::distinct(all.vertices[,c("omega", "mu", "betaProt", "runID")])
+param.info$runID2 <- sub(".*tive_degExp_1_","",param.info$runID)
+param.info <- dplyr::distinct(param.info[,c("runID2","omega","mu","betaProt")])
+colnames(param.info)[4] <- "beta"
+param.info <- reshape2::melt(param.info, id = "runID2", variable.name = "parameter")
+# inspired by: https://r-graph-gallery.com/79-levelplot-with-ggplot2.html
+param.info$value <- as.numeric(param.info$value)
+params <- unique(param.info$parameter)
+temp.param.info <- param.info[param.info$parameter == params[1],]
+maxParam <- max(temp.param.info$value)
+minParam <- min(temp.param.info$value)
+temp.param.info$Value <- ""
+temp.param.info[temp.param.info$value == maxParam,]$Value <- "High"
+temp.param.info[temp.param.info$value == minParam,]$Value <- "Low"
+param.plot <- ggplot2::ggplot(temp.param.info, aes(x=runID2, y = parameter, fill = Value)) +
+  geom_tile() + scale_fill_manual(breaks=c("High","","Low"),values=c("black","grey","white")) + theme_classic() + 
+  ylab(element_blank()) + xlab(element_blank()) + 
+  ggplot2::scale_x_discrete(limits = runOrder) +
+  theme(axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())#+ 
+  #scale_fill_discrete(labels=c("Low", "High"))
+param.plot
+library(patchwork)
+for (i in params[2:length(params)]) {
+  temp.param.info <- na.omit(param.info[param.info$parameter == i,])
+  if (nrow(temp.param.info) > 0) {
+    maxParam <- max(temp.param.info$value)
+    minParam <- min(temp.param.info$value)
+    temp.param.info$Value <- ""
+    temp.param.info[temp.param.info$value == maxParam,]$Value <- "High"
+    temp.param.info[temp.param.info$value == minParam,]$Value <- "Low"
+    
+    param.plot <- param.plot / (ggplot2::ggplot(temp.param.info, aes(x=runID2, y = parameter, fill = Value)) +
+                                  geom_tile() + scale_fill_manual(breaks=c("High","","Low"),values=c("black","grey","white")) +
+                                  theme_classic() + ylab(element_blank()) + xlab(element_blank()) +
+                                  theme(legend.position = "none") + 
+                                  ggplot2::scale_x_discrete(limits = runOrder)) +
+      theme(axis.title.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.text.x = element_blank()) 
+  }
+}
+param.plot
+source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/guides_build_mod.R")
+param.plot <- param.plot + plot_layout(guides = 'collect')
+param.plot
+
+### combine plots
+library(patchwork)
+if (nrow(temp.8q24) > 0) {
+  combo.plot <- rank.plot / deg.plot / perc.plot / chr8.plot / param.plot
+} else {
+  combo.plot <- rank.plot / perc.plot / deg.plot / param.plot
+}
+combo.plot
+ggplot2::ggsave(paste0("parameter_sweep_",Sys.Date(),".pdf"), combo.plot, width = 6, height = 16)
+saveRDS(combo.plot, paste0("parameter_sweep_",Sys.Date(),".rds"))
+
+#### plot all results - wo chr8q24, heatmap ####
+library(patchwork)
+
+### node degrees (steiner vs. terminal) for each parameter setting
+node.types <- dplyr::distinct(all.vertices[,c("name", "type", "Direction", "runID")])
+node.types$runID2 <- sub(".*tive_degExp_1_","",node.types$runID)
+degree.info <- merge(node.types, dplyr::distinct(all.centrality[,c("name","runID","degree")]), by=c("name","runID"))
+library(plyr)
+degree.summary <- plyr::ddply(degree.info, .(type, runID2), summarize,
+                              degree_sum = sum(degree))
+
+### % of terminal nodes included in output for each parameter setting
+perc.term <- plyr::ddply(node.types, .(Direction, runID2), summarize,
+                         N_terminal = length(unique(name[type == "Terminal"])))
+N.pos.inputs <- nrow(global.result[global.result$Spearman.est > 0,]) # 264
+N.neg.inputs <- nrow(global.result[global.result$Spearman.est < 0,]) # 441
+perc.term$N_inputs <- N.neg.inputs
+perc.term[perc.term$Direction == "positive",]$N_inputs <- N.pos.inputs
+perc.term$percent_terminal <- perc.term$N_terminal * 100 / perc.term$N_inputs
+
+### mean rank (min NES for chr8q24, min diff in node degrees, max percent terminal) - could maybe specify SUMO1, other general nodes to exclude
+rank.df <- data.frame(runID2 = perc.term$runID2,
+                      degree_diff = rank(abs(degree.summary[degree.summary$type == "Steiner",]$degree_sum - 
+                                               degree.summary[degree.summary$type == "Terminal",]$degree_sum)),
+                      perc_terminal = rank(100-perc.term$percent_terminal))
+rank.summary <- plyr::ddply(rank.df, .(runID2), summarize,
+                            degree_diff = mean(degree_diff, na.rm = TRUE),
+                            perc_terminal = mean(perc_terminal, na.rm = TRUE),
+                            rank = mean(c(degree_diff, perc_terminal), na.rm = TRUE)) 
+runOrder <- rank.summary[order(rank.summary$rank),]$runID2
+rank.summary <- reshape2::melt(rank.summary, id = "runID2", variable.name = "Metric")
+rank.summary$Metric <- factor(rank.summary$Metric, levels=c("rank","degree_diff","perc_terminal"))
+# make sure levels, labels for rank.plot, and order of plots in patchwork match
+rank.plot <- ggplot2::ggplot(rank.summary, 
+                             aes(x = runID2, y = value, group = Metric, 
+                                 color = Metric)) +
+  geom_line() + ylab("Rank") + theme_classic() +
+  scale_color_discrete(labels=c("Overall","Difference\nin degree","% terminal\nnodes used"))+
+  ggplot2::scale_x_discrete(limits = runOrder) +
+  theme(axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+rank.plot
+
+### create plots now that runID overall ranks are known
+# create line plot of node degrees vs. runID
+#runOrder <- sort(unique(rank.summary$runID))
+deg.plot <- ggplot2::ggplot(degree.summary, aes(x = runID2, y = degree_sum, group = type, color = type)) +
+  geom_line() + ylab("Sum of Node Degrees") + theme_classic() + 
+  ggplot2::scale_x_discrete(limits = runOrder) +
+  labs(color="Node Type")+
+  theme(axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+deg.plot
+
+# percent terminal nodes used
+perc.plot <- ggplot2::ggplot(perc.term, aes(x = runID2, y = percent_terminal, group = 1)) +
+  geom_line() + ylab("% Terminal Nodes") + theme_classic() + 
+  ggplot2::scale_x_discrete(limits = runOrder)+
+  theme(axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+perc.plot
+
+### parameter info
+param.info <- dplyr::distinct(all.vertices[,c("omega", "mu", "betaProt", "runID")])
+param.info$runID2 <- sub(".*tive_degExp_1_","",param.info$runID)
+param.info <- dplyr::distinct(param.info[,c("runID2","omega","mu","betaProt")])
+colnames(param.info)[4] <- "beta"
+param.info <- reshape2::melt(param.info, id = "runID2", variable.name = "parameter")
+# inspired by: https://r-graph-gallery.com/79-levelplot-with-ggplot2.html
+param.info$value <- as.numeric(param.info$value)
+params <- unique(param.info$parameter)
+temp.param.info <- param.info[param.info$parameter == params[1],]
+maxParam <- max(temp.param.info$value)
+minParam <- min(temp.param.info$value)
+temp.param.info$Value <- ""
+temp.param.info[temp.param.info$value == maxParam,]$Value <- "High"
+temp.param.info[temp.param.info$value == minParam,]$Value <- "Low"
+param.plot <- ggplot2::ggplot(temp.param.info, aes(x=runID2, y = parameter, fill = Value)) +
+  geom_tile() + scale_fill_manual(breaks=c("High","","Low"),values=c("black","grey","white")) + theme_classic() + 
+  ylab(element_blank()) + xlab(element_blank()) + 
+  ggplot2::scale_x_discrete(limits = runOrder) +
+  theme(axis.title.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())#+ 
+#scale_fill_discrete(labels=c("Low", "High"))
+param.plot
+library(patchwork)
+for (i in params[2:length(params)]) {
+  temp.param.info <- na.omit(param.info[param.info$parameter == i,])
+  if (nrow(temp.param.info) > 0) {
+    maxParam <- max(temp.param.info$value)
+    minParam <- min(temp.param.info$value)
+    temp.param.info$Value <- ""
+    temp.param.info[temp.param.info$value == maxParam,]$Value <- "High"
+    temp.param.info[temp.param.info$value == minParam,]$Value <- "Low"
+    
+    param.plot <- param.plot / (ggplot2::ggplot(temp.param.info, aes(x=runID2, y = parameter, fill = Value)) +
+                                  geom_tile() + scale_fill_manual(breaks=c("High","","Low"),values=c("black","grey","white")) +
+                                  theme_classic() + ylab(element_blank()) + xlab(element_blank()) +
+                                  theme(legend.position = "none") + 
+                                  ggplot2::scale_x_discrete(limits = runOrder)) +
+      theme(axis.title.x = element_blank(),
+            axis.ticks.x = element_blank(),
+            axis.text.x = element_blank()) 
+  }
+}
+param.plot
+source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/guides_build_mod.R")
+param.plot <- param.plot + plot_layout(guides = 'collect')
+param.plot
+
+### combine plots
+library(patchwork)
+combo.plot <- rank.plot / deg.plot / perc.plot / param.plot
+combo.plot
+ggplot2::ggsave(paste0("parameter_sweep_woChr8q24Ranks_",Sys.Date(),".pdf"), combo.plot, width = 4, height = 7)
+saveRDS(combo.plot, paste0("parameter_sweep_woChr8q24Ranks_",Sys.Date(),".rds"))
+write.csv(perc.term,"PercentTerminalNodesUsed.csv", row.names = FALSE)
+write.csv(degree.summary,"NodeTypeDegrees.csv", row.names = FALSE)
+write.csv(rank.summary,"Ranks.csv", row.names = FALSE)
+write.csv(rank.df,"Rank_info.csv", row.names = FALSE)
+selectedRun <- runOrder[1] # "omega_3_mu_0.001_beta_prot_10"
+selectedRun <- "omega_2_mu_1e-05_beta_prot_10"
+runIDs <- paste0(c("positive_degExp_1_", "negative_degExp_1_"), selectedRun)
+selectedCentrality <- all.centrality[all.centrality$runID %in% runIDs,]
+selectedEdges <- all.edges[all.edges$runID %in% runIDs,]
+selectedVertices <- all.vertices[all.vertices$runID %in% runIDs,]
+selectedq24 <- temp.8q24[temp.8q24$runID %in% runIDs,] # 0 rows
+write.csv(selectedCentrality, "centrality_optimalRun.csv", row.names = FALSE)
+write.csv(selectedEdges, "edges_optimalRun.csv", row.names = FALSE)
+write.csv(selectedVertices, "vertices_optimalRun.csv", row.names = FALSE)
+directions <- c("positive","negative")
+for (j in directions) {
+  temp.centr <- selectedCentrality[grepl(j,selectedCentrality$runID),]
+  temp.vert <- selectedVertices[grepl(j, selectedVertices$runID),]
+  temp.edges <- selectedEdges[grepl(j, selectedEdges$runID),]
+  write.csv(selectedCentrality, paste0("centrality_optimalRun_",j,".csv"), row.names = FALSE)
+  write.csv(selectedEdges, paste0("edges_optimalRun_",j,".csv"), row.names = FALSE)
+  write.csv(selectedVertices, paste0("vertices_optimalRun_",j,".csv"), row.names = FALSE)
+}
+
+library(openxlsx)
+Sheet <- c("Analysis", "Vertices", "Edges")
+all.vertices$betaKin <- NULL
+all.vertices$betaTF <- NULL
+colnames(all.vertices)[3] <- "outputPrize"
+colnames(all.vertices)[9] <- "beta"
+
+all.edges$betaKin <- NULL
+all.edges$betaTF <- NULL
+colnames(all.edges)[7] <- "beta"
+
+readme <- data.frame(Sheet)
+readme$Description <- c("Network analysis including node degree, closeness, betweenness, eigen centrality, hub score, and authority score",
+                        "Information about nodes including frequency in Prize Collecting Steiner Forest randomization, output prize, input prize, and node type",
+                        "Information about edges including weight")
+full.list <- list(readme, all.centrality, all.vertices, all.edges)
+names(full.list) <- c("README", Sheet)
+openxlsx::write.xlsx(full.list, file="SupplementaryTable5_NetworkOptimization.xlsx", rowNames=FALSE)
+
+
+selectedRun <- runOrder[1] # "omega_3_mu_0.001_beta_prot_10"
+selectedRun <- "omega_2_mu_1e-05_beta_prot_10"
+runIDs <- paste0(c("positive_degExp_1_", "negative_degExp_1_"), selectedRun)
+selectedCentrality <- all.centrality[all.centrality$runID %in% runIDs,]
+selectedEdges <- all.edges[all.edges$runID %in% runIDs,]
+selectedVertices <- all.vertices[all.vertices$runID %in% runIDs,]
+#selectedq24 <- temp.8q24[temp.8q24$runID %in% runIDs,] # 0 rows
+sel.list <- list(readme, selectedCentrality, selectedVertices, selectedEdges)
+names(sel.list) <- c("README", Sheet)
+openxlsx::write.xlsx(sel.list, file="SupplementaryTable6_OptimizedNetworks.xlsx", rowNames=FALSE)
+
+library(igraph)
+pos.graph <- igraph::read_graph("positive/degExp_1/mu_1e-05/omega_2/beta_prot_10.gml", format="gml")
+plot(pos.graph)
+temp.fname <- "positive/degExp_1/mu_1e-05/omega_2/beta_prot_10"
+webshot(paste0(temp.fname,".html"), paste0(temp.fname,".pdf"))
+temp.fname <- "negative/degExp_1/mu_1e-05/omega_2/beta_prot_10"
+webshot(paste0(temp.fname,".html"), paste0(temp.fname,".pdf"))
+
+# maybe networks are too big - reduce to top 10-15 nodes by eigen centrality
+#install.packages("BiocManager")
+BiocManager::install("RCy3")
+library(RCy3)
+nTop.list <- c(15,10)
+nTop.list <- 5
+for (nTop in nTop.list) {
+  for (j in directions) {
+    topGenes <- selectedCentrality[grepl(j, selectedCentrality$runID),] %>% 
+      slice_max(eigen_centrality,n=nTop) # or maybe 2% but different # of nodes (862 positive, 1219 negative)
+    # topVert <- selectedVertices[selectedVertices$Direction ==j & 
+    #                               selectedVertices$name %in% topGenes$name,]
+    tempEdges <- selectedEdges[selectedEdges$Direction==j & 
+                                 (selectedEdges$to %in% topGenes$name | 
+                                    selectedEdges$from %in% topGenes$name),]
+    tempGenes <- unique(c(tempEdges$to, tempEdges$from)) # 74
+    tempVert <- selectedVertices[selectedVertices$Direction ==j & 
+                                   selectedVertices$name %in% tempGenes,]
+    cat(j,"network has", nrow(tempVert), "nodes and", nrow(tempEdges), "edges from top", nTop, "central nodes")
+    topGraph <- igraph::graph_from_data_frame(tempEdges, directed=FALSE, vertices=tempVert)
+    plot(topGraph)
+    tempTitle <- paste0(j, "_", nTop,"_topCentralNodes")
+    RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+  } 
+}
