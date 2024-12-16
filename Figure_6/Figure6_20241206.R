@@ -407,7 +407,7 @@ tf.genes <- plyr::ddply(tf.genes, .(Feature_set), summarize,
                         Targets = paste0(unique(Target), collapse = " "))
 tf$Rank <- rank(tf$NES)
 bestRank <- max(tf$Rank)
-bestRankTF <- max(tf2$Rank)
+bestRankTF <- max(tf$Rank)
 tf$BestRank <- FALSE
 tf[tf$Rank == bestRank,]$BestRank <- TRUE
 tf2 <- merge(tf, tf.genes, by="Feature_set", all.x = TRUE)
@@ -532,6 +532,9 @@ percScores[,c("Correlation", "GSEA", "TF", "TFT", "Kinase", "Substrate", "Networ
              "Drug", "DMEA","MeanPerc","nPerc","nBestPerc")] <- NA
 percScores$BestPercs <- ""
 #scores[,c("Correlation", "TF", "Kinase", "Network")] <- NA
+nScores <- data.frame(Target)
+nScores[,c("Correlation", "GSEA", "TF", "TFT", "Kinase", "Substrate", "Network", 
+           "Drug", "DMEA","MeanPerc","nPerc","nBestPerc")] <- NA
 for (i in 1:length(Target)) {
   runningScore <- 0
   nRankVals <- 0
@@ -560,6 +563,7 @@ for (i in 1:length(Target)) {
     scores$Correlation[i] <- paste0(tempTypes, " | ", tempScores, " | ", tempRanks)
     sumScores$Correlation[i] <- tempSumRanks
     percScores$Correlation[i] <- tempPerc
+    nScores$Correlation[i] <- nrow(tempCorr)
   }
   
   # GSEA
@@ -585,6 +589,7 @@ for (i in 1:length(Target)) {
     scores$GSEA[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempRanks)
     sumScores$GSEA[i] <- tempSumRanks
     percScores$GSEA[i] <- tempPerc
+    nScores$GSEA[i] <- nrow(tempGSEA)
   }
   
   # TF
@@ -608,6 +613,7 @@ for (i in 1:length(Target)) {
     scores$TF[i] <- paste0(tempScores, " | ", tempRanks)
     sumScores$TF[i] <- tempSumRanks
     percScores$TF[i] <- tempPerc
+    nScores$TF[i] <- nrow(tempGSEA)
   }
   
   # TFT
@@ -633,6 +639,7 @@ for (i in 1:length(Target)) {
     scores$TFT[i] <- paste0(tempSets, " | ", tempScores, " | ", tempRanks)
     sumScores$TFT[i] <- tempSumRanks
     percScores$TFT[i] <- tempPerc
+    nScores$TFT[i] <- nrow(tempGSEA)
   }
   
   # Kinase
@@ -656,6 +663,7 @@ for (i in 1:length(Target)) {
     scores$Kinase[i] <- paste0(tempScores, " | ", tempRanks)
     sumScores$Kinase[i] <- tempSumRanks
     percScores$Kinase[i] <- tempPerc
+    nScores$Kinase[i] <- nrow(tempGSEA)
   }
   
   # Substrate
@@ -680,6 +688,7 @@ for (i in 1:length(Target)) {
     scores$Substrate[i] <- paste0(tempSets, " | ", tempScores, " | ", tempRanks)
     sumScores$Substrate[i] <- tempSumRanks
     percScores$Substrate[i] <- tempPerc
+    nScores$Substrate[i] <- nrow(tempGSEA)
   }
   
   # Network
@@ -703,6 +712,7 @@ for (i in 1:length(Target)) {
     scores$Network[i] <- paste0(tempScores, " | ", tempRanks)
     sumScores$Network[i] <- tempSumRanks
     percScores$Network[i] <- tempPerc
+    nScores$Network[i] <- nrow(tempGSEA)
   }
   
   # Drug correlation
@@ -727,6 +737,7 @@ for (i in 1:length(Target)) {
     scores$Drug[i] <- paste0(tempDrugs, " | ", tempScores, " | ", tempRanks)
     sumScores$Drug[i] <- tempSumRanks
     percScores$Drug[i] <- tempPerc
+    nScores$Drug[i] <- nrow(tempGSEA)
   }
   
   # DMEA
@@ -752,6 +763,7 @@ for (i in 1:length(Target)) {
     scores$DMEA[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempRanks)
     sumScores$DMEA[i] <- tempSumRanks
     percScores$DMEA[i] <- tempPerc
+    nScores$DMEA[i] <- nrow(tempGSEA)
   }
   
   # update data frame
@@ -772,13 +784,14 @@ sumScores$nRanks <- scores$nRanks
 sumScores$meanRank <- sumScores$SumRanks/sumScores$nRanks
 percScores$MeanPercTimesN <- percScores$MeanPerc*percScores$nPerc
 percScores$MeanPercTimesN <- percScores$MeanPerc*percScores$nPerc
-write.csv(scores, "Rank_scores.csv", row.names = FALSE)
-write.csv(sumScores, "Rank_score_sums.csv", row.names = FALSE)
-write.csv(percScores, "Percentile_scores.csv", row.names = FALSE)
+write.csv(scores, paste0("Rank_scores_",Sys.Date(),".csv"), row.names = FALSE)
+write.csv(sumScores, paste0("Rank_score_sums_",Sys.Date(),".csv"), row.names = FALSE)
+write.csv(percScores, paste0("Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
+write.csv(nScores, paste0("N_scores_",Sys.Date(),".csv"), row.names = FALSE)
 filtered.percScores <- percScores[percScores$nBestPerc > 0,] # 14
 filtered.percScores <- filtered.percScores[order(-filtered.percScores$MeanPercTimesN),]
 targetOrder <- filtered.percScores$Target
-write.csv(filtered.percScores, "Percentile_scores_min1best.csv", row.names = FALSE)
+write.csv(filtered.percScores, paste0("Percentile_scores_min1best_",Sys.Date(),".csv"), row.names = FALSE)
 filtered.percScores$nBestPerc <- NULL
 filtered.percScores$BestPercs <- NULL
 filtered.percScores <- reshape2::melt(filtered.percScores, id = "Target", variable.name = "Analysis")
@@ -791,18 +804,39 @@ for (i in bestTargets) {
   filtered.percScores[filtered.percScores$Target == i &
                         filtered.percScores$Analysis == sub(" ", "",bestRanks[i]),]$`Top Score` <- TRUE
 }
+
+nScores <- reshape2::melt(nScores, id = "Target", variable.name = "Analysis")
+plot.df <- merge(filtered.percScores, nScores, by=c("Target","Analysis"))
+colnames(plot.df)[3] <- "Mean Percentile"
+colnames(plot.df)[5] <- "N"
+plot.df$`Mean Percentile` <- as.numeric(plot.df$`Mean Percentile`)
+plot.df$N <- as.numeric(plot.df$N)
+plot.df <- na.omit(plot.df)
 # create dot plot to represent filtered.percScores
-dot.plot <- ggplot2::ggplot(filtered.percScores[!(filtered.percScores$Analysis %in% c("MeanPerc","nPerc","MeanPercTimesN")),], 
-                            aes(x = Target, y = Analysis, color = 100*as.numeric(value), size=4)) + 
+dot.plot <- ggplot2::ggplot(plot.df[!(plot.df$Analysis %in% c("MeanPerc","nPerc")),], aes(y = Target, x = Analysis, color = 100*`Mean Percentile`, size=N)) + 
                               ggplot2::geom_point() + scale_color_gradient2(low="white",high="red", limits=c(0, 100)) +
-                              theme_classic() + ggplot2::labs(color = "Mean Percentile") + ggplot2::scale_x_discrete(limits = targetOrder) +
-                              geom_point(data = subset(filtered.percScores, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
-                              theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1),
-                                    #axis.text.x = element_text(angle=90,vjust=0.5),
-                                    #axis.title.x=element_text(angle=180)
-                                    )
+                              theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+  ggplot2::scale_y_discrete(limits = targetOrder) +
+                              geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+                              theme(axis.text.y = element_text(angle = 45, vjust=1, hjust=1),
+                                    axis.text.x = element_text(angle=90,vjust=0.5),
+                                    axis.title.x=element_text(angle=180)
+                                    ) + theme(#legend.position="top", 
+                                              legend.direction="horizontal") + 
+  coord_flip()
 dot.plot
-saveRDS(dot.plot, "Target_dotPlot.rds")
-ggsave("Target_dotPlot.pdf",dot.plot,width=6, height=3)
-saveRDS(dot.plot, "Target_dotPlot_horizontal.rds")
-ggsave("Target_dotPlot_horizontal.pdf",dot.plot,width=6, height=3)
+saveRDS(dot.plot, paste0("Target_dotPlot_",Sys.Date(),".rds"))
+ggsave(paste0("Target_dotPlot_",Sys.Date(),".pdf"),dot.plot,width=6, height=3)
+ggsave(paste0("Target_dotPlot_taller_",Sys.Date(),".pdf"),dot.plot,width=6, height=4)
+ggsave(paste0("Target_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
+
+dot.plot <- ggplot2::ggplot(plot.df[!(plot.df$Analysis %in% c("MeanPerc","nPerc")),], aes(x = Target, y = Analysis, color = 100*`Mean Percentile`, size=N)) + 
+  ggplot2::geom_point() + scale_color_gradient2(low="white",high="red", limits=c(0, 100)) +
+  theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+  ggplot2::scale_x_discrete(limits = targetOrder) +
+  geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)
+  )
+dot.plot
+saveRDS(dot.plot, paste0("Target_dotPlot_horizontal_",Sys.Date(),".rds"))
+ggsave(paste0("Target_dotPlot_horizontal_",Sys.Date(),".pdf"),dot.plot,width=6, height=3)
