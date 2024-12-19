@@ -186,6 +186,91 @@ processPCSF <- function(pcsf.result, all.dfs, temp.runID, betas, mu, omega,
               gsea = all.gsea, vert = all.vertices, q24 = enr.8q24))
 }
 
+redoPosEnr <- function(all.vertices, gmt.pos) {
+  all.runIDs <- unique(all.vertices$runID)
+  all.gsea <- data.frame()
+  enr.8q24 <- data.frame()
+  for (i in all.runIDs) {
+    # prep for GSEA
+    temp.vertices <- all.vertices[all.vertices$runID == i,]
+    temp.vertices <- temp.vertices[order(temp.vertices$frequency),] 
+    
+    # positional enrichment analysis
+    cat("Running GSEA\n")
+    for (q in 6) {
+      pos.enr <- try(panSEA::drugSEA_ties(temp.vertices, 
+                                          gmt = gmt.pos, drug="name", 
+                                          rank.metric="frequency", 
+                                          stat.type="Classic", 
+                                          ties = TRUE,
+                                          min.per.set = q), silent = TRUE)
+      if (!inherits(pos.enr, "try-error")) {
+        colnames(pos.enr$result)[2] <- "Feature_set"
+        
+        # compile GSEA results
+        temp.gsea <- as.data.frame(pos.enr$result)
+        temp.gsea$minPerSet <- q
+        temp.gsea$runID <- i
+        all.gsea <- rbind(all.gsea, temp.gsea)
+        
+        # extract chr8q24 results
+        if ("chr8q24" %in% pos.enr$result$Feature_set) {
+          temp.8q24 <- as.data.frame(pos.enr$result[pos.enr$result$Feature_set == "chr8q24",])
+          temp.8q24$minPerSet <- q
+          temp.8q24$runID <- i
+          enr.8q24 <- rbind(enr.8q24, temp.8q24)
+        }
+      }
+    } 
+  }
+    write.csv(all.gsea,paste0("GSEA_positional_unweighted_",Sys.Date(),".csv"), row.names = FALSE)
+    write.csv(enr.8q24,paste0("chr8q24_enrichment_unweighted_",Sys.Date(),".csv"), row.names = FALSE)
+  return(list(gsea = all.gsea, q24 = enr.8q24))
+}
+redidPosEnr <- redoPosEnr(all.vertices, gmt.pos)
+
+# redoPosEnrCentr <- function(all.centrality, gmt.pos) {
+#   all.runIDs <- unique(all.centrality$runID)
+#   all.gsea <- data.frame()
+#   enr.8q24 <- data.frame()
+#   for (i in all.runIDs) {
+#     # prep for GSEA
+#     temp.centrality <- all.centrality[all.centrality$runID == i,]
+#     temp.centrality <- temp.centrality[-order(temp.centrality$eigen_centrality),] 
+#     
+#     # positional enrichment analysis
+#     cat("Running GSEA\n")
+#     for (q in 6) {
+#       pos.enr <- try(panSEA::drugSEA_ties(temp.centrality, 
+#                                           gmt = gmt.pos, drug="name", 
+#                                           rank.metric="eigen_centrality", ties = TRUE,
+#                                           min.per.set = q), silent = TRUE)
+#       if (!inherits(pos.enr, "try-error")) {
+#         colnames(pos.enr$result)[2] <- "Feature_set"
+#         
+#         # compile GSEA results
+#         temp.gsea <- as.data.frame(pos.enr$result)
+#         temp.gsea$minPerSet <- q
+#         temp.gsea$runID <- i
+#         all.gsea <- rbind(all.gsea, temp.gsea)
+#         
+#         # extract chr8q24 results
+#         if ("chr8q24" %in% pos.enr$result$Feature_set) {
+#           temp.8q24 <- as.data.frame(pos.enr$result[pos.enr$result$Feature_set == "chr8q24",])
+#           temp.8q24$minPerSet <- q
+#           temp.8q24$runID <- i
+#           enr.8q24 <- rbind(enr.8q24, temp.8q24)
+#         }
+#       }
+#     } 
+#   }
+#   write.csv(all.gsea,paste0("GSEA_positional_eigenCentrality_posBetter_",Sys.Date(),".csv"), row.names = FALSE)
+#   write.csv(enr.8q24,paste0("chr8q24_enrichment_eigenCentrality_posBetter_",Sys.Date(),".csv"), row.names = FALSE)
+#   return(list(gsea = all.gsea, q24 = enr.8q24))
+# }
+# redoPosEnrCentrality <- redoPosEnrCentr(all.centrality, gmt.pos)
+# not sure why didn't work
+
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"
 setwd(base.path)
 setwd("Chr8_quant")
@@ -1772,8 +1857,10 @@ node.mat <- node.mat[,colSums(node.mat) > 0]
 ### % of terminal nodes included in output for each parameter setting
 perc.term <- plyr::ddply(node.types, .(Direction, runID2), summarize,
                          N_terminal = length(unique(name[type == "Terminal"])))
-N.pos.inputs <- nrow(global.result[global.result$Spearman.est > 0,]) # 264
-N.neg.inputs <- nrow(global.result[global.result$Spearman.est < 0,]) # 441
+#N.pos.inputs <- nrow(global.result[global.result$Spearman.est > 0,]) # 264
+#N.neg.inputs <- nrow(global.result[global.result$Spearman.est < 0,]) # 441
+N.pos.inputs <- 264
+N.neg.inputs <- 441
 perc.term$N_inputs <- N.neg.inputs
 perc.term[perc.term$Direction == "positive",]$N_inputs <- N.pos.inputs
 perc.term$percent_terminal <- perc.term$N_terminal * 100 / perc.term$N_inputs
@@ -1782,6 +1869,7 @@ perc.term$percent_terminal <- perc.term$N_terminal * 100 / perc.term$N_inputs
 # is the score still affected by input order in unweighted GSEA? yes, well mostly affected by prize (i.e., rank metric) then input order
 # this paper uses betweenness centrality to rank nodes: https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2021.577623/full
 temp.8q24 <- enr.8q24[enr.8q24$Feature_set == "chr8q24" & enr.8q24$minPerSet == 6,]
+temp.8q24 <- read.csv("chr8q24_enrichment_unweighted_2024-12-18.csv")
 if (nrow(temp.8q24) > 0) {
   if (any(temp.8q24$FDR_q_value == 0)) {
     temp.8q24[temp.8q24$FDR_q_value == 0,]$FDR_q_value <- 1E-4
@@ -1839,6 +1927,7 @@ deg.plot
 perc.plot <- ggplot2::ggplot(perc.term, aes(x = runID2, y = percent_terminal, group = 1)) +
   geom_line() + ylab("% Terminal Nodes") + theme_classic() + 
   ggplot2::scale_x_discrete(limits = runOrder)+
+  scale_y_continuous(limits=c(94,97)) +
   theme(axis.title.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.text.x = element_blank())
@@ -1847,13 +1936,18 @@ perc.plot
 # chr8q24 enrichment
 if (nrow(temp.8q24) > 0) {
   temp.8q24$sig <- FALSE
-  temp.8q24[temp.8q24$p_value <= 0.05 & temp.8q24$FDR_q_value<=0.25,]$sig <- TRUE
+  temp.8q24$Direction <- "Negative"
+  temp.8q24[grepl("positive",temp.8q24$runID),]$Direction <- "Positive"
+  #temp.8q24[temp.8q24$p_value <= 0.05 & temp.8q24$FDR_q_value<=0.25,]$sig <- TRUE
+  # if (any(temp.8q24$p_value <= 0.05 & temp.8q24&FDR_q_value <= 0.25)) {
+  #   temp.8q24[temp.8q24$p_value <= 0.05 & temp.8q24$FDR_q_value<=0.25,]$sig <- TRUE
+  # }
   maxAbsNES <- max(abs(temp.8q24$NES))
   chr8.plot <- ggplot2::ggplot(temp.8q24,
                                aes(x = runID2, y = Direction, 
                                    size = -log(FDR_q_value, base = 10),
                                    color = NES, na.rm=TRUE)) + ggplot2::geom_point() +
-    scale_color_gradient2(low="blue",high="red", limits=c(-maxAbsNES, maxAbsNES)) + theme_classic() +
+    scale_color_gradient2(low="blue",high="red", mid="grey",limits=c(-maxAbsNES, maxAbsNES)) + theme_classic() +
     ggplot2::labs(color = "chr8q24 NES", size = "-log(FDR)") + 
     ggplot2::scale_x_discrete(limits = runOrder) +
     theme(axis.title.x = element_blank(),
@@ -1908,7 +2002,7 @@ for (i in params[2:length(params)]) {
   }
 }
 param.plot
-source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/guides_build_mod.R")
+source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 param.plot <- param.plot + plot_layout(guides = 'collect')
 param.plot
 
@@ -1920,8 +2014,8 @@ if (nrow(temp.8q24) > 0) {
   combo.plot <- rank.plot / perc.plot / deg.plot / param.plot
 }
 combo.plot
-ggplot2::ggsave(paste0("parameter_sweep_",Sys.Date(),".pdf"), combo.plot, width = 6, height = 16)
-saveRDS(combo.plot, paste0("parameter_sweep_",Sys.Date(),".rds"))
+ggplot2::ggsave(paste0("parameter_sweep_v3_",Sys.Date(),".pdf"), combo.plot, width = 6, height = 16)
+saveRDS(combo.plot, paste0("parameter_sweep_v3_",Sys.Date(),".rds"))
 
 #### plot all results - wo chr8q24, heatmap ####
 library(patchwork)

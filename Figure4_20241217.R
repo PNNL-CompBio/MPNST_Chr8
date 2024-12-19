@@ -539,7 +539,7 @@ Target <- drug.targets[drug.targets %in% other.features] # 135; identify drug ta
 excluded.targets <- drug.targets[!(drug.targets %in% other.features)] # 92; for example, ADRA1A is first and uniprot protein name is ADA1A
 # so I think these are gene symbols
 toxic <- c("chr8qAmp","nonAmp","none")
-amp.nonAmp.plot <- NULL
+#amp.nonAmp.plot <- NULL
 for (j in toxic) {
   if (j == "chr8qAmp") {
     toxCorr <- corr.result[corr.result$Spearman.est > 0,]
@@ -548,7 +548,7 @@ for (j in toxic) {
     toxKin <- kin2[kin2$enrichment_value_log2 > 0,]
     toxDrug <- drug.corr.wInfo[drug.corr.wInfo$Pearson.est < 0,]
     toxMOA <- moa.results2[moa.results2$NES < 0,]
-    toxNet <- net.centr[grepl("positive",net.centr$runID),]
+    toxNet <- net.centr#[grepl("positive",net.centr$runID),]
   } else if (j == "nonAmp") {
     toxCorr <- corr.result[corr.result$Spearman.est < 0,]
     toxGSEA <- all.gsea2[all.gsea2$NES < 0,]
@@ -556,7 +556,7 @@ for (j in toxic) {
     toxKin <- kin2[kin2$enrichment_value_log2 < 0,]
     toxDrug <- drug.corr.wInfo[drug.corr.wInfo$Pearson.est > 0,]
     toxMOA <- moa.results2[moa.results2$NES > 0,]
-    toxNet <- net.centr[grepl("negative",net.centr$runID),]
+    toxNet <- net.centr#[grepl("negative",net.centr$runID),]
   } else {
     toxCorr <- corr.result
     toxGSEA <- all.gsea2
@@ -839,21 +839,22 @@ for (j in toxic) {
   percScores$MeanPercTimesN <- percScores$MeanPerc*percScores$nPerc
   write.csv(scores, paste0(j, "_Rank_scores_",Sys.Date(),".csv"), row.names = FALSE)
   write.csv(sumScores, paste0(j,"_Rank_score_sums_",Sys.Date(),".csv"), row.names = FALSE)
-  write.csv(percScores, paste0(j,"_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
   write.csv(nScores, paste0(j, "_N_scores_",Sys.Date(),".csv"), row.names = FALSE)
   
   percScores$N_analyses <- rowSums(!is.na(percScores[,2:10]))
-  percScores$N_analysesTimesMeanPerc <- percScores$N_analyses * percScores$MeanPerc
+  percScores$MeanPercTimesN_analyses <- percScores$N_analyses * percScores$MeanPerc
+  write.csv(percScores, paste0(j,"_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
+  nScores <- reshape2::melt(nScores, id = "Target", variable.name = "Analysis")
   
-  filtered.percScores <- percScores[percScores$N_analyses >= 3,]
+  filtered.percScores <- percScores[percScores$nPerc >= 3,]
   if (nrow(filtered.percScores) > 0) {
-    filtered.percScores <- filtered.percScores[order(-filtered.percScores$N_analysesTimesMeanPerc),]
+    filtered.percScores <- filtered.percScores[order(-filtered.percScores$MeanPercTimesN),]
     targetOrder <- filtered.percScores$Target
-    write.csv(filtered.percScores, paste0(j,"_Percentile_scores_min3analyses_",Sys.Date(),".csv"), row.names = FALSE)
+    write.csv(filtered.percScores, paste0(j,"_Percentile_scores_min3hits_",Sys.Date(),".csv"), row.names = FALSE)
     filtered.percScores$nBestPerc <- NULL
     filtered.percScores$BestPercs <- NULL
     filtered.percScores$N_analyses <- NULL
-    filtered.percScores$N_analysesTimesMeanPerc <- NULL
+    filtered.percScores$MeanPercTimesN <- NULL
     filtered.percScores <- reshape2::melt(filtered.percScores, id = "Target", variable.name = "Analysis")
     filtered.percScores$`Top Score` <- FALSE
     bestRanks <- percScores$BestPercs
@@ -868,7 +869,6 @@ for (j in toxic) {
       }
     }
     
-    nScores <- reshape2::melt(nScores, id = "Target", variable.name = "Analysis")
     plot.df <- merge(filtered.percScores, nScores, by=c("Target","Analysis"))
     colnames(plot.df)[3] <- "Mean Percentile"
     colnames(plot.df)[5] <- "N"
@@ -888,15 +888,11 @@ for (j in toxic) {
         legend.direction="horizontal") + 
       coord_flip()
     dot.plot
-    saveRDS(dot.plot, paste0(j,"_Target_dotPlot_",Sys.Date(),".rds"))
-    ggsave(paste0(j,"_Target_dotPlot_",Sys.Date(),".pdf"),dot.plot,width=6, height=3)
-    ggsave(paste0(j,"_Target_dotPlot_taller_",Sys.Date(),".pdf"),dot.plot,width=6, height=4)
-    ggsave(paste0(j,"_Target_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
-    if (is.null(amp.nonAmp.plot) & (j == "chr8qAmp" | j == "nonAmp")) {
-      amp.nonAmp.plot <- dot.plot
-    } else if (j == "chr8qAmp" | j == "nonAmp") {
-      amp.nonAmp.plot <- amp.nonAmp.plot / dot.plot + plot_layout(guides='collect')
-    }
+    saveRDS(dot.plot, paste0(j,"_Target_min3hits_dotPlot_",Sys.Date(),".rds"))
+    ggsave(paste0(j,"_Target_min3hits_dotPlot_",Sys.Date(),".pdf"),dot.plot,width=6, height=3)
+    ggsave(paste0(j,"_Target_min3hits_dotPlot_taller_",Sys.Date(),".pdf"),dot.plot,width=6, height=4)
+    ggsave(paste0(j,"_Target_min3hits_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
+    ggsave(paste0(j,"_Target_min3hits_dotPlot_evenWider_",Sys.Date(),".pdf"),dot.plot,width=13, height=3)
     
     dot.plot <- ggplot2::ggplot(plot.df[!(plot.df$Analysis %in% c("MeanPerc","nPerc")),], aes(x = Target, y = Analysis, color = 100*`Mean Percentile`, size=N)) + 
       ggplot2::geom_point() + scale_color_gradient2(low="white",high="red", limits=c(0, 100)) +
@@ -906,10 +902,132 @@ for (j in toxic) {
       theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)
       )
     dot.plot
-    saveRDS(dot.plot, paste0(j,"_Target_dotPlot_horizontal_",Sys.Date(),".rds"))
-    ggsave(paste0(j,"_Target_dotPlot_horizontal_",Sys.Date(),".pdf"),dot.plot,width=6, height=3) 
+    saveRDS(dot.plot, paste0(j,"_Target_min3hits_mindotPlot_horizontal_",Sys.Date(),".rds"))
+    ggsave(paste0(j,"_Target_min3hits_dotPlot_horizontal_",Sys.Date(),".pdf"),dot.plot,width=6, height=3) 
+  }
+  
+  filtered.percScores <- percScores[percScores$nPerc >= 4,]
+  if (nrow(filtered.percScores) > 0) {
+    filtered.percScores <- filtered.percScores[order(-filtered.percScores$MeanPercTimesN),]
+    targetOrder <- filtered.percScores$Target
+    write.csv(filtered.percScores, paste0(j,"_Percentile_scores_min4hits_",Sys.Date(),".csv"), row.names = FALSE)
+    filtered.percScores$nBestPerc <- NULL
+    filtered.percScores$BestPercs <- NULL
+    filtered.percScores$N_analyses <- NULL
+    filtered.percScores$MeanPercTimesN <- NULL
+    filtered.percScores <- reshape2::melt(filtered.percScores, id = "Target", variable.name = "Analysis")
+    filtered.percScores$`Top Score` <- FALSE
+    bestRanks <- percScores$BestPercs
+    names(bestRanks) <- percScores$Target
+    bestRanks <- bestRanks[bestRanks != ""]
+    bestTargets <- names(bestRanks)
+    for (i in bestTargets) {
+      if (nrow(filtered.percScores[filtered.percScores$Target == i &
+                                   filtered.percScores$Analysis == sub(" ", "",bestRanks[i]),]) > 0) {
+        filtered.percScores[filtered.percScores$Target == i &
+                              filtered.percScores$Analysis == sub(" ", "",bestRanks[i]),]$`Top Score` <- TRUE 
+      }
+    }
+    
+    plot.df <- merge(filtered.percScores, nScores, by=c("Target","Analysis"))
+    colnames(plot.df)[3] <- "Mean Percentile"
+    colnames(plot.df)[5] <- "N"
+    plot.df$`Mean Percentile` <- as.numeric(plot.df$`Mean Percentile`)
+    plot.df$N <- as.numeric(plot.df$N)
+    plot.df <- na.omit(plot.df)
+    # create dot plot to represent filtered.percScores
+    dot.plot <- ggplot2::ggplot(plot.df[!(plot.df$Analysis %in% c("MeanPerc","nPerc")),], aes(y = Target, x = Analysis, color = 100*`Mean Percentile`, size=N)) + 
+      ggplot2::geom_point() + scale_color_gradient2(low="white",high="red", limits=c(0, 100)) +
+      theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+      ggplot2::scale_y_discrete(limits = targetOrder) +
+      geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+      theme(axis.text.y = element_text(angle = 45, vjust=1, hjust=1),
+            axis.text.x = element_text(angle=90,vjust=0.5),
+            axis.title.x=element_text(angle=180)
+      ) + theme(#legend.position="top", 
+        legend.direction="horizontal") + 
+      coord_flip()
+    dot.plot
+    saveRDS(dot.plot, paste0(j,"_Target_min4hits_dotPlot_",Sys.Date(),".rds"))
+    ggsave(paste0(j,"_Target_min4hits_dotPlot_",Sys.Date(),".pdf"),dot.plot,width=6, height=3)
+    ggsave(paste0(j,"_Target_min4hits_dotPlot_taller_",Sys.Date(),".pdf"),dot.plot,width=6, height=4)
+    ggsave(paste0(j,"_Target_min4hits_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
+    ggsave(paste0(j,"_Target_min4hits_dotPlot_evenWider_",Sys.Date(),".pdf"),dot.plot,width=13, height=3)
+    
+    dot.plot <- ggplot2::ggplot(plot.df[!(plot.df$Analysis %in% c("MeanPerc","nPerc")),], aes(x = Target, y = Analysis, color = 100*`Mean Percentile`, size=N)) + 
+      ggplot2::geom_point() + scale_color_gradient2(low="white",high="red", limits=c(0, 100)) +
+      theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+      ggplot2::scale_x_discrete(limits = targetOrder) +
+      geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+      theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)
+      )
+    dot.plot
+    saveRDS(dot.plot, paste0(j,"_Target_min4hits_mindotPlot_horizontal_",Sys.Date(),".rds"))
+    ggsave(paste0(j,"_Target_min4hits_dotPlot_horizontal_",Sys.Date(),".pdf"),dot.plot,width=6, height=3) 
+  }
+  
+  filtered.percScores <- percScores[percScores$N_analyses >= 3,]
+  if (nrow(filtered.percScores) > 0) {
+    filtered.percScores <- filtered.percScores[order(-filtered.percScores$MeanPercTimesN_analyses),]
+    targetOrder <- filtered.percScores$Target
+    write.csv(filtered.percScores, paste0(j,"_Percentile_scores_min3analyses_",Sys.Date(),".csv"), row.names = FALSE)
+    filtered.percScores$nBestPerc <- NULL
+    filtered.percScores$BestPercs <- NULL
+    filtered.percScores$N_analyses <- NULL
+    filtered.percScores$MeanPercTimesN_analyses <- NULL
+    filtered.percScores <- reshape2::melt(filtered.percScores, id = "Target", variable.name = "Analysis")
+    filtered.percScores$`Top Score` <- FALSE
+    bestRanks <- percScores$BestPercs
+    names(bestRanks) <- percScores$Target
+    bestRanks <- bestRanks[bestRanks != ""]
+    bestTargets <- names(bestRanks)
+    for (i in bestTargets) {
+      if (nrow(filtered.percScores[filtered.percScores$Target == i &
+                                   filtered.percScores$Analysis == sub(" ", "",bestRanks[i]),]) > 0) {
+        filtered.percScores[filtered.percScores$Target == i &
+                              filtered.percScores$Analysis == sub(" ", "",bestRanks[i]),]$`Top Score` <- TRUE 
+      }
+    }
+    
+    plot.df <- merge(filtered.percScores, nScores, by=c("Target","Analysis"))
+    colnames(plot.df)[3] <- "Mean Percentile"
+    colnames(plot.df)[5] <- "N"
+    plot.df$`Mean Percentile` <- as.numeric(plot.df$`Mean Percentile`)
+    plot.df$N <- as.numeric(plot.df$N)
+    plot.df <- na.omit(plot.df)
+    # create dot plot to represent filtered.percScores
+    dot.plot <- ggplot2::ggplot(plot.df[!(plot.df$Analysis %in% c("MeanPerc","nPerc")),], aes(y = Target, x = Analysis, color = 100*`Mean Percentile`, size=N)) + 
+      ggplot2::geom_point() + scale_color_gradient2(low="white",high="red", limits=c(0, 100)) +
+      theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+      ggplot2::scale_y_discrete(limits = targetOrder) +
+      geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+      theme(axis.text.y = element_text(angle = 45, vjust=1, hjust=1),
+            axis.text.x = element_text(angle=90,vjust=0.5),
+            axis.title.x=element_text(angle=180)
+      ) + theme(#legend.position="top", 
+        legend.direction="horizontal") + 
+      coord_flip()
+    dot.plot
+    saveRDS(dot.plot, paste0(j,"_Target_min3analyses_dotPlot_",Sys.Date(),".rds"))
+    ggsave(paste0(j,"_Target_min3analyses_dotPlot_",Sys.Date(),".pdf"),dot.plot,width=6, height=3)
+    ggsave(paste0(j,"_Target_min3analyses_dotPlot_taller_",Sys.Date(),".pdf"),dot.plot,width=6, height=4)
+    ggsave(paste0(j,"_Target_min3analyses_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
+    ggsave(paste0(j,"_Target_min3analyses_dotPlot_evenWider_",Sys.Date(),".pdf"),dot.plot,width=12, height=3)
+    # if (is.null(amp.nonAmp.plot) & (j == "chr8qAmp" | j == "nonAmp")) {
+    #   amp.nonAmp.plot <- dot.plot
+    # } else if (j == "chr8qAmp" | j == "nonAmp") {
+    #   amp.nonAmp.plot <- amp.nonAmp.plot / dot.plot + plot_layout(guides='collect')
+    # }
+    
+    # dot.plot <- ggplot2::ggplot(plot.df[!(plot.df$Analysis %in% c("MeanPerc","nPerc")),], aes(x = Target, y = Analysis, color = 100*`Mean Percentile`, size=N)) + 
+    #   ggplot2::geom_point() + scale_color_gradient2(low="white",high="red", limits=c(0, 100)) +
+    #   theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+    #   ggplot2::scale_x_discrete(limits = targetOrder) +
+    #   geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+    #   theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)
+    #   )
+    # dot.plot
+    # saveRDS(dot.plot, paste0(j,"_Target_min3analyses_dotPlot_horizontal_",Sys.Date(),".rds"))
+    # ggsave(paste0(j,"_Target_min3analyses_dotPlot_horizontal_",Sys.Date(),".pdf"),dot.plot,width=6, height=3) 
   }
 }
-ggsave(paste0("AmpAndNonAmp_Target_dotPlot_",Sys.Date(),".pdf"),amp.nonAmp.plot,width=6, height=3)
-ggsave(paste0("AmpAndNonAmp_Target_dotPlot_taller_",Sys.Date(),".pdf"),amp.nonAmp.plot,width=8, height=5)
-ggsave(paste0("AmpAndNonAmp_Target_dotPlot_wider_",Sys.Date(),".pdf"),amp.nonAmp.plot,width=10, height=3)
