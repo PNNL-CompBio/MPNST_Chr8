@@ -44,8 +44,8 @@ circ.bar.plot
 ggplot2::ggsave("Chr8_numberOfGeneSets_directionGroup_barPlot_manualOrderV3.pdf", bar.plot3log, width = 7, height = 7, device = "pdf")
 
 # source: https://r-graph-gallery.com/web-circular-barplot-with-R-and-ggplot2.html
-plot_df <- plyr::ddply(gsea.rna.prot[gsea.rna.prot$Significant,] , .(Collection, Omics), summarize,
-                       nEnriched = n())
+plot_df <- plyr::ddply(gsea.rna.prot[gsea.rna.prot$Significant,] , .(Collection, Omics), dplyr::summarize,
+                       nEnriched = dplyr::n())
 #plot_df[6,] <- c("PID", "RNA", 0)
 
 
@@ -118,11 +118,11 @@ plt <- plt +
     axis.ticks = element_blank(),
     axis.text.y = element_blank(),
     # Use gray text for the region names
-    axis.text.x = element_text(color = "gray12", size = 12),
+    axis.text.x = element_text(color = "gray12", size = 16), # was size 12
     # Move the legend to the bottom
     legend.position = "bottom",
   ) + ggtitle("Number of Enriched Gene Sets") + 
-  theme(plot.title = element_text(hjust = 0.5, face="bold", size=16),
+  theme(plot.title = element_text(hjust = 0.5, face="bold", size=24), # was size 16
         axis.line=element_blank())
 
 plt
@@ -164,7 +164,7 @@ ggplot2::ggsave(paste0("Chr8_GSEA_vennDiagram_noPercentages_", Sys.Date(), "_ora
 #### 3. top up/dn diffexp gene sets ####
 mean.gsea <- read.csv(synapser::synGet("syn64025222")$path)
 
-dot.df <- na.omit(gsea.rna.prot[gsea.rna.prot$Significant,]) # 48
+dot.df <- gsea.rna.prot[gsea.rna.prot$Significant,] # 48
 nrow(dot.df[dot.df$Omics=="RNA",]) # 9
 nrow(dot.df[dot.df$Omics=="Protein",]) # 39
 hist(dot.df$NES,breaks=20)
@@ -199,7 +199,7 @@ dot.plot <- ggplot2::ggplot(
 ) +
   ggplot2::geom_point() +
   ggplot2::scale_y_discrete(limits = geneOrder) +
-  scale_color_gradient2(low="blue",high="red") +
+  scale_color_gradient2(low="blue",high="red", mid="grey") +
   #viridis::scale_color_viridis() +
   theme_classic() +
   ggplot2::labs(
@@ -221,9 +221,9 @@ maxAbsNES <- max(abs(gsea.rna.prot[gsea.rna.prot$Collection %in% collections,]$N
 maxLogFDR <- max(gsea.rna.prot[gsea.rna.prot$Collection %in% collections,]$minusLogFDR)
 library(patchwork); library(ggplot2)
 for (i in collections) {
-  nGenes <- length(unique(na.omit(gsea.rna.prot[gsea.rna.prot$Collection == i,])$Feature_set))
-  topGenes <- unique(na.omit(gsea.rna.prot[gsea.rna.prot$Significant &
-                                             gsea.rna.prot$Collection == i,])$Feature_set) # 48
+  nGenes <- length(unique(gsea.rna.prot[gsea.rna.prot$Collection == i,])$Feature_set)
+  topGenes <- unique(gsea.rna.prot[gsea.rna.prot$Significant &
+                                             gsea.rna.prot$Collection == i,]$Feature_set) # 48
   nTopGenes <- length(topGenes)
   temp.mean.gsea <- mean.gsea[mean.gsea$Feature_set %in% topGenes,]
   geneOrder <- temp.mean.gsea[order(temp.mean.gsea$mean_NES),]$Feature_set
@@ -260,7 +260,7 @@ for (i in collections) {
   ) + scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
     ggplot2::geom_point() +
     ggplot2::scale_y_discrete(limits = geneOrder) +
-    scale_color_gradient2(low="blue",high="red", limits=c(-maxAbsNES, maxAbsNES)) +
+    scale_color_gradient2(low="blue",high="red", mid="grey", limits=c(-maxAbsNES, maxAbsNES)) +
     #viridis::scale_color_viridis() +
     theme_classic() +
     ggplot2::labs(
@@ -458,7 +458,7 @@ myc.dot.plot <- ggplot2::ggplot(
 ) + scale_size(limits=c(0,maxLogFDR.myc), range = c(0.5,5)) +
   ggplot2::geom_point() +
   ggplot2::scale_y_discrete(limits = geneOrder) +
-  scale_color_gradient2(low="blue",high="red") +
+  scale_color_gradient2(low="blue",high="red", mid="grey") +
   #viridis::scale_color_viridis() +
   theme_classic() +
   ggplot2::labs(
@@ -518,7 +518,7 @@ shh.dot.plot <- ggplot2::ggplot(
 ) + scale_size(limits=c(0,maxLogFDR.shh), range = c(0.5,5)) +
   ggplot2::geom_point() +
   ggplot2::scale_y_discrete(limits = geneOrder) +
-  scale_color_gradient2(low="blue",high="red") +
+  scale_color_gradient2(low="blue",high="red", mid="grey") +
   #viridis::scale_color_viridis() +
   theme_classic() +
   ggplot2::labs(
@@ -537,12 +537,12 @@ ggplot2::ggsave("Correlated_SHH_genes_dotPlot_boldSHH.pdf", shh.dot.plot, width=
 absMaxEst <- max(c(absMaxEst.shh, absMaxEst.myc))
 maxLogFDR <- max(c(maxLogFDR.shh, maxLogFDR.myc))
 myc.dot.plot2 <- myc.dot.plot + 
-  scale_color_gradient2(low="blue",high="red", limits = c(-absMaxEst, absMaxEst)) +
+  scale_color_gradient2(low="blue",high="red", mid="grey", limits = c(-absMaxEst, absMaxEst)) +
   scale_size(limits=c(0,maxLogFDR), range = c(0.5,5))
 shh.dot.plot2 <- shh.dot.plot +  
-  scale_color_gradient2(low="blue",high="red", limits = c(-absMaxEst, absMaxEst)) +
+  scale_color_gradient2(low="blue",high="red", mid="grey", limits = c(-absMaxEst, absMaxEst)) +
   scale_size(limits=c(0,maxLogFDR), range = c(0.5,5))
-source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/guides_build_mod.R")
+source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 myc.shh.dot.plots <- (myc.dot.plot2 / shh.dot.plot2) + plot_layout(guides='collect')
 #myc.shh.dot.plots <-  (shh.dot.plot2 + theme(legend.position = "none"))/ myc.dot.plot2
 #myc.shh.dot.plots <- myc.shh.dot.plots + plot_annotation(caption="Key\nBold: correlated in both RNA & protein\n Italics: correlated in RNA\n Plain: correlated in Protein")

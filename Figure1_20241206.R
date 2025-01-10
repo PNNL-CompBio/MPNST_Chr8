@@ -24,7 +24,9 @@ sample.order <- med.chr8q$Sample
 ggplot2::ggplot(med.chr8q, aes(x=Sample, y=`Median Chr8q Copy Number`, fill = Proteomics)) + 
   ggplot2::geom_bar(stat="identity", position="dodge", alpha = 0.5) + 
   scale_x_discrete(limits = sample.order) + ggplot2::theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1, size = 16), 
+        axis.text.y = element_text(size = 16), axis.title=element_text(size=24),
+        legend.title=element_text(size=16),legend.text=element_text(size=12)) +
   geom_errorbar(aes(ymin=`Median Chr8q Copy Number` - sd_med_copy_number, 
                     ymax = `Median Chr8q Copy Number` + sd_med_copy_number), width=0.2,
                 position=position_dodge(0.9)) + xlab("MPNST PDX") +
@@ -38,7 +40,9 @@ med.chr8q[med.chr8q$Sample %in% prot.samples,]$Omics <- "RNA-Seq &\n Proteomics"
 ggplot2::ggplot(med.chr8q, aes(x=Sample, y=`Median Chr8q Copy Number`, fill = Omics)) + 
   ggplot2::geom_bar(stat="identity", position="dodge", alpha = 0.5) + 
   scale_x_discrete(limits = sample.order) + ggplot2::theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) +
+  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1, size = 16), 
+        axis.text.y = element_text(size = 16), axis.title=element_text(size=24),
+        legend.title=element_text(size=16),legend.text=element_text(size=12)) +
   geom_errorbar(aes(ymin=`Median Chr8q Copy Number` - sd_med_copy_number, 
                     ymax = `Median Chr8q Copy Number` + sd_med_copy_number), width=0.2,
                 position=position_dodge(0.9)) + xlab("MPNST PDX")# +
@@ -82,6 +86,7 @@ segment.pos <- merge(segment.pos, chr8.enr[,c("segments","NES")], by="segments")
 segment.pos$chr <- 8
 write.csv(segment.pos, "Chr8_segment_enrichment.csv", row.names = FALSE)
 #synapser::synStore(synapser::File("Chr8_segment_enrichment.csv", parent = synID))
+segment.pos <- read.csv("Chr8_segment_enrichment.csv")
 
 # following vignette: https://cran.r-project.org/web/packages/RIdeogram/vignettes/RIdeogram.html
 data("human_karyotype", package="RIdeogram")
@@ -95,7 +100,8 @@ label.df$color <- "black"
 label.df[label.df$segments=="chr8q24",]$color <- "red"
 label.df <- label.df[,c("Type", "Shape", "chr", "start", "end", "color")]
 colnames(label.df)[3:5] <- c("Chr", "Start", "End")
-RIdeogram::ideogram(karyotype = human_karyotype, overlaid = ideo.df, label = label.df, label_type = "marker", colorset1 = c("blue","white", "red"))
+#RIdeogram::ideogram(karyotype = human_karyotype, overlaid = ideo.df, label = label.df, label_type = "marker", colorset1 = c("blue","white", "red"))
+RIdeogram::ideogram(karyotype = human_karyotype, overlaid = ideo.df, label = label.df, label_type = "marker", colorset1 = c("blue","grey", "red"))
 convertSVG("chromosome.svg", device="pdf")
 #synapser::synStore(synapser::File("chromosome.svg", parent = synID))
 #synapser::synStore(synapser::File("chromosome.pdf", parent = synID))
@@ -177,8 +183,8 @@ ggplot2::ggsave("Chr8_numberOfFeatures_directionGroup_barPlot_logScale_manualOrd
 synapser::synStore(synapser::File("Chr8_numberOfFeatures_directionGroup_barPlot_logScale_manualOrderV2.pdf", parent = synID))
 
 all.degs$Omics <- factor(all.degs$Omics, levels=c("RNA", "Protein", "Phospho"))
-plot_df <- plyr::ddply(all.degs[all.degs$Significant,] , .(Direction, Omics), summarize,
-                       nCorr = n())
+plot_df <- plyr::ddply(all.degs[all.degs$Significant,] , .(Direction, Omics), dplyr::summarize,
+                       nCorr = dplyr::n())
 plot_df$log10nCorr <- log(plot_df$nCorr, 10)
 
 
@@ -254,17 +260,18 @@ plt <- plt +
     #breaks = c(0, 10, 100, 1000)#, trans = 'log10'
   ) + #scale_fill_manual(values=c("red", "blue")) +
   scale_fill_manual(values=c("#F8766D", "#00BFC4", "#7CAE00")) + # first version
+  scale_alpha_discrete(range=c(0.5,1)) + 
   theme(
     # Remove axis ticks and text
     axis.title = element_blank(),
     axis.ticks = element_blank(),
     axis.text.y = element_blank(),
     # Use gray text for the region names
-    axis.text.x = element_text(color = "gray12", size = 12),
+    axis.text.x = element_text(color = "gray12", size = 16), # was size 12
     # Move the legend to the bottom
     legend.position = "bottom",
   ) + ggtitle("Number of Correlated Features") + 
-  theme(plot.title = element_text(hjust = 0.5, face="bold", size=16),
+  theme(plot.title = element_text(hjust = 0.5, face="bold", size=24), # was size 16
         axis.line=element_blank())
 
 plt
@@ -341,7 +348,7 @@ plt <- plt +
     limits = c(-2, 4),
     expand = c(0, 0),
     #breaks = c(0, 10, 100, 1000)#, trans = 'log10'
-  ) + scale_fill_manual(values=c("red", "blue")) +
+  ) + scale_fill_manual(values=c("red", "blue")) + scale_alpha_discrete(range=c(0.5,1)) +
   #scale_fill_manual(values=c("#F8766D", "#00BFC4", "#7CAE00")) + # first version
   theme(
     # Remove axis ticks and text
@@ -355,7 +362,7 @@ plt <- plt +
   ) + ggtitle("Number of Correlated Features") + 
   theme(plot.title = element_text(hjust = 0.5, face="bold", size=16),
         axis.line=element_blank())
-
+plt
 ggplot2::ggsave("Chr8_numberOfFeatures_circularBarPlot_v2.pdf", plt, width = 7, height = 7)
 #synapser::synStore(synapser::File("Chr8_numberOfFeatures_directionGroup_barPlot_logScale_manualOrderV2.pdf", parent = synID))
 
