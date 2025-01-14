@@ -571,6 +571,7 @@ for (j in toxic) {
             "Drug", "DMEA", "MeanPerc", "N","N_best")] <- NA
   percScoresInfo$Best <- ""
   percScores <- percScoresInfo
+  nScores <- percScoresInfo
   for (i in 1:length(Target)) {
     nRankVals <- 0
     nBestRanks <- 0
@@ -580,7 +581,7 @@ for (j in toxic) {
       tempCorr <- toxCorr[toxCorr$Gene == Target[i],]
       tempTypes <- paste0(unique(tempCorr$type), collapse = " ")
       tempScores <- round(mean(tempCorr$Spearman.est), digits=2)
-      tempPerc <- mean(tempCorr$percentile)
+      tempPerc <- round(mean(tempCorr$percentile), digits=2)
       
       # keep score
       nRankVals <- nRankVals + nrow(tempCorr)
@@ -591,7 +592,8 @@ for (j in toxic) {
       
       # update data frame
       percScoresInfo$Correlation[i] <- paste0(tempTypes, " | ", tempScores, " | ", tempPerc)
-      percScores$Correlation[i] <- tempPerc
+      percScores$Correlation[i] <- mean(tempCorr$percentile)
+      nScores$Correlation[i] <- nrow(tempCorr)
     }
     
     # GSEA
@@ -600,7 +602,7 @@ for (j in toxic) {
       tempTypes <- paste0(unique(tempGSEA$type), collapse = " ")
       tempSets <- paste0(tempGSEA$Feature_set, collapse = " ")
       tempScores <- round(mean(tempGSEA$NES), digits=2)
-      tempPerc <- mean(tempGSEA$percentile)
+      tempPerc <- round(mean(tempGSEA$percentile), digits=2)
       
       # keep score
       nRankVals <- nRankVals + nrow(tempGSEA)
@@ -611,7 +613,8 @@ for (j in toxic) {
       
       # update data frame
       percScoresInfo$GSEA[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
-      percScores$GSEA[i] <- tempPerc
+      percScores$GSEA[i] <- mean(tempGSEA$percentile)
+      nScores$GSEA[i] <- nrow(tempGSEA)
     }
     
     if (nrow(toxTF) > 0) {
@@ -619,7 +622,7 @@ for (j in toxic) {
       if (Target[i] %in% toxTF$Gene) {
         tempGSEA <- toxTF[toxTF$Gene == Target[i],]
         tempScores <- round(mean(tempGSEA$NES), digits=2)
-        tempPerc <- mean(tempGSEA$percentile)
+        tempPerc <- round(mean(tempGSEA$percentile), digits=2)
         
         # keep score
         nRankVals <- nRankVals + nrow(tempGSEA)
@@ -630,7 +633,8 @@ for (j in toxic) {
         
         # update data frame
         percScoresInfo$TF[i] <- paste0(tempScores, " | ", tempPerc)
-        percScores$TF[i] <- tempPerc
+        percScores$TF[i] <- mean(tempGSEA$percentile)
+        nScores$TF[i] <- nrow(tempGSEA)
       }
       
       # TFT
@@ -638,7 +642,7 @@ for (j in toxic) {
         tempGSEA <- toxTF[grepl(Target[i], toxTF$Targets),]
         tempSets <- paste0(tempGSEA$Gene, collapse = " ")
         tempScores <- round(mean(tempGSEA$NES), digits=2)
-        tempPerc <- mean(tempGSEA$percentile)
+        tempPerc <- round(mean(tempGSEA$percentile), digits=2)
         
         # keep score
         nRankVals <- nRankVals + nrow(tempGSEA)
@@ -649,7 +653,8 @@ for (j in toxic) {
         
         # update data frame
         percScoresInfo$TFT[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
-        percScores$TFT[i] <- tempPerc
+        percScores$TFT[i] <- mean(tempGSEA$percentile)
+        nScores$TFT[i] <- nrow(tempGSEA)
       }
     }
     
@@ -658,7 +663,7 @@ for (j in toxic) {
       if (Target[i] %in% toxKin$Gene) {
         tempGSEA <- toxKin[toxKin$Gene == Target[i],]
         tempScores <- round(mean(tempGSEA$enrichment_value_log2),2)
-        tempPerc <- mean(tempGSEA$percentile)
+        tempPerc <- round(mean(tempGSEA$percentile),2)
         
         # keep score
         nRankVals <- nRankVals + nrow(tempGSEA)
@@ -669,7 +674,8 @@ for (j in toxic) {
         
         # update data frame
         percScoresInfo$Kinase[i] <- paste0(tempScores, " | ", tempPerc)
-        percScores$Kinase[i] <- tempPerc
+        percScores$Kinase[i] <- mean(tempGSEA$percentile)
+        nScores$Kinase[i] <- nrow(tempGSEA)
       }
       
       # Substrate
@@ -677,7 +683,7 @@ for (j in toxic) {
         tempGSEA <- toxKin[grepl(Target[i], toxKin$Substrates),]
         tempSets <- paste0(tempGSEA$Gene, collapse = " ")
         tempScores <- round(mean(tempGSEA$enrichment_value_log2),2)
-        tempPerc <- mean(tempGSEA$percentile)
+        tempPerc <- round(mean(tempGSEA$percentile),2)
         
         # keep score
         nRankVals <- nRankVals + nrow(tempGSEA)
@@ -688,7 +694,8 @@ for (j in toxic) {
         
         # update data frame
         percScoresInfo$Substrate[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
-        percScores$Substrate[i] <- tempPerc
+        percScores$Substrate[i] <- mean(tempGSEA$percentile)
+        nScores$Substrate[i] <- nrow(tempGSEA)
       } 
     }
     
@@ -696,7 +703,7 @@ for (j in toxic) {
     if (Target[i] %in% toxNet$name) {
       tempGSEA <- toxNet[toxNet$name == Target[i],]
       tempScores <- round(mean(tempGSEA$eigen_centrality),2)
-      tempPerc <- mean(tempGSEA$percentile)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
       
       # keep score
       nRankVals <- nRankVals + nrow(tempGSEA)
@@ -707,7 +714,8 @@ for (j in toxic) {
       
       # update data frame
       percScoresInfo$Network[i] <- paste0(tempScores, " | ", tempPerc)
-      percScores$Network[i] <- tempPerc
+      percScores$Network[i] <- mean(tempGSEA$percentile)
+      nScores$Network[i] <- nrow(tempGSEA)
     }
     
     # Drug correlation
@@ -715,7 +723,7 @@ for (j in toxic) {
       tempGSEA <- toxDrug[grepl(Target[i], toxDrug$target),]
       tempDrugs <- paste0(tempGSEA$name, collapse = " ")
       tempScores <- round(mean(tempGSEA$Pearson.est),2)
-      tempPerc <- mean(tempGSEA$percentile)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
       
       # keep score
       nRankVals <- nRankVals + nrow(tempGSEA)
@@ -726,7 +734,8 @@ for (j in toxic) {
       
       # update data frame
       percScoresInfo$Drug[i] <- paste0(tempDrugs, " | ", tempScores, " | ", tempPerc)
-      percScores$Drug[i] <- tempPerc
+      percScores$Drug[i] <- mean(tempGSEA$percentile)
+      nScores$Drug[i] <- nrow(tempGSEA)
     }
     
     # DMEA
@@ -735,7 +744,7 @@ for (j in toxic) {
       tempTypes <- paste0(unique(tempGSEA$type), collapse = " ")
       tempSets <- paste0(tempGSEA$moa, collapse = " ")
       tempScores <- round(mean(tempGSEA$NES),2)
-      tempPerc <- mean(tempGSEA$percentile)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
       
       # keep score
       nRankVals <- nRankVals + nrow(tempGSEA)
@@ -746,18 +755,23 @@ for (j in toxic) {
       
       # update data frame
       percScoresInfo$DMEA[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
-      percScores$DMEA[i] <- tempPerc
+      percScores$DMEA[i] <- mean(tempGSEA$percentile)
+      nScores$DMEA[i] <- nrow(tempGSEA)
     }
     
     # update data frame
-    percScoresInfo$N[i] <- nRankVals
-    percScoresInfo$N_best[i] <- nBestRanks
-    percScoresInfo$MeanPerc[i] <- mean(as.numeric(percScores[i,]), na.rm = TRUE)
+    percScores$N[i] <- nRankVals
+    percScores$N_best[i] <- nBestRanks
+    percScores$MeanPerc[i] <- mean(as.numeric(percScores[i,2:10]), na.rm = TRUE)
   }
-  percScores$N_best <- percScoresInfo$N_best
-  percScores$N <- percScoresInfo$N
-  percScores$MeanPerc <- percScoresInfo$MeanPerc
+  percScoresInfo$N_best <- percScores$N_best
+  percScoresInfo$N <- percScores$N
+  percScoresInfo$MeanPerc <- percScores$MeanPerc
   percScoresInfo$Best <- substring(percScoresInfo$Best, 2)
+  nScores$N_best <- percScoresInfo$N_best
+  nScores$N <- percScoresInfo$N
+  nScores$MeanPerc <- percScoresInfo$MeanPerc
+  nScores$Best <- percScoresInfo$Best
   percScores$Best <- percScoresInfo$Best
   percScores$MeanPercTimesN <- percScores$MeanPerc*percScores$N
   percScoresInfo$MeanPercTimesN <- percScores$MeanPercTimesN
@@ -765,6 +779,8 @@ for (j in toxic) {
   percScores$N_analyses <- rowSums(!is.na(percScores[,2:10]))
   percScores$MeanPercTimesN_analyses <- percScores$N_analyses * percScores$MeanPerc
   percScoresInfo$MeanPercTimesN_analyses <- percScores$MeanPercTimesN_analyses
+  write.csv(nScores, paste0(j,"_N_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
+  #nScores <- read.csv(paste0(j,"_N_Percentile_scores_",Sys.Date(),".csv"))
   write.csv(percScores, paste0(j,"_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
   write.csv(percScoresInfo, paste0(j, "_Percentile_scores_info_",Sys.Date(),".csv"), row.names = FALSE)
   
@@ -774,13 +790,19 @@ for (j in toxic) {
     targetOrder <- filtered.percScores$Target
     write.csv(filtered.percScores, paste0(j,"_Percentile_scores_min3analyses_",Sys.Date(),".csv"), row.names = FALSE)
 
+    filtered.percScores$N <- NULL
     filtered.percScores$N_best <- NULL
     filtered.percScores$N_analyses <- NULL
     filtered.percScores$MeanPerc <- NULL
     filtered.percScores$MeanPercTimesN <- NULL
     filtered.percScores$MeanPercTimesN_analyses <- NULL
-    plot.df <- reshape2::melt(filtered.percScores, id = c("Target", "Best", "N"), variable.name = "Analysis")
-    colnames(plot.df)[ncol(plot.df)] <- "Mean Percentile"
+    nScores2 <- reshape2::melt(nScores[nScores$Target %in% filtered.percScores$Target,
+                                       colnames(filtered.percScores)], 
+                               id = c("Target","Best"), variable.name = "Analysis", value.name="N")
+    filtered.percScores <- reshape2::melt(filtered.percScores, id = c("Target", "Best"), 
+                                          variable.name = "Analysis", value.name = "Mean Percentile")
+    
+    plot.df <- merge(filtered.percScores, nScores2, by=c("Target","Best","Analysis"))
     plot.df$`Mean Percentile` <- as.numeric(plot.df$`Mean Percentile`)
     plot.df$N <- as.numeric(plot.df$N)
     plot.df <- na.omit(plot.df)
