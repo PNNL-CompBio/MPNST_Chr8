@@ -16,9 +16,9 @@ library(htmlwidgets); library(webshot); library(scales); library(msigdbr)
 library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 #webshot::install_phantomjs()
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
-source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/dev/proteomics/panSEA_helper_20240913.R")
-source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/dev/proteomics/proteinNetworks_BG.R")
-source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/dev/proteomics/PCSF_rand_BG.R")
+source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/panSEA_helper_20240913.R")
+source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/networkAnalysis/proteinNetworks_BG.R")
+source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/networkAnalysis/PCSF_rand_BG.R")
 
 posEnr <- function(all.vertices, gmt.pos) {
   all.runIDs <- unique(all.vertices$runID)
@@ -1069,7 +1069,7 @@ path.map <- list("Transcription Factor" = "PCSF_Transcription_factor_2025-01-10"
 path.map <- list("Protein" = "PCSF_Protein_2024-12-12")
 n.top <- 3
 enr.plots <- NULL
-source("~/OneDrive - PNNL/Documents/circBar.R")
+#source("~/OneDrive - PNNL/Documents/circBar.R")
 directions <- c("positive","negative")
 for (i in names(path.map)) {
   # load enrichr results
@@ -1103,12 +1103,12 @@ for (i in names(path.map)) {
     
     # generate and save plot
     setwd(base.path)
-    temp.enr.plot <- circBar(top.pos.enr, x="Term", y="Odds.Ratio", 
-                             fill="Cluster2", alpha="alpha", ymin = 0,
-                             ymax= 1200,
-                             fillVals=grDevices::colorRampPalette(
-                               RColorBrewer::brewer.pal(12, "Set3"))(length(clusters)),
-                             title = i, fname=paste0(i,"_",k,"_enrichr_circBarPlot.pdf"))
+    # temp.enr.plot <- circBar(top.pos.enr, x="Term", y="Odds.Ratio", 
+    #                          fill="Cluster2", alpha="alpha", ymin = 0,
+    #                          ymax= 1200,
+    #                          fillVals=grDevices::colorRampPalette(
+    #                            RColorBrewer::brewer.pal(12, "Set3"))(length(clusters)),
+    #                          title = i, fname=paste0(i,"_",k,"_enrichr_circBarPlot.pdf"))
     ggplot2::ggplot(top.pos.enr, aes(x=Term, y=`Odds Ratio`, fill=as.factor(Cluster), alpha=0.5)) +
       geom_col() + scale_fill_manual(values = c(grDevices::colorRampPalette(
         RColorBrewer::brewer.pal(8, "Set2"))(length(clusters)))) +
