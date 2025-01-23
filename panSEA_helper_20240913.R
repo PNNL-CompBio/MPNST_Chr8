@@ -131,8 +131,11 @@ get_pathways_of_interest <- function(expr.df, gsea.result, gmt, cc.df, n=5,
     top.pathways <- sig.result %>% slice_max(abs(NES), n = n)
     top.gmt <- gmt$genesets[top.pathways$Feature_set]
     
-    poi.files <- make_heatmaps(expr.df, cc.df, top.pathways, top.gmt, show_colnames,
-                               fontsize, scale, cluster)
+    poi.files <- try(R.utils::withTimeout(make_heatmaps(expr.df, cc.df, top.pathways, top.gmt, show_colnames,
+                               fontsize, scale, cluster), timeout = 600, onTimeout="error"), silent = TRUE)
+    if (inherits(poi.files, "try-error")) {
+      poi.files <- list()
+    }
   } else {
     poi.files <- list()
   }
@@ -508,61 +511,33 @@ get_CCLE_prot <- function() {
   return(prot.df.noNA)
 }
 
-get_CCLE_RNA <- function(hgnc = FALSE) {
+get_CCLE_RNA <- function() {
   message("Loading adherent CCLE RNA-seq data version 19Q4")
-  if (hgnc) {
-    if (!file.exists("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_approved_symbols_only_1-200.Rbin")) {
-      download.file(
-        paste0(
-          "https://raw.github.com/BelindaBGarana/DMEA/shiny-app/Inputs/",
-          "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_approved_symbols_only_1-200.Rbin"
-        ),
-        destfile =
-          "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_approved_symbols_only_1-200.Rbin"
-      )
-    }
-    
-    if (!file.exists("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_approved_symbols_only_201-327.Rbin")) {
-      download.file(
-        paste0(
-          "https://raw.github.com/BelindaBGarana/DMEA/shiny-app/Inputs/",
-          "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_approved_symbols_only_201-327.Rbin"
-        ),
-        destfile =
-          "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_approved_symbols_only_201-327.Rbin"
-      )
-    }
-    
-    RNA.first200 <- readRDS("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_approved_symbols_only_1-200.Rbin")
-    RNA.rest <- readRDS("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_approved_symbols_only_201-327.Rbin")
-    RNA.df <- rbind(RNA.first200, RNA.rest) 
-  } else {
-    if (!file.exists("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin")) {
-      download.file(
-        paste0(
-          "https://raw.github.com/BelindaBGarana/DMEA/shiny-app/Inputs/",
-          "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin"
-        ),
-        destfile =
-          "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin"
-      )
-    }
-    
-    if (!file.exists("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin")) {
-      download.file(
-        paste0(
-          "https://raw.github.com/BelindaBGarana/DMEA/shiny-app/Inputs/",
-          "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin"
-        ),
-        destfile =
-          "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin"
-      )
-    }
-    
-    load("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin")
-    load("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin")
-    RNA.df <- rbind(RNA.first200, RNA.rest) 
+  if (!file.exists("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin")) {
+    download.file(
+      paste0(
+        "https://raw.github.com/BelindaBGarana/DMEA/shiny-app/Inputs/",
+        "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin"
+      ),
+      destfile =
+        "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin"
+    )
   }
+  
+  if (!file.exists("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin")) {
+    download.file(
+      paste0(
+        "https://raw.github.com/BelindaBGarana/DMEA/shiny-app/Inputs/",
+        "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin"
+      ),
+      destfile =
+        "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin"
+    )
+  }
+  
+  load("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin")
+  load("Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin")
+  RNA.df <- rbind(RNA.first200, RNA.rest)
   return(RNA.df)
 }
 
@@ -830,10 +805,70 @@ get_top_mtn_plots <- function(base.result, n.top = 10, EA.type = "GSEA",
   return(all.top.mtn)
 }
 
+# save folder and nested files/subfolders to Synapse - more efficient
+save_to_synapse_v2 <- function(temp.files, resultsFolder = NULL,
+                            width = 7, height = 7, dot.scale = 4) {
+  for (i in names(temp.files)) {
+    # if file, save appropriately
+    if (grepl("[.]", i) & is.list(temp.files[[i]]) & length(temp.files[[i]]) > 0) {
+      # local save
+      if (endsWith(tolower(i), ".csv")) {
+        write.csv(temp.files[[i]], i, row.names = FALSE)
+      } else if (endsWith(tolower(i), ".pdf")) {
+          if (grepl("_bar_plot", i) | grepl("_dot_plot", i)) {
+            ggplot2::ggsave(i, temp.files[[i]], device = "pdf", 
+                            width = dot.scale*width, height = height) 
+          } else {
+            ggplot2::ggsave(i, temp.files[[i]], device = "pdf", 
+                            width = width, height = height)
+          } 
+      } else if (endsWith(tolower(i), ".svg")) {
+          if (grepl("_bar_plot", i) | grepl("_dot_plot", i)) {
+            ggplot2::ggsave(i, temp.files[[i]], device = "svg", 
+                            width = dot.scale*width, height = height) 
+          } else {
+            ggplot2::ggsave(i, temp.files[[i]], device = "svg", 
+                            width = width, height = height)
+          } 
+      } else if (endsWith(tolower(i), ".html")) {
+          visNetwork::visSave(temp.files[[i]], i) 
+      } else if (endsWith(tolower(i), ".bp")) {
+        temp.name <- paste0(substr(i, 1, nchar(i)-3), ".pdf")
+        save_base_plot(temp.files[[i]], temp.name, 
+                       width = width, height = height)
+        i <- temp.name
+      }
+      
+      # save to synapse if relevant
+      if (!is.null(resultsFolder)) {
+        # save to synapse
+        mySynFile <- synapser::File(i, parent = resultsFolder)
+        synapser::synStore(mySynFile) 
+      }
+    } else {
+     # else create subfolder
+      temp.base <- getwd()
+      dir.create(i)
+      setwd(i)
+      if (!is.null(resultsFolder)) {
+        subFolder <- 
+          synapser::synStore(synapser::Folder(i, parent = resultsFolder))
+      } else {
+        subFolder <- NULL
+      }
+      
+      sub.base <- file.path(temp.base, i)
+      save_to_synapse_v2(temp.files[[i]], subFolder, width, height, dot.scale)
+      setwd(temp.base)
+    }
+  }
+}
+
 # save folder and nested files/subfolders to Synapse
 save_to_synapse <- function(temp.files, resultsFolder = NULL,
-                            width = 7, height = 7) {
-  CSV.files <- names(temp.files)[grepl(".csv", names(temp.files))]
+                            width = 7, height = 7, dot.scale = 4) {
+  CSV.files <- names(temp.files)[grepl(".csv", names(temp.files), 
+                                       ignore.case = TRUE)]
   if (length(CSV.files) > 0) {
     # save locally
     for (j in 1:length(CSV.files)) {
@@ -848,13 +883,21 @@ save_to_synapse <- function(temp.files, resultsFolder = NULL,
     }
   }
   
-  PDF.files <- names(temp.files)[grepl(".pdf", names(temp.files))]
+  PDF.files <- names(temp.files)[grepl(".pdf", names(temp.files), 
+                                       ignore.case = TRUE)]
   if (length(PDF.files) > 0) {
     # save locally
     for (j in 1:length(PDF.files)) {
       if (is.list(temp.files[[PDF.files[j]]])) {
-        ggplot2::ggsave(PDF.files[j], temp.files[[PDF.files[j]]], 
-                        device = "pdf", width = width, height = height) 
+        if (endsWith(PDF.files[j], "_bar_plot.pdf") | 
+            endsWith(PDF.files[j], "_dot_plot.pdf") |
+            endsWith(PDF.files[j], "_dot_plot_withSD.pdf")) {
+          ggplot2::ggsave(PDF.files[j], temp.files[[PDF.files[j]]], 
+                          device = "pdf", width = dot.scale*width, height = height) 
+        } else {
+          ggplot2::ggsave(PDF.files[j], temp.files[[PDF.files[j]]], 
+                          device = "pdf", width = width, height = height)
+        }
       }
     }
     
@@ -867,7 +910,25 @@ save_to_synapse <- function(temp.files, resultsFolder = NULL,
     }
   }
   
-  HTML.files <- names(temp.files)[grepl(".html", names(temp.files))]
+  SVG.files <- names(temp.files)[grepl(".svg", names(temp.files), 
+                                       ignore.case = TRUE)]
+  if (length(SVG.files) > 0) {
+    # save locally
+    for (j in 1:length(SVG.files)) {
+      ggplot2::ggsave(PDF.files[j], temp.files[[PDF.files[j]]], 
+                      device = "svg", width = width, height = height)
+    }
+    
+    if (!is.null(resultsFolder)) {
+      # save to synapse
+      SVGs <- lapply(as.list(SVG.files), synapser::File,
+                     parent = resultsFolder)
+      lapply(SVGs, synapser::synStore) 
+    }
+  }
+  
+  HTML.files <- names(temp.files)[grepl(".html", names(temp.files), 
+                                        ignore.case = TRUE)]
   if (length(HTML.files) > 0) {
     # save locally
     for (j in 1:length(HTML.files)) {
@@ -888,7 +949,8 @@ save_to_synapse <- function(temp.files, resultsFolder = NULL,
     }
   }
   
-  base.plot.files <- names(temp.files)[grepl(".bp", names(temp.files))]
+  base.plot.files <- names(temp.files)[grepl(".bp", names(temp.files), 
+                                             ignore.case = TRUE)]
   if (length(base.plot.files) > 0) {
     # save locally
     for (j in 1:length(base.plot.files)) {
@@ -2242,7 +2304,7 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
                          gene.sig="Spearman.q",
                          expr.list, temp.path, syn.id = NULL, 
                          gmt1 = get_gmt1_v2(), gmt2 = NULL,
-                         n.top = 50, n.top.sets = 10, ties=TRUE) {
+                         n.top = 50, n.top.sets = 10, ties=TRUE, timeout = 300) {
   DEG.forCompile <- list()
   GSEA.forCompile <- list()
   for (i in 1:length(gmt1)) {
@@ -2301,27 +2363,36 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
         # create heatmaps
         if (nrow(heatmap.mat) > 1) {
           heatmap.mat <- as.matrix(heatmap.mat)
-          deg.heatmap.clust <- pheatmap::pheatmap(heatmap.mat, color = 
+          deg.heatmap.clust <- try(R.utils::withTimeout(pheatmap::pheatmap(heatmap.mat, color = 
                                                     colorRampPalette(
                                                       c("navy", "white", "firebrick3"))(50),
                                                   scale = "row", annotation_col = cc.df.global, 
                                                   angle_col = "45", 
                                                   show_colnames = FALSE, 
-                                                  fontsize = 10)
-          deg.heatmap <- pheatmap::pheatmap(heatmap.mat, 
+                                                  fontsize = 10), timeout = timeout, onTimeout="error"), silent = TRUE)
+          if (inherits(deg.heatmap.clust, "try-error")) {
+            deg.heatmap.clust <- list()
+          }
+          deg.heatmap <- try(R.utils::withTimeout(pheatmap::pheatmap(heatmap.mat, 
                                             color = colorRampPalette(c("navy", "white", "firebrick3"))(50),
                                             cluster_row = FALSE, 
                                             scale = "row", annotation_col = cc.df.global, 
                                             angle_col = "45", 
                                             show_colnames = FALSE, 
-                                            fontsize = 10)
-          deg.heatmap.abs <- pheatmap::pheatmap(heatmap.mat, color = 
+                                            fontsize = 10), timeout = timeout, onTimeout="error"), silent = TRUE)
+          if (inherits(deg.heatmap, "try-error")) {
+            deg.heatmap <- list()
+          }
+          deg.heatmap.abs <- try(R.utils::withTimeout(pheatmap::pheatmap(heatmap.mat, color = 
                                                   colorRampPalette(
                                                     c("navy", "white", "firebrick3"))(50), 
                                                 annotation_col = cc.df.global, 
                                                 angle_col = "45", 
                                                 show_colnames = FALSE, 
-                                                fontsize = 10)
+                                                fontsize = 10), timeout = timeout, onTimeout="error"), silent = TRUE)
+          if (inherits(deg.heatmap.abs, "try-error")) {
+            deg.heatmap.abs <- list()
+          }
         } else {
           deg.heatmap.clust <- list()
           deg.heatmap <- list()
@@ -2349,11 +2420,12 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
       # GSEA
       if (grepl("phospho", names(omics)[i], ignore.case = TRUE)) {
         names(gmt2) <- c("phospho_ksdb", "phospho_sub")
-        if (check_coverage(gsea1.inputs[[1]], gmt1[[k]], features1, rank.var)) {
+        if (check_coverage(deg$result, gmt2[[1]], temp.features, gene.rank.val) &
+            check_coverage(deg$result, gmt2[[2]], temp.features, gene.rank.val)) {
         gsea2 <- panSEA::mGSEA(list(deg$result, deg$result), gmt2, 
                                types = names(gmt2), 
                                feature.names = rep(temp.features,2),
-                               rank.var = rep(gene.rank.val,2))
+                               rank.var = rep(gene.rank.val,2), ties=ties)
         # store GSEA results
         phospho.gsea.files <- list()
         for (k in 1:length(gmt2)) {
@@ -2362,11 +2434,25 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
             gsea2$all.results[[k]], 
             EA.type = names(gmt2)[k])
           if (length(phospho.mtn) > 1) {
-            phospho.net <- panSEA::netSEA(list(deg$result),
-                                          list(gsea2$all.results[[k]]$result),
-                                          element.names = temp.features,
-                                          rank.var = gene.rank.val,
-                                          n.network.sets = n.top.sets)
+            if (ties) {
+              phospho.net <- try(R.utils::withTimeout(panSEA::netSEA(list(deg$result),
+                                            list(gsea2$all.results[[k]]$result.w.ties),
+                                            element.names = temp.features,
+                                            rank.var = gene.rank.val,
+                                            n.network.sets = n.top.sets), timeout = timeout, onTimeout="error"), silent = TRUE)
+              if (inherits(phospho.net, "try-error")) {
+                phospho.net <- list()
+              }
+            } else {
+              phospho.net <- try(R.utils::withTimeout(panSEA::netSEA(list(deg$result),
+                                            list(gsea2$all.results[[k]]$result),
+                                            element.names = temp.features,
+                                            rank.var = gene.rank.val,
+                                            n.network.sets = n.top.sets), timeout = timeout, onTimeout="error"), silent = TRUE)
+              if (inherits(phospho.net, "try-error")) {
+                phospho.net <- list()
+              }
+            }
             phospho.gsea.files[[gsea.name]] <- list("GSEA_results.csv" =
                                                       gsea2$all.results[[k]]$result,
                                                     "GSEA_volcano_plot.pdf" =
@@ -2383,6 +2469,7 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
           } 
           if (ties) {
             phospho.gsea.files[[gsea.name]][["GSEA_results_withoutShufflingTies.csv"]] <- gsea2$all.results[[k]]$result.w.ties
+            phospho.gsea.files[[gsea.name]][["GSEA_bar_plot.pdf"]] <- gsea2$all.results[[k]]$bar.plot
             phospho.gsea.files[[gsea.name]][["GSEA_dot_plot.pdf"]] <- gsea2$all.results[[k]]$dot.plot
             phospho.gsea.files[[gsea.name]][["GSEA_dot_plot_withSD.pdf"]] <- gsea2$all.results[[k]]$dot.sd
           }
@@ -2446,29 +2533,32 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
                                       gsea1[[gsea.name]]$all.results[[m]]$result,
                                     "GSEA_volcano_plot.pdf" =
                                       gsea1[[gsea.name]]$all.results[[m]]$volcano.plot,
-                                    "GSEA_bar_plot.pdf" =
-                                      gsea1[[gsea.name]]$all.results[[m]]$bar.plot,
-                                    "GSEA_dot_plot.pdf" =
-                                      gsea1[[gsea.name]]$all.results[[m]]$dot.plot,
                                     "mtn_plots" = global.mtn)
             if (ties) {
               temp.gsea.files[["GSEA_results_withoutShufflingTies.csv"]] <- gsea1[[gsea.name]]$all.results[[m]]$result.w.ties
+              temp.gsea.files[["GSEA_bar_plot.pdf"]] <- gsea1[[gsea.name]]$all.results[[m]]$bar.plot
               temp.gsea.files[["GSEA_dot_plot.pdf"]] <- gsea1[[gsea.name]]$all.results[[m]]$dot.plot
               temp.gsea.files[["GSEA_dot_plot_withSD.pdf"]] <- gsea1[[gsea.name]]$all.results[[m]]$dot.sd
             }
             if (length(global.mtn) > 1) {
               if (ties) {
-                temp.gsea.files[["GSEA_network_graph.html"]] <- panSEA::netSEA(list(gsea1.inputs[[m]]),
+                temp.gsea.files[["GSEA_network_graph.html"]] <- try(R.utils::withTimeout(panSEA::netSEA(list(gsea1.inputs[[m]]),
                                                                                list(gsea1[[gsea.name]]$all.results[[m]]$result.w.ties),
                                                                                element.names = features1,
                                                                                rank.var = rank.var,
-                                                                               n.network.sets = n.top.sets)$interactive
+                                                                               n.network.sets = n.top.sets), timeout = timeout, onTimeout="error")$interactive, silent = TRUE)
+                if (inherits(temp.gsea.files[["GSEA_network_graph.html"]], "try-error")) {
+                  temp.gsea.files[["GSEA_network_graph.html"]] <- list()
+                }
               } else {
-                temp.gsea.files[["GSEA_network_graph.html"]] <- panSEA::netSEA(list(gsea1.inputs[[m]]),
+                temp.gsea.files[["GSEA_network_graph.html"]] <- try(R.utils::withTimeout(panSEA::netSEA(list(gsea1.inputs[[m]]),
                                                                                list(gsea1[[gsea.name]]$all.results[[m]]$result),
                                                                                element.names = features1,
                                                                                rank.var = rank.var,
-                                                                               n.network.sets = n.top.sets)$interactive
+                                                                               n.network.sets = n.top.sets), timeout = timeout, onTimeout="error")$interactive, silent = TRUE)
+                if (inherits(temp.gsea.files[["GSEA_network_graph.html"]], "try-error")) {
+                  temp.gsea.files[["GSEA_network_graph.html"]] <- list()
+                }
               }
             }
             if (!grepl("phospho", names(omics)[i], ignore.case = TRUE) & length(global.mtn) > 0) {
@@ -2494,6 +2584,18 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
         }
         all.global.gsea.files[[gsea.name]] <- temp.gsea.files
       }
+      if (length(all.global.gsea.files) > 1) {
+        temp.compiled.GSEA <- try(R.utils::withTimeout(panSEA::compile_mGSEA(all.global.gsea.files), timeout = timeout, onTimeout="error"), silent = TRUE)
+        if (!inherits(temp.compiled.GSEA, "try-error")) {
+          temp.files <- list("GSEA_results.csv" = temp.compiled.GSEA$results,
+                             "Compiled_GSEA_results.csv" = temp.compiled.GSEA$mean.results,
+                             "GSEA_venn_diagram.pdf" = temp.compiled.GSEA$venn.diagram,
+                             "GSEA_dot_plot.pdf" = temp.compiled.GSEA$dot.plot,
+                             "GSEA_correlations.csv" = temp.compiled.GSEA$corr,
+                             "GSEA_correlation_matrix.pdf" = temp.compiled.GSEA$corr.matrix)
+          all.global.gsea.files[["Compiled_results"]] <- temp.files 
+        } 
+      }
       temp.omics.files[["GSEA"]] <- all.global.gsea.files
       
       # DMEA
@@ -2513,10 +2615,13 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
                                              sets = "Drug_set",
                                              EA.type = "DMEA")
         if (ties) {
-          DMEA.global.net <- panSEA::netSEA(list(dmea.results$all.results[[1]]$corr.result),
+          DMEA.global.net <- try(R.utils::withTimeout(panSEA::netSEA(list(dmea.results$all.results[[1]]$corr.result),
                                             list(dmea.results$all.results[[1]]$result.w.ties),
                                             "Drug", "Pearson.est",
-                                            n.network.sets = n.top.sets)
+                                            n.network.sets = n.top.sets), timeout = timeout, onTimeout="error"), silent = TRUE)
+          if (inherits(DMEA.global.net, "try-error")) {
+            DMEA.global.net <- list()
+          }
           global.DMEA.files <- list("DMEA_results.csv" =
                                       dmea.results$all.results[[1]]$result,
                                     "DMEA_results_withoutShufflingTies.csv" =
@@ -2531,10 +2636,13 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
                                       DMEA.global.net$interactive,
                                     "mtn_plots" = DMEA.global.mtn)
         } else {
-          DMEA.global.net <- panSEA::netSEA(list(dmea.results$all.results[[1]]$corr.result),
+          DMEA.global.net <- try(R.utils::withTimeout(panSEA::netSEA(list(dmea.results$all.results[[1]]$corr.result),
                                             list(dmea.results$all.results[[1]]$result),
                                             "Drug", "Pearson.est",
-                                            n.network.sets = n.top.sets)
+                                            n.network.sets = n.top.sets), timeout = timeout, onTimeout="error"), silent = TRUE)
+          if (inherits(DMEA.global.net, "try-error")) {
+            DMEA.global.net <- list()
+          }
           global.DMEA.files <- list("DMEA_results.csv" =
                                       dmea.results$all.results[[1]]$result,
                                     "DMEA_correlation_results.csv" = 
@@ -2551,6 +2659,9 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
         DMEA.forCompile[[names(omics)[i]]] <- dmea.results$all.results[[1]]
       }
       files.for.Synapse[[names(omics)[i]]] <- temp.omics.files
+      temp.files <- list(temp.omics.files)
+      names(temp.files) <- names(omics)[i]
+      save_to_synapse_v2(temp.files, syn.id)
     } else {
       temp.meta <- list()
       for (j in 1:length(temp.omics)) {
@@ -2567,26 +2678,30 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
   # compile results
   if (length(names(omics)) > 1) {
     combo.files <- list()
-    compiled.DEGs <- panSEA::compile_mDEG(DEG.forCompile)
-    compiled.DEG.files <- list("Differential_expression_results.csv" = compiled.DEGs$results,
-                               "Compiled_differential_expression_results.csv" = compiled.DEGs$mean.results,
-                               "Differential_expression_venn_diagram.pdf" = compiled.DEGs$venn.diagram,
-                               "Differential_expression_dot_plot.pdf" = compiled.DEGs$dot.plot,
-                               "Differential_expression_correlations.csv" = compiled.DEGs$corr,
-                               "Differential_expression_correlation_matrix.pdf" = compiled.DEGs$corr.matrix)
-    combo.files[["Differential_expression"]] <- compiled.DEG.files
+    compiled.DEGs <- try(R.utils::withTimeout(panSEA::compile_mDEG(DEG.forCompile), timeout = timeout, onTimeout="error"), silent = TRUE)
+    if (!inherits(compiled.DEGs, "try-error")) {
+      compiled.DEG.files <- list("Differential_expression_results.csv" = compiled.DEGs$results,
+                                 "Compiled_differential_expression_results.csv" = compiled.DEGs$mean.results,
+                                 "Differential_expression_venn_diagram.pdf" = compiled.DEGs$venn.diagram,
+                                 "Differential_expression_dot_plot.pdf" = compiled.DEGs$dot.plot,
+                                 "Differential_expression_correlations.csv" = compiled.DEGs$corr,
+                                 "Differential_expression_correlation_matrix.pdf" = compiled.DEGs$corr.matrix)
+      combo.files[["Differential_expression"]] <- compiled.DEG.files 
+    }
     
     compiled.GSEA.files <- list()
     for (i in 1:length(gmt1)) {
       if (length(GSEA.forCompile[[names(gmt1)[i]]] > 1)) {
-        compiled.GSEA <- panSEA::compile_mGSEA(GSEA.forCompile[[names(gmt1)[i]]])
-        temp.files <- list("GSEA_results.csv" = compiled.GSEA$results,
-                           "Compiled_GSEA_results.csv" = compiled.GSEA$mean.results,
-                           "GSEA_venn_diagram.pdf" = compiled.GSEA$venn.diagram,
-                           "GSEA_dot_plot.pdf" = compiled.GSEA$dot.plot,
-                           "GSEA_correlations.csv" = compiled.GSEA$corr,
-                           "GSEA_correlation_matrix.pdf" = compiled.GSEA$corr.matrix)
-        compiled.GSEA.files[[paste0("GSEA_",names(gmt1)[i])]] <- temp.files 
+        compiled.GSEA <- try(R.utils::withTimeout(panSEA::compile_mGSEA(GSEA.forCompile[[names(gmt1)[i]]]), timeout = timeout, onTimeout="error"), silent = TRUE)
+        if (!inherits(compiled.GSEA, "try-error")) {
+          temp.files <- list("GSEA_results.csv" = compiled.GSEA$results,
+                             "Compiled_GSEA_results.csv" = compiled.GSEA$mean.results,
+                             "GSEA_venn_diagram.pdf" = compiled.GSEA$venn.diagram,
+                             "GSEA_dot_plot.pdf" = compiled.GSEA$dot.plot,
+                             "GSEA_correlations.csv" = compiled.GSEA$corr,
+                             "GSEA_correlation_matrix.pdf" = compiled.GSEA$corr.matrix)
+          compiled.GSEA.files[[paste0("GSEA_",names(gmt1)[i])]] <- temp.files 
+        }
       }
     }
     if (length(compiled.GSEA.files) > 0) {
@@ -2594,18 +2709,23 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
     }
     
     if (length(DMEA.forCompile) > 1) {
-      compiled.DMEA <- panSEA::compile_mDMEA(DMEA.forCompile)
-      compiled.DMEA.files <- list("DMEA_results.csv" = compiled.DMEA$results,
-                                  "Compiled_DMEA_results.csv" = compiled.DMEA$mean.results,
-                                  "DMEA_venn_diagram.pdf" = compiled.DMEA$venn.diagram,
-                                  "DMEA_dot_plot.pdf" = compiled.DMEA$dot.plot,
-                                  "DMEA_correlations.csv" = compiled.DMEA$corr,
-                                  "DMEA_correlation_matrix.pdf" = compiled.DMEA$corr.matrix) 
-      combo.files[["DMEA"]] <- compiled.DMEA.files
+      compiled.DMEA <- try(R.utils::withTimeout(panSEA::compile_mDMEA(DMEA.forCompile), timeout = timeout, onTimeout="error"), silent = TRUE)
+      if (!inherits(compiled.DMEA, "try-error")) {
+        compiled.DMEA.files <- list("DMEA_results.csv" = compiled.DMEA$results,
+                                    "Compiled_DMEA_results.csv" = compiled.DMEA$mean.results,
+                                    "DMEA_venn_diagram.pdf" = compiled.DMEA$venn.diagram,
+                                    "DMEA_dot_plot.pdf" = compiled.DMEA$dot.plot,
+                                    "DMEA_correlations.csv" = compiled.DMEA$corr,
+                                    "DMEA_correlation_matrix.pdf" = compiled.DMEA$corr.matrix) 
+        combo.files[["DMEA"]] <- compiled.DMEA.files 
+      }
     }
-    files.for.Synapse[["Compiled_results"]] <- combo.files
+    if (length(combo.files) > 0) {
+      files.for.Synapse[["Compiled_results"]] <- combo.files
+      save_to_synapse_v2(list("Compiled_results" = combo.files), syn.id) 
+    }
   }
-  save_to_synapse(files.for.Synapse, syn.id)
+  #save_to_synapse(files.for.Synapse, syn.id)
 }
 
 # just use regular panSEA but add 
