@@ -939,7 +939,8 @@ write.csv(selectedVertices, paste0("vertices_optimalRun_withSpearmanRho_",Sys.Da
 ### plot in Cytoscape
 #install.packages("BiocManager")
 BiocManager::install("RCy3")
-setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
+#setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
+setwd("~/OneDrive - PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Network/unified/")
 selectedCentrality <- read.csv("centrality_optimalRun_positive_2025-01-12.csv")
 selectedEdges <- read.csv("edges_optimalRun_positive_2025-01-12.csv")
 selectedVertices <- read.csv("vertices_optimalRun_withSpearmanRho_2025-01-21.csv")
