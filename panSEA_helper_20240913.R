@@ -7,9 +7,6 @@ library(readxl); library(panSEA); library(synapser)
 library(stringr); library(tidyr)
 library(dplyr); library(pheatmap); library(grid)
 
-## try old mDEG since new one seems to have silent error (perhaps due to changes to allow second design matrix factor)
-#source("mDEG 2.R")
-
 # get gmt information for GSEA relevant to Chr8
 get_chr8_gmt1 <- function(gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
                                         "msigdb_Homo sapiens_H",
