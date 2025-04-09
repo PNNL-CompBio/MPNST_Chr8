@@ -17,30 +17,20 @@ library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 #webshot::install_phantomjs()
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
 source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/panSEA_helper_20240913.R")
+synapser::synLogin()
 
 #### 1. Import metadata & crosstabs ####
-setwd(
-  "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/data/"
-)
-meta.df <- readxl::read_excel("Chr8-MetaDataSheet.xlsx")
+setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/data/")
+meta.df <- readxl::read_excel(synapser::synGet('syn65986564')$path)
 
-global.df <- read.table(
-  "global_data/Chr8_crosstab_global_gene_corrected.txt",
-  sep = "\t")
-phospho.df <- read.table(
-  "phospho_data/Chr8_crosstab_phospho_SiteID_corrected.txt",
-  sep = "\t")
-phospho.pep.df <- read.table(
-  "phospho_data/Chr8_crosstab_phospho_peptide_corrected.txt",
-  sep = "\t")
+global.df <- read.table(synapser::synGet("syn65986566")$path, sep = "\t")
+phospho.df <- read.table(synapser::synGet("syn65986573")$path, sep = "\t")
+phospho.pep.df <- read.table(synapser::synGet("syn65986575")$path, sep = "\t")
 
 # add column for feature names and later make it the first column
 global.df$Gene <- rownames(global.df)
 phospho.df$SUB_SITE <- rownames(phospho.df)
 phospho.pep.df$SUB_SITE <- rownames(phospho.pep.df)
-
-# download sf files from Synapse based on 01_mpnst_get_omics.R from Sara JC Gosline
-synapser::synLogin()
 
 ##now get the manifest from synapse
 manifest<-synapser::synTableQuery("select * from syn53503360")$asDataFrame()|>
@@ -48,13 +38,8 @@ manifest<-synapser::synTableQuery("select * from syn53503360")$asDataFrame()|>
 
 ##for now we only have tumor and PDX data
 ##they each get their own sample identifier
-pdx_data<-manifest|>dplyr::select(common_name,Sex,RNASeq='PDX_RNASeq',Mutations='PDX_Somatic_Mutations',CopyNumber='PDX_CNV')
-pdx_data$sampleType <- "PDX"
-
-tumor_data<- manifest|>dplyr::select(common_name,Sex,RNASeq='Tumor_RNASeq',Mutations='Tumor_Somatic_Mutations',CopyNumber='Tumor_CNV')
-tumor_data$sampleType <- "Tumor"
-
-combined<-rbind(pdx_data,tumor_data)|>distinct()
+pdx_data<-manifest|>dplyr::select(common_name,Sex,RNASeq='PDX_RNASeq',
+                                  CopyNumber='PDX_CNV')
 
 # from coderdata 00-buildGeneFile.R
 # check gene symbols because some don't make sense
@@ -105,20 +90,13 @@ loadRNA <- function() {
   }))
   rnaseq <- na.omit(rnaseq)
   
-  valid.chr8 <- c("Not amplified", "Amplified", "Strongly amplified")
-  Chr8.samples <- manifest[manifest$PDX_Chr8_status %in% valid.chr8 | 
-                             manifest$Tumor_Chr8_status %in% valid.chr8,]$common_name # 13
-  rnaseq <- rnaseq[rnaseq$sample %in% Chr8.samples,]
   rna <- reshape2::dcast(rnaseq, sampleType + gene_symbol ~ sample, mean, value.var = "TPM")
   colnames(rna)[2] <- "Gene"
   
   pdxRNA <- rna[rna$sampleType=="PDX", colnames(rna)[2:ncol(rna)]]
-  tumorRNA <- rna[rna$sampleType=="Tumor", colnames(rna)[2:ncol(rna)]]
-  return(list(pdxRNA = pdxRNA, tumorRNA = tumorRNA))
+  return(pdxRNA)
 }
-RNA <- loadRNA()
-pdxRNA <- RNA$pdxRNA
-tumorRNA <- RNA$tumorRNA
+pdxRNA <- loadRNA()
 
 #### 2. determine median chr8q copy number ####
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"

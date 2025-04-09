@@ -1131,23 +1131,41 @@ extract_files_for_save <- function(omics, deg, mDEG.results, dmea.results,
     kin.mtn2 <- get_top_mtn_plots(gsea2$all.results[[1]],
                                   EA.type = "KSEA")
     if (ties) {
-      kin.net2 <- panSEA::netSEA(list(gsea2.inputs[[1]]),
-                                 list(gsea2$all.results[[1]]$result.w.ties),
-                                 "SUB_SITE",
-                                 n.network.sets = n.net)
-      sub.net2 <- panSEA::netSEA(list(gsea2.inputs[[2]]),
-                                 list(gsea2$all.results[[2]]$result.w.ties),
-                                 "SUB_SITE",
-                                 n.network.sets = n.net)
+      if (KSEA) {
+        kin.net2 <- panSEA::netSEA(list(gsea2.inputs[[1]]),
+                                   list(gsea2$all.results[[1]]$result.w.ties),
+                                   "SUB_SITE",
+                                   n.network.sets = n.net) 
+      } else {
+        kin.net2 <- list()
+      }
+      
+      if (SSEA) {
+        sub.net2 <- panSEA::netSEA(list(gsea2.inputs[[2]]),
+                                   list(gsea2$all.results[[2]]$result.w.ties),
+                                   "SUB_SITE",
+                                   n.network.sets = n.net) 
+      } else {
+        sub.net2 <- list()
+      }
     } else {
-      kin.net2 <- panSEA::netSEA(list(gsea2.inputs[[1]]),
-                                 list(gsea2$all.results[[1]]$result),
-                                 "SUB_SITE",
-                                 n.network.sets = n.net)
-      sub.net2 <- panSEA::netSEA(list(gsea2.inputs[[2]]),
-                                 list(gsea2$all.results[[2]]$result),
-                                 "SUB_SITE",
-                                 n.network.sets = n.net)
+      if (KSEA) {
+        kin.net2 <- panSEA::netSEA(list(gsea2.inputs[[1]]),
+                                   list(gsea2$all.results[[1]]$result),
+                                   "SUB_SITE",
+                                   n.network.sets = n.net) 
+      } else {
+        kin.net2 <- list()
+      }
+      
+      if (SSEA) {
+        sub.net2 <- panSEA::netSEA(list(gsea2.inputs[[2]]),
+                                   list(gsea2$all.results[[2]]$result),
+                                   "SUB_SITE",
+                                   n.network.sets = n.net) 
+      } else {
+        sub.net2 <- list()
+      }
     }
     sub.mtn2 <- get_top_mtn_plots(gsea2$all.results[[2]],
                                   EA.type = "Substrate_enrichment")
