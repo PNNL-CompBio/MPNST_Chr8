@@ -15,11 +15,13 @@ library(stringr); library(tidyr); library(plyr)
 library(htmlwidgets); library(webshot); library(scales); library(msigdbr)
 library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 #webshot::install_phantomjs()
+base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
-source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/panSEA_helper_20240913.R")
+#source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/panSEA_helper_20240913.R")
 synapser::synLogin()
 
 #### 1. Import metadata & crosstabs ####
+### proteomics
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/data/")
 meta.df <- readxl::read_excel(synapser::synGet('syn65986564')$path)
 
@@ -32,12 +34,9 @@ global.df$Gene <- rownames(global.df)
 phospho.df$SUB_SITE <- rownames(phospho.df)
 phospho.pep.df$SUB_SITE <- rownames(phospho.pep.df)
 
-##now get the manifest from synapse
+### other omics
 manifest<-synapser::synTableQuery("select * from syn53503360")$asDataFrame()|>
   dplyr::rename(common_name='Sample')
-
-##for now we only have tumor and PDX data
-##they each get their own sample identifier
 pdx_data<-manifest|>dplyr::select(common_name,Sex,RNASeq='PDX_RNASeq',
                                   CopyNumber='PDX_CNV')
 
@@ -50,7 +49,7 @@ if(!require('org.Hs.eg.db')){
 
 library(dplyr)
 ##get entrez ids to symbol
-loadRNA <- function() {
+loadRNAandCN <- function(pdx_data) {
   entrez<-as.data.frame(org.Hs.egALIAS2EG)
   
   ##get entriz ids to ensembl
@@ -71,11 +70,8 @@ loadRNA <- function() {
   joined.df<-rbind(joined.df,tdf)|>
     distinct()
   
-  rnaseq<-do.call('rbind',lapply(setdiff(combined$RNASeq,NA),function(x){
-    # if(x!=""){
-    #print(x)
-    sample<-base::subset(combined,RNASeq==x)
-    #print(sample)
+  rnaseq<-do.call('rbind',lapply(setdiff(pdx_data$RNASeq,NA),function(x){
+    sample<-base::subset(pdx_data,RNASeq==x)
     res<-data.table::fread(synGet(x)$path)|>
       tidyr::separate(Name,into=c('other_id','vers'),sep='\\.')|>
       left_join(joined.df)|>
@@ -83,20 +79,36 @@ loadRNA <- function() {
       subset(!is.na(gene_symbol)|>
                subset(TPM!=0))
     res$sample <- sample$common_name
-    res$sex <- sample$Sex
-    res$sampleType <- sample$sampleType
     return(distinct(res))
-    # }
   }))
   rnaseq <- na.omit(rnaseq)
+  rnaseq <- reshape2::dcast(rnaseq, gene_symbol ~ sample, mean, value.var = "TPM")
+  colnames(rnaseq)[1] <- "Gene"
   
-  rna <- reshape2::dcast(rnaseq, sampleType + gene_symbol ~ sample, mean, value.var = "TPM")
-  colnames(rna)[2] <- "Gene"
-  
-  pdxRNA <- rna[rna$sampleType=="PDX", colnames(rna)[2:ncol(rna)]]
-  return(pdxRNA)
+  cn<-do.call(rbind,lapply(setdiff(pdx_data$CopyNumber,c(NA,"NA")),function(x){
+    sample<-subset(pdx_data,CopyNumber==x)
+    print(sample$improve_sample_id)
+    res<-data.table::fread(synGet(x)$path)
+    
+    long_df<- res|>
+      tidyr::separate_rows(gene,sep=',')|>
+      dplyr::rename(gene_symbol='gene')|>
+      dplyr::left_join(joined.df)|>
+      subset(!is.na(gene_symbol))|>
+      dplyr::select(gene_symbol,log2)|>
+      dplyr::distinct()|>
+      dplyr::mutate(copy_number=2*(2^log2))|>
+      dplyr::select(-log2)
+
+    long_df$sample <- sample$common_name
+    return(long_df)
+  }))
+  colnames(cn)[1] <- "Gene"
+  return(list(rna = rnaseq, cn = cn))
 }
-pdxRNA <- loadRNA()
+pdxOmics <- loadRNAandCN(pdx_data)
+pdxRNA <- pdxOmics$rna
+pdxCN <- pdxOmics$cn
 
 #### 2. determine median chr8q copy number ####
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"
@@ -128,41 +140,22 @@ rownames(global.meta.df2) <- global.meta.df2$SampleName
 
 # look at chr8q amplification
 setwd(base.path)
-dir.create("Chr8_quant")
-setwd("Chr8_quant")
-cnv <- read.csv("mpnst_copy_number.csv")
-cnv.samples <- read.csv("mpnst_samples.csv")
-cnv.samples <- dplyr::distinct(cnv.samples[,c("common_name", "improve_sample_id")])
-prot.cnv.samples <- cnv.samples[cnv.samples$common_name %in% global.meta.df2$Sample,]
-prot.cnv <- merge(prot.cnv.samples, cnv, by="improve_sample_id")
-cnv <- merge(cnv.samples, cnv, by="improve_sample_id")
-genes <- read.csv("genes.csv")
-genes <- dplyr::distinct(genes[,c("entrez_id", "gene_symbol")])
-prot.cnv <- merge(genes, prot.cnv, by="entrez_id")
-cnv <- merge(genes, cnv, by="entrez_id")
-pdxCNV <- prot.cnv[prot.cnv$study == "MPNST PDX MT",]
-pdxCNV <- cnv[cnv$study == "MPNST PDX MT",]
-omics2 <- list("Copy Number" = pdxCNV,
+dir.create("Chr8_quant_20250409")
+setwd("Chr8_quant_20250409")
+dir.create("positional_medians")
+setwd("positional_medians")
+omics2 <- list("Copy Number" = pdxCN,
                "RNA-Seq" = pdxRNA,
                "Proteomics" = global.df)
 
-# get annotations as df
-dir.create("Single_sample_positional_medians")
-setwd("Single_sample_positional_medians")
-dir.create("Single_sample_positional_medians_allSamples")
-setwd("Single_sample_positional_medians_allSamples")
-omics2 <- list("PDX Copy Number" = pdxCNV,
-               "PDX RNA-Seq" = pdxRNA,
-               "Tumor RNA-Seq" = tumorRNA)
-
-msigdb.info <- msigdbr::msigdbr("Homo sapiens", "C1")
+msigdb.info <- msigdbr::msigdbr(category="C1")
 reduced.msigdb <- dplyr::distinct(msigdb.info[,c("gs_name", "gene_symbol")])
 for (i in 1:length(omics2)) {
-  setwd(file.path(base.path, "Chr8_quant", "Single_sample_positional_medians_allSamples"))
+  setwd(file.path(base.path, "Chr8_quant_20250409", "positional_medians"))
   dir.create(names(omics2)[i])
   setwd(names(omics2)[i])
   pos.GSEA <- list()
-  if (names(omics2)[i] == "PDX Copy Number") {
+  if (names(omics2)[i] == "Copy Number") {
     temp.samples <- unique(omics2[[i]]$common_name)
 
     for (j in temp.samples) { # assumes first column is feature names
@@ -201,7 +194,7 @@ for (i in 1:length(omics2)) {
     geom_errorbar(aes(ymin=`Median Copy Number` - sd_copy_number, 
                       ymax = `Median Copy Number` + sd_copy_number), width=0.2,
                   position=position_dodge(0.9))
-  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_positional_median.pdf"))
+  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_positional_median.pdf"), width=5, height=5)
   
   chr8q.df$`Mean Copy Number` <- chr8q.df$mean_copy_number
   ggplot2::ggplot(chr8q.df, aes(fill=Sample, x=`Chr8q Position`, y=`Mean Copy Number`)) + 
@@ -209,7 +202,7 @@ for (i in 1:length(omics2)) {
     geom_errorbar(aes(ymin=`Mean Copy Number` - sd_copy_number, 
                       ymax = `Mean Copy Number` + sd_copy_number), width=0.2,
                   position=position_dodge(0.9))
-  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_positional_mean.pdf"))
+  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_positional_mean.pdf"), width=5, height=5)
   
   # median chr8q
   med.chr8q <- plyr::ddply(chr8q.df, .(Sample), summarize,
@@ -232,7 +225,7 @@ for (i in 1:length(omics2)) {
     geom_errorbar(aes(ymin=`Chr8q Median` - sd_med_copy_number, 
                       ymax = `Chr8q Median` + sd_med_copy_number), width=0.2,
                   position=position_dodge(0.9))
-  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_median.pdf"))
+  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_median.pdf"), width=5, height=5)
   write.csv(med.chr8q, paste0(names(omics2)[i], "_Chr8q_median.csv"), row.names = FALSE)
   
   pdf(paste0(names(omics2)[i], "_Chr8q_mean_histogram.pdf"))
@@ -250,7 +243,7 @@ for (i in 1:length(omics2)) {
     geom_errorbar(aes(ymin=`Chr8q Mean` - sd_mean_copy_number, 
                       ymax = `Chr8q Mean` + sd_mean_copy_number), width=0.2,
                   position=position_dodge(0.9))
-  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_mean.pdf"))
+  ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_mean.pdf"), width=5, height=5)
   write.csv(med.chr8q, paste0(names(omics2)[i], "_Chr8q_mean.csv"), row.names = FALSE)
   
   # Myc expression
@@ -263,8 +256,8 @@ for (i in 1:length(omics2)) {
 
 #### 3. run panSEA ####
 setwd(base.path)
-setwd("Chr8_quant")
-cnv.med.chr8q <- read.csv("Single_sample_positional_medians_allSamples/PDX Copy Number/PDX Copy Number_Chr8q_median.csv")
+setwd("Chr8_quant_20250409")
+cnv.med.chr8q <- read.csv("positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
 global.meta.df2$Chr8q_median <- NA
 for (i in 1:nrow(global.meta.df2)) {
   temp.sample <- global.meta.df2$Sample[i]
@@ -281,7 +274,6 @@ for (i in 1:nrow(rna.meta.df)) {
   }
 }
 pdx.rna.meta.df <- rna.meta.df[colnames(pdxRNA)[2:ncol(pdxRNA)],]
-tumor.rna.meta.df <- rna.meta.df[colnames(tumorRNA)[2:ncol(tumorRNA)],]
 
 # correlate with peptide level phospho
 phospho.pep.forCorr <- as.data.frame(t(phospho.pep.df[,prot.names]))
@@ -292,66 +284,26 @@ phospho.pep.corr <- DMEA::rank_corr(phospho.pep.corr.input, plots=FALSE)
 colnames(phospho.pep.corr$result)[1] <- "Feature"
 write.csv(phospho.pep.corr$result, "Phospho_peptide_correlations_Chr8q.csv", row.names = FALSE)
 
-# actually should also incorporate WES
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"
-setwd(base.path)
-dir.create("Chr8_quant")
-setwd("Chr8_quant")
-cnv <- read.csv("mpnst_copy_number.csv")
-cnv.samples <- read.csv("mpnst_samples.csv")
-cnv.samples <- dplyr::distinct(cnv.samples[,c("common_name", "improve_sample_id")])
-#prot.cnv.samples <- cnv.samples[cnv.samples$common_name %in% global.meta.df2$Sample,]
-#prot.cnv <- merge(prot.cnv.samples, cnv, by="improve_sample_id")
-cnv <- merge(cnv.samples, cnv, by="improve_sample_id")
-genes <- read.csv("genes.csv")
-genes <- dplyr::distinct(genes[,c("entrez_id", "gene_symbol")])
-#prot.cnv <- merge(genes, prot.cnv, by="entrez_id")
-cnv <- merge(genes, cnv, by="entrez_id")
-#cnv2 <- dplyr::distinct(cnv)
-#cnv2 <- NULL
-#pdxCNV <- prot.cnv[prot.cnv$study == "MPNST PDX MT",]
-cnv <- cnv[cnv$study == "MPNST PDX MT",]
-
-# format wide with common_name ~ gene_symbol
-cnv <- reshape2::dcast(cnv, gene_symbol ~ common_name, mean, value.var = "copy_number")
-colnames(cnv)[1] <- "Gene"
-
 # get median Chr8q copy number for metadata
-chr8q.info <- read.csv(synapser::synGet("syn61811211")$path)
+chr8q.info <- read.csv(file.path(base.path,"Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv"))
 
 # get other metadata
-manifest<-synapser::synTableQuery("select * from syn53503360")$asDataFrame()|>
-  dplyr::rename(common_name='Sample')
-
-##for now we only have tumor and PDX data
-##they each get their own sample identifier
-pdx_data<-manifest|>dplyr::select(common_name,Sex,RNASeq='PDX_RNASeq',Mutations='PDX_Somatic_Mutations',CopyNumber='PDX_CNV')
-pdx_data$sampleType <- "PDX"
 colnames(pdx_data)[1] <- "Sample"
-
 chr8q.info <- merge(pdx_data, chr8q.info, all.y = TRUE)
-colnames(chr8q.info)[7] <- "Median Chr8q Copy Number"
-
-# run corr analysis for copy number
-cnv <- cnv[!is.na(cnv$Gene),]
-
+colnames(chr8q.info)[5] <- "Median Chr8q Copy Number"
 
 # get more metadata for heatmaps
-chr8q.syn <- "syn61811211"
-syn.path <- synapser::synGet(chr8q.syn)$path
-chr8q.info <- read.csv(syn.path)
-chr8q.info <- chr8q.info[,c("Sample", "Chr8q.Median")]
+chr8q.info <- chr8q.info[,c("Sample", "Sex", "Median Chr8q Copy Number")]
 
 pdx.info <- synapser::synTableQuery("select * from syn53503360")$asDataFrame()|>
   dplyr::rename(common_name='Sample')
 pdx.info <- pdx.info[pdx.info$common_name %in% chr8q.info$Sample,c("common_name", "Sex", "PRC2_Status")]
 colnames(pdx.info)[1] <- "Sample"
 
-pdx.info2 <- merge(chr8q.info, pdx.info)
+pdx.info2 <- merge(chr8q.info, pdx.info, by=c("Sample","Sex"))
 rownames(pdx.info2) <- pdx.info2$Sample
-colnames(pdx.info2) <- c("Sample", "Median Chr8q Copy Number", "Sex", "PRC2 Status")
-
-pdx.overlap <- pdx.info2[pdx.info2$Sample %in% global.meta.df2$Sample,]
+colnames(pdx.info2) <- c("Sample", "Sex", "Median Chr8q Copy Number", "PRC2 Status")
+pdx.info2 <- pdx.info2[,c("Sample", "Median Chr8q Copy Number", "Sex", "PRC2 Status")]
 
 global.meta.df3 <- distinct(global.meta.df2[,c("Sample","SampleName")])
 global.meta.df3 <- merge(global.meta.df3, pdx.info2)
@@ -361,36 +313,36 @@ global.meta.df3$Sample <- global.meta.df3$SampleName
 
 msigdb.info <- msigdbr::msigdbr()
 msigdb.genes <- unique(msigdb.info$gene_symbol)
-cnv.red <- cnv[cnv$Gene %in% msigdb.genes,]
-pdxRNA.red <- pdxRNA[pdxRNA$Gene %in% msigdb.genes,]
 
-omics <- list("Copy_number" = cnv, 
+# format wide with common_name ~ gene_symbol
+cn <- reshape2::dcast(pdxCN, Gene ~ sample, mean, value.var = "copy_number")
+
+#cnv.red <- pdxCNmelt[pdxCNmelt$Gene %in% msigdb.genes,]
+#pdxRNA.red <- pdxRNA[pdxRNA$Gene %in% msigdb.genes,]
+
+omics <- list("Copy_number" = cn, 
               "Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
-              "RNA-Seq" = list("PDX" = pdxRNA,"Tumor" = tumorRNA),
-              "RNA-Seq (Overlapping with Proteomics)" = list("PDX" = pdxRNA[,c("Gene",rownames(pdx.overlap))],"Tumor" = tumorRNA[,c("Gene",rownames(pdx.overlap))]))
-prot.feat <- c("Gene", "SUB_SITE")
-rna.feat <- c("Gene", "Gene")
+              "RNA-Seq" = pdxRNA)
 meta.list <- list("Copy_number" = pdx.info2,
                   "Proteomics" = global.meta.df3,
-                  "RNA-Seq" = pdx.info2,
-                  "RNA-Seq (Overlapping with Proteomics)" = pdx.overlap)
+                  "RNA-Seq" = pdx.info2)
 expr.list <- list("Copy_number" = "adherent CCLE",
-                  "Proteomics" = list("CCLE proteomics"),
-                  "RNA-Seq" = list("adherent CCLE", "adherent CCLE"),
-                  "RNA-Seq (Overlapping with Proteomics)" = list("adherent CCLE", "adherent CCLE"))
+                  "Proteomics" = "CCLE proteomics",
+                  "RNA-Seq" = "adherent CCLE")
 feature.list <- list("Copy_number" = "Gene",
-                     "Proteomics" = prot.feat,
-                     "RNA-Seq" = rna.feat,
-                     "RNA-Seq (Overlapping with Proteomics)" = rna.feat)
-my.syn <- "syn63138110"
+                     "Proteomics" = c("Gene", "SUB_SITE"),
+                     "RNA-Seq" = "Gene")
+my.syn <- "syn65988130"
 setwd(base.path)
-setwd("Chr8_quant")
-gmt1 <- get_gmt1_v2()
-gmt2 <- get_gmt2()
+setwd("Chr8_quant_20250409")
+#gmt1 <- get_gmt1_v2()
+gmt1 <- readRDS(file.path(base.path, "gmt1_more.rds"))
+#gmt2 <- get_gmt2()
+gmt2 <- readRDS(file.path(base.path, "gmt2.rds"))
 synapser::synLogin()
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant", "Spearman"), syn.id = my.syn)
+             temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
 
 omics <- list("Copy_number" = cnv.red, 
               "Proteomics" = global.df,
@@ -406,10 +358,39 @@ feature.list <- list("Copy_number" = "Gene",
                      "RNA-Seq" = "Gene")
 my.syn <- "syn63138110"
 setwd(base.path)
-setwd("Chr8_quant")
+setwd("Chr8_quant_20250409")
 gmt1 <- get_gmt1_v2()
 gmt2 <- get_gmt2()
 synapser::synLogin()
+
+# first, check positional enrichment on copy number
+omics <- list("Copy_number" = cn)
+meta.list <- list("Copy_number" = pdx.info2)
+expr.list <- list("Copy_number" = "adherent CCLE")
+feature.list <- list("Copy_number" = "Gene")
+gmt1.cn <- list("Positional" = gmt1$Positional)
+panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
+             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.cn,
+             temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
+
+# next, proteomics and RNA
+omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
+              "RNA-Seq" = pdxRNA)
+meta.list <- list("Proteomics" = global.meta.df3,
+                  "RNA-Seq" = pdx.info2)
+expr.list <- list("Proteomics" = "CCLE proteomics",
+                  "RNA-Seq" = "adherent CCLE")
+feature.list <- list("Proteomics" = c("Gene", "SUB_SITE"),
+                     "RNA-Seq" = "Gene")
+gmt1.rest <- list("Hallmark" = gmt1$Hallmark,
+                  "KEGG" = gmt1$KEGG,
+                  "Oncogenic" = gmt1$Oncogenic,
+                  "PID" = gmt1$PID,
+                  "TFT_TGRD" = gmt1$TFT_TGRD)
+panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
+             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest,
+             temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
+
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2,
              temp.path = file.path(base.path, "Chr8_quant", "Spearman"), syn.id = my.syn)
@@ -432,7 +413,7 @@ expr.list <- list("RNA-Seq" = "adherent CCLE")
 feature.list <- list("RNA-Seq" = "Gene")
 my.syn <- "syn63138110"
 setwd(base.path)
-setwd("Chr8_quant")
+setwd("Chr8_quant_20250409")
 gmt1 <- get_gmt1_v2()
 gmt2 <- get_gmt2()
 synapser::synLogin()
