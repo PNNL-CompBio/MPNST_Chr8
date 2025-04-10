@@ -108,6 +108,8 @@ loadRNAandCN <- function(pdx_data) {
 }
 pdxOmics <- loadRNAandCN(pdx_data)
 pdxRNA <- pdxOmics$rna
+# remove JH-2-009 since Ava said it is contaminated
+pdxRNA <- pdxRNA[,colnames(pdxRNA)[colnames(pdxRNA) != "JH-2-009"]]
 pdxCN <- pdxOmics$cn
 
 #### 2. determine median chr8q copy number ####
@@ -364,8 +366,8 @@ gmt2 <- get_gmt2()
 synapser::synLogin()
 
 # first, check positional enrichment on copy number
-omics <- list("Copy_number" = cn)
-meta.list <- list("Copy_number" = pdx.info2)
+omics <- list("Copy_number" = cn[,colnames(cn)[colnames(cn)!="JH-2-009"]])
+meta.list <- list("Copy_number" = pdx.info2[pdx.info2$Sample1="JH-2-009",])
 expr.list <- list("Copy_number" = "adherent CCLE")
 feature.list <- list("Copy_number" = "Gene")
 gmt1.cn <- list("Positional" = gmt1$Positional)
@@ -377,7 +379,7 @@ panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Numbe
 omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
               "RNA-Seq" = pdxRNA)
 meta.list <- list("Proteomics" = global.meta.df3,
-                  "RNA-Seq" = pdx.info2)
+                  "RNA-Seq" = pdx.info2[pdx.info2$Sample1="JH-2-009",])
 expr.list <- list("Proteomics" = "CCLE proteomics",
                   "RNA-Seq" = "adherent CCLE")
 feature.list <- list("Proteomics" = c("Gene", "SUB_SITE"),
