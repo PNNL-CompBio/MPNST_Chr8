@@ -106,10 +106,8 @@ loadRNAandCN <- function(pdx_data) {
   colnames(cn)[1] <- "Gene"
   return(list(rna = rnaseq, cn = cn))
 }
-pdxOmics <- loadRNAandCN(pdx_data)
+pdxOmics <- loadRNAandCN(pdx_data[pdx_data$common_name != "JH-2-009",]) # remove JH-2-009 since Ava said it is contaminated
 pdxRNA <- pdxOmics$rna
-# remove JH-2-009 since Ava said it is contaminated
-pdxRNA <- pdxRNA[,colnames(pdxRNA)[colnames(pdxRNA) != "JH-2-009"]]
 pdxCN <- pdxOmics$cn
 
 #### 2. determine median chr8q copy number ####
@@ -158,11 +156,12 @@ for (i in 1:length(omics2)) {
   setwd(names(omics2)[i])
   pos.GSEA <- list()
   if (names(omics2)[i] == "Copy Number") {
-    temp.samples <- unique(omics2[[i]]$common_name)
+    temp.samples <- unique(omics2[[i]]$sample)
 
     for (j in temp.samples) { # assumes first column is feature names
       # prep input data
-      temp.input <- omics2[[i]][omics2[[i]]$common_name == j,c("gene_symbol","copy_number")]
+      temp.input <- omics2[[i]][omics2[[i]]$sample == j,c("Gene","copy_number")]
+      colnames(temp.input)[1] <- "gene_symbol"
       temp.input <- merge(reduced.msigdb, temp.input, by="gene_symbol")
       temp.med <- plyr::ddply(temp.input, .(gs_name), summarize,
                               median_copy_number = median(copy_number, na.rm = TRUE),
@@ -313,61 +312,21 @@ rownames(global.meta.df3) <- global.meta.df3$SampleName
 global.meta.df3$PDX <- global.meta.df3$Sample
 global.meta.df3$Sample <- global.meta.df3$SampleName
 
-msigdb.info <- msigdbr::msigdbr()
-msigdb.genes <- unique(msigdb.info$gene_symbol)
-
 # format wide with common_name ~ gene_symbol
 cn <- reshape2::dcast(pdxCN, Gene ~ sample, mean, value.var = "copy_number")
 
-#cnv.red <- pdxCNmelt[pdxCNmelt$Gene %in% msigdb.genes,]
-#pdxRNA.red <- pdxRNA[pdxRNA$Gene %in% msigdb.genes,]
-
-omics <- list("Copy_number" = cn, 
-              "Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
-              "RNA-Seq" = pdxRNA)
-meta.list <- list("Copy_number" = pdx.info2,
-                  "Proteomics" = global.meta.df3,
-                  "RNA-Seq" = pdx.info2)
-expr.list <- list("Copy_number" = "adherent CCLE",
-                  "Proteomics" = "CCLE proteomics",
-                  "RNA-Seq" = "adherent CCLE")
-feature.list <- list("Copy_number" = "Gene",
-                     "Proteomics" = c("Gene", "SUB_SITE"),
-                     "RNA-Seq" = "Gene")
 my.syn <- "syn65988130"
 setwd(base.path)
 setwd("Chr8_quant_20250409")
 #gmt1 <- get_gmt1_v2()
-gmt1 <- readRDS(file.path(base.path, "gmt1_more.rds"))
+gmt1 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/gmt1_more.rds")
 #gmt2 <- get_gmt2()
-gmt2 <- readRDS(file.path(base.path, "gmt2.rds"))
-synapser::synLogin()
-panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
-
-omics <- list("Copy_number" = cnv.red, 
-              "Proteomics" = global.df,
-              "RNA-Seq" = pdxRNA)
-meta.list <- list("Copy_number" = pdx.info2,
-                  "Proteomics" = global.meta.df3,
-                  "RNA-Seq" = pdx.info2)
-expr.list <- list("Copy_number" = "adherent CCLE",
-                  "Proteomics" = "CCLE proteomics",
-                  "RNA-Seq" = "adherent CCLE")
-feature.list <- list("Copy_number" = "Gene",
-                     "Proteomics" = "Gene",
-                     "RNA-Seq" = "Gene")
-my.syn <- "syn63138110"
-setwd(base.path)
-setwd("Chr8_quant_20250409")
-gmt1 <- get_gmt1_v2()
-gmt2 <- get_gmt2()
+gmt2 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/gmt2.rds")
 synapser::synLogin()
 
 # first, check positional enrichment on copy number
-omics <- list("Copy_number" = cn[,colnames(cn)[colnames(cn)!="JH-2-009"]])
-meta.list <- list("Copy_number" = pdx.info2[pdx.info2$Sample1="JH-2-009",])
+omics <- list("Copy_number" = cn)
+meta.list <- list("Copy_number" = pdx.info2[pdx.info2$Sample!="JH-2-009",])
 expr.list <- list("Copy_number" = "adherent CCLE")
 feature.list <- list("Copy_number" = "Gene")
 gmt1.cn <- list("Positional" = gmt1$Positional)
@@ -376,10 +335,12 @@ panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Numbe
              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
 
 # next, proteomics and RNA
+setwd(base.path)
+setwd("Chr8_quant_20250409")
 omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
               "RNA-Seq" = pdxRNA)
 meta.list <- list("Proteomics" = global.meta.df3,
-                  "RNA-Seq" = pdx.info2[pdx.info2$Sample1="JH-2-009",])
+                  "RNA-Seq" = pdx.info2[pdx.info2$Sample!="JH-2-009",])
 expr.list <- list("Proteomics" = "CCLE proteomics",
                   "RNA-Seq" = "adherent CCLE")
 feature.list <- list("Proteomics" = c("Gene", "SUB_SITE"),
@@ -388,90 +349,9 @@ gmt1.rest <- list("Hallmark" = gmt1$Hallmark,
                   "KEGG" = gmt1$KEGG,
                   "Oncogenic" = gmt1$Oncogenic,
                   "PID" = gmt1$PID,
-                  "TFT_TGRD" = gmt1$TFT_TGRD)
+                  "TFT_GTRD" = gmt1$TFT_GTRD)
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest,
+             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest, gmt2=gmt2,
              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
 
-panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant", "Spearman"), syn.id = my.syn)
-
-# computer keeps shutting down, try just doing proteomics for now
-omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df))
-prot.feat <- c("Gene", "SUB_SITE")
-meta.list <- list("Proteomics" = global.meta.df3)
-expr.list <- list("Proteomics" = list("CCLE proteomics"))
-feature.list <- list("Proteomics" = prot.feat)
-debug(panSEA_corr3)
-panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-            other.annotations = c("PDX", "Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2,
-            temp.path = file.path(base.path, "Chr8_quant", "Spearman"), syn.id = my.syn)
-
-
-omics <- list("RNA-Seq" = pdxRNA)
-meta.list <- list("RNA-Seq" = pdx.info2)
-expr.list <- list("RNA-Seq" = "adherent CCLE")
-feature.list <- list("RNA-Seq" = "Gene")
-my.syn <- "syn63138110"
-setwd(base.path)
-setwd("Chr8_quant_20250409")
-gmt1 <- get_gmt1_v2()
-gmt2 <- get_gmt2()
-synapser::synLogin()
-panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant", "Spearman"), syn.id = my.syn)
-
-# computer keeps shutting down, try just doing proteomics for now
-omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df))
-prot.feat <- c("Gene", "SUB_SITE")
-meta.list <- list("Proteomics" = global.meta.df3)
-expr.list <- list("Proteomics" = list("CCLE proteomics"))
-feature.list <- list("Proteomics" = prot.feat)
-debug(panSEA_corr3)
-panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("PDX", "Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant", "Spearman"), syn.id = my.syn)
-
-# with phospho:
-# Running correlations and regressions...
-# Running ssGSEA using phospho_ksdb data
-# Running enrichment analysis...
-# Error in `colnames<-`(`*tmp*`, value = `*vtmp*`) : 
-#   attempt to set 'colnames' on an object with less than two dimensions
-
-omics <- list("Proteomics" = list("Global" = global.df))
-prot.feat <- c("Gene")
-meta.list <- list("Proteomics" = global.meta.df3)
-expr.list <- list("Proteomics" = list("CCLE proteomics"))
-feature.list <- list("Proteomics" = prot.feat)
-debug(panSEA_corr3)
-panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("PDX", "Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant", "Spearman"), syn.id = my.syn)
-
-omics <- list("Proteomics" = list("Phospho" = phospho.df))
-prot.feat <- c("SUB_SITE")
-meta.list <- list("Proteomics" = global.meta.df3)
-expr.list <- list("Proteomics" = list("CCLE proteomics"))
-feature.list <- list("Proteomics" = prot.feat)
-setwd(base.path)
-setwd("Chr8_quant")
-gmt1 <- readRDS("gmt1_less.rds")
-# ksdb.human <- read.csv("~/OneDrive - PNNL/Documents/ksdb_human_20231101.csv")
-# ksdb.human$SUB_SITE <- paste0(ksdb.human$SUB_GENE, "-", ksdb.human$SUB_MOD_RSD, tolower(substr(ksdb.human$SUB_MOD_RSD, 1, 1)))
-# gmt2 <- DMEA::as_gmt(ksdb.human, element.names = "SUB_SITE", set.names = "GENE")
-gmt2v2 <- get_gmt2()
-# gmt2v2[[1]] <- gmt2
-# saveRDS(gmt2v2, "gmt2_20241029.rds")
-# actually original gmt2 is fine, just groups based on kinase protein names rather than gene names
-panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("PDX", "Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1, gmt2=gmt2v2,
-             temp.path = file.path(base.path, "Chr8_quant", "Spearman"), syn.id = my.syn)
-
-# run TFT GSEA for all RNAseq sample corr
-gene.allSamples.result <- read.csv(synapser::synGet("syn63394665")$path) # previously used: syn61920734
-gmt1TF <- gmt1$TFT_GTRD
-RNA.allSamples.TF <- panSEA::drugSEA_ties(gene.allSamples.result, gmt1TF, "Gene", "Spearman.est", ties = TRUE)
 
