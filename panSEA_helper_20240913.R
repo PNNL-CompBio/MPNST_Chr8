@@ -292,7 +292,7 @@ get_gmt1 <- function(gmt.list1 = c("msigdb_Homo sapiens_C2_CP:KEGG",
 }
 
 # uses more pathways
-get_gmt1_v2 <- function(gmt.list1 = c("msigdb_Homo sapiens_HS_C2_CP:KEGG",
+get_gmt1_v2 <- function(gmt.list1 = c("msigdb_Homo sapiens_HS_C2_CP:KEGG_LEGACY",
                                    "msigdb_Homo sapiens_HS_H",
                                    "msigdb_Homo sapiens_HS_C1",
                                    "msigdb_Homo sapiens_HS_C3_TFT:GTRD",

@@ -331,7 +331,7 @@ expr.list <- list("Copy_number" = "adherent CCLE")
 feature.list <- list("Copy_number" = "Gene")
 gmt1.cn <- list("Positional" = gmt1$Positional)
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.cn,
+             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.cn, gmt2=gmt2,
              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
 
 # next, proteomics and RNA
