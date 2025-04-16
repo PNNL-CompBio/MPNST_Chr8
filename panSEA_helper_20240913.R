@@ -2803,3 +2803,18 @@ check_coverage <- function(gsea.input, gmt, feature.names = "Gene",
   }
   return(covered)
 }
+
+get_coverage <- function(gsea.input, gmt, feature.names = "Gene") {
+  coverage <- data.frame(names(gmt$genesets), Features = NA, Features_covered = NA,
+                         N_features = NA, N_features_covered = NA)
+  colnames(coverage)[1] <- "Feature_set"
+  for (i in 1:length(gmt$genesets)) {
+    temp.genes <- gmt$genesets[[i]]
+    temp.gsea.input <- gsea.input[gsea.input[,feature.names] %in% temp.genes, ]
+    coverage$Features[i] <- paste0(temp.genes, collapse = ", ")
+    coverage$Features_covered[i] <- paste0(unique(temp.gsea.input[,feature.names]), collapse = ", ")
+    coverage$N_features[i] <- length(temp.genes)
+    coverage$N_features_covered[i] <- length(unique(temp.gsea.input[,feature.names]))
+  }
+  return(coverage)
+}
