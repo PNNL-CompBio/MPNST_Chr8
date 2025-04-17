@@ -179,7 +179,7 @@ global.result <- na.omit(read.csv(synapser::synGet("syn66224803")$path))
 n.prot <- nrow(global.result) # 9013
 
 # filter for significance
-global.result <- global.result[global.result$Spearman.q <= 0.05, ] # 208 / 9013 (2.31%)
+global.result <- global.result[global.result$Spearman.q <= 0.05, ] # 208 / 9013 (2.31%); 98.02% are in the interactome
 
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
 #temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date(), "_kinasesRenamed")
@@ -290,103 +290,57 @@ library(ggplot2)
 library(patchwork)
 
 # sort by rank and then enforce that runID order
-setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
-vert.prot <- read.csv("PCSF_Protein_2024-12-12/vertices.csv")
-vert.prot$inputType <- "Protein"
-vert.tf <- read.csv("PCSF_Transcription_factor_2025-01-10/vertices.csv")
-vert.tf$inputType <- "Transcription Factor"
-vert.tf$betaTF <- vert.tf$beta
-vert.kin <- read.csv("PCSF_Kinase_2025-01-10/vertices.csv")
-vert.kin$inputType <- "Kinase"
-vert.kin$betaKin <- vert.kin$beta
+setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
+all.vertices <- read.csv("PCSF_Protein_2025-04-16/vertices.csv")
 
-keepCols <- c(colnames(vert.prot),"betaTF","betaKin") # should not include "beta" but instead "betaTF", "betaProt", "betaKin"
-vert.prot <- vert.prot[vert.prot$Direction == "positive",keepCols[keepCols %in% colnames(vert.prot)]]
-vert.tf <- vert.tf[vert.tf$Direction == "positive",keepCols[keepCols %in% colnames(vert.tf)]]
-vert.kin <- vert.kin[vert.kin$Direction == "positive",keepCols[keepCols %in% colnames(vert.kin)]]
-minVertCols <- c("name","type","mu","omega")
-all.vertices <- merge(vert.tf[,c(minVertCols,"betaTF")], 
-                      vert.prot[,c(minVertCols,"betaProt")], 
-                      by=minVertCols, all = TRUE)
-all.vertices <- merge(all.vertices[,c(minVertCols,"betaTF","betaProt")], 
-                      vert.kin[,c(minVertCols,"betaKin")], 
-                      by=minVertCols, all = TRUE)
+param.info <- as.data.frame(tidyr::expand_grid(omega=omega.vals, mu=mu.vals,  
+                                               beta=beta.vals))
 
-param.info <- as.data.frame(tidyr::expand_grid(omega=omega.vals, mu=mu.vals, 
-                                               betaTF=beta.vals, 
-                                               betaProt=beta.vals, 
-                                               betaKin=beta.vals))
-
-centr.prot <- read.csv("PCSF_Protein_2024-12-12/centrality.csv")
-centr.prot$inputType <- "Protein"
-centr.prot$runID <- sub("_prot_","_",centr.prot$runID)
-centr.tf <- read.csv("PCSF_Transcription_factor_2025-01-10/centrality.csv")
-centr.tf$inputType <- "Transcription Factor"
-centr.kin <- read.csv("PCSF_Kinase_2025-01-10/centrality.csv")
-centr.kin$inputType <- "Kinase"
-keepCols <- colnames(centr.prot)
-centr.tf <- centr.tf[,keepCols]
-centr.kin <- centr.kin[,keepCols]
-all.centrality <- rbind(centr.tf, centr.prot, centr.kin)
+all.centrality <- read.csv("PCSF_Protein_2025-04-16/centrality.csv")
 all.centrality$runID2 <- sub(".*tive_degExp_1_","",all.centrality$runID)
 all.centrality$Direction <- sub("\\_.*","",all.centrality$runID)
 
-prot.8q24 <- read.csv("PCSF_Protein_2024-12-12/chr8q24_enrichment.csv")
-tf.8q24 <- read.csv("PCSF_Transcription_factor_2025-01-10/chr8q24_enrichment.csv") # NA
-kin.8q24 <- read.csv("PCSF_Kinase_2025-01-10/chr8q24_enrichment.csv") # NA
-enr.8q24 <- prot.8q24[prot.8q24$Direction=="positive",]
-enr.8q24$runID2 <- sub(".*tive_degExp_1_","",enr.8q24$runID)
-
-# just focus on positive since there are no negative terminals for TFs or kinases
-all.centrality <- all.centrality[all.centrality$Direction == "positive",
-                                 c("name","degree","runID2","inputType")]|> 
-  tidyr::separate_wider_delim(runID2, delim="_", names=c("var1","omega","var2", "mu","var3","beta"))
-all.centrality[,c("var1","var2","var3")] <- NULL
-all.centrality[,c("betaTF","betaProt","betaKin")] <- NA
-all.centrality[all.centrality$inputType=="Transcription Factor",]$betaTF <- 
-  all.centrality[all.centrality$inputType=="Transcription Factor",]$beta
-all.centrality[all.centrality$inputType=="Protein",]$betaProt <- 
-  all.centrality[all.centrality$inputType=="Protein",]$beta
-all.centrality[all.centrality$inputType=="Kinase",]$betaKin <- 
-  all.centrality[all.centrality$inputType=="Kinase",]$beta
-all.centrality$beta <- NULL
+# enr.8q24 <- read.csv("PCSF_Protein_2025-04-16/chr8q24_enrichment.csv") # 0 rows
+# enr.8q24$runID2 <- sub(".*tive_degExp_1_","",enr.8q24$runID)
+enr.8q24 <- data.frame()
 
 ### node degrees (steiner vs. terminal) for each parameter setting
 degree.info <- dplyr::distinct(merge(all.vertices, all.centrality))
-degree.summary <- plyr::ddply(degree.info, .(type, omega, mu, betaTF, betaProt, betaKin), summarize,
+degree.summary <- plyr::ddply(degree.info, .(type, omega, mu, beta, Direction), summarize,
                               degree_sum = sum(degree, na.rm=TRUE))
 
 ### % of terminal nodes included in output for each parameter setting
 perc.term <- plyr::ddply(all.vertices[all.vertices$type=="Terminal",], 
-                         .(omega, mu, betaTF, betaProt, betaKin), summarize,
+                         .(omega, mu, beta, Direction), summarize,
                          N_terminal = length(unique(name)))
 #perc.term$N_inputs <- 441 # number of negatively correlated proteins with adj. p <= 0.05 (no negatively enriched TFs or kinases)
-perc.term$N_inputs <- 264
-perc.term[is.na(perc.term$betaProt),]$N_inputs <- 12
+perc.term$N_inputs <- nrow(global.result[global.result$Spearman.est < 0,])
+perc.term[perc.term$Direction == "positive",]$N_inputs <- nrow(global.result[global.result$Spearman.est > 0,])
 perc.term$percent_terminal <- perc.term$N_terminal * 100 / perc.term$N_inputs
 perc.term$runID2 <- paste0("omega_", perc.term$omega, "_mu_", perc.term$mu,
-                           "_beta_TF_",perc.term$betaTF, "_prot_",perc.term$betaProt, 
-                           "_kin_",perc.term$betaKin)
+                           "_beta_",perc.term$beta)
 
 ### chr8q24 enrichment plot - expect negative NES because highest prize would be at bottom of list even though unweighted calculation
 # is the score still affected by input order in unweighted GSEA? yes, well mostly affected by prize (i.e., rank metric) then input order
 # this paper uses betweenness centrality to rank nodes: https://www.frontiersin.org/journals/genetics/articles/10.3389/fgene.2021.577623/full
-temp.8q24 <- enr.8q24[enr.8q24$Feature_set == "chr8q24" & enr.8q24$minPerSet == 6,]
-if (nrow(temp.8q24) > 0) {
-  if (any(temp.8q24$FDR_q_value == 0)) {
-    temp.8q24[temp.8q24$FDR_q_value == 0,]$FDR_q_value <- 1E-4
-  }
-  temp.8q24$chr8q24 <- rank(-log(temp.8q24$FDR_q_value, 10) * temp.8q24$NES)
-  temp.8q24$runID2 <- sub(".*tive_degExp_1_","",temp.8q24$runID)
+if (nrow(enr.8q24) > 0) {
+  temp.8q24 <- enr.8q24[enr.8q24$Feature_set == "chr8q24" & enr.8q24$minPerSet == 6,]
+  if (nrow(temp.8q24) > 0) {
+    if (any(temp.8q24$FDR_q_value == 0)) {
+      temp.8q24[temp.8q24$FDR_q_value == 0,]$FDR_q_value <- 1E-4
+    }
+    temp.8q24$chr8q24 <- rank(-log10(temp.8q24$FDR_q_value) * temp.8q24$NES)
+    temp.8q24$runID2 <- sub(".*tive_degExp_1_","",temp.8q24$runID)
+  } 
 }
 
 ### mean rank (min NES for chr8q24, min diff in node degrees, max percent terminal) - could maybe specify SUMO1, other general nodes to exclude
-degree.summary2 <- reshape2::dcast(degree.summary, omega+mu+betaTF+betaProt+betaKin ~ type, value.var = "degree_sum")
-degree.summary2$runID2 <- paste0("omega_", degree.summary2$omega, "_mu_", degree.summary2$mu,
-                                 "_beta_TF_",degree.summary2$betaTF, "_prot_",degree.summary2$betaProt, 
-                                 "_kin_",degree.summary2$betaKin)
+degree.summary2 <- reshape2::dcast(degree.summary, omega+mu+beta+Direction ~ type, value.var = "degree_sum")
+degree.summary2$runID2 <- paste0("omega_", degree.summary2$omega, "_mu_", 
+                                 degree.summary2$mu, "_beta_",degree.summary2$beta)
 perc.term2 <- plyr::ddply(perc.term, .(runID2), summarize,
-                          perc_terminal = mean(percent_terminal, na.rm = TRUE))
+                          perc_terminal = mean(percent_terminal, na.rm = TRUE),
+                          sd_perc_terminal = sd(percent_terminal, na.rm = TRUE))
 rank.df <- dplyr::distinct(merge(perc.term2, degree.summary2, by="runID2"))
 rank.df$degree_diff <- abs(rank.df$Steiner - rank.df$Terminal)
 rank.df$rank_degDiff <- rank(rank.df$degree_diff)
@@ -400,41 +354,49 @@ if (nrow(temp.8q24) > 0) {
                                perc_terminal = mean(rank_percTerm, na.rm = TRUE),
                                chr8q24 = mean(chr8q24, na.rm = TRUE),
                                rank = mean(c(rank_degDiff, rank_percTerm, chr8q24), na.rm = TRUE))
+  runOrder <- rank.summary2[order(rank.summary2$rank),]$runID2
+  rank.summary3 <- reshape2::melt(rank.summary2, id = "runID2", variable.name = "Parameter")
+  library(ggplot2)
+  rank.plot <- ggplot2::ggplot(rank.summary3, 
+                               aes(x = runID2, y = value, group = Parameter, 
+                                   color = Parameter)) +
+    geom_line() + ylab("Rank") + theme_classic() +
+    scale_color_discrete(labels=c("Chr8q24\nenrichment", "Difference\nin degree","% terminal\nnodes used","Overall"))+
+    ggplot2::scale_x_discrete(limits = runOrder) +
+    theme(axis.title.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.x = element_blank())
 } else {
   rank.summary2 <- plyr::ddply(rank.summary, .(runID2), summarize,
                                degree_diff = mean(rank_degDiff, na.rm = TRUE),
                                perc_terminal = mean(rank_percTerm, na.rm = TRUE),
                                rank = mean(c(rank_degDiff, rank_percTerm), na.rm = TRUE))
+  runOrder <- rank.summary2[order(rank.summary2$rank),]$runID2
+  rank.summary3 <- reshape2::melt(rank.summary2, id = "runID2", variable.name = "Parameter")
+  library(ggplot2)
+  rank.plot <- ggplot2::ggplot(rank.summary3, 
+                               aes(x = runID2, y = value, group = Parameter, 
+                                   color = Parameter)) +
+    geom_line() + ylab("Rank") + theme_classic() +
+    scale_color_discrete(labels=c("Difference\nin degree","% terminal\nnodes used","Overall"))+
+    ggplot2::scale_x_discrete(limits = runOrder) +
+    theme(axis.title.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          axis.text.x = element_blank())
 }
-runOrder <- rank.summary2[order(rank.summary2$rank),]$runID2
-rank.summary3 <- reshape2::melt(rank.summary2, id = "runID2", variable.name = "Parameter")
-library(ggplot2)
-rank.plot <- ggplot2::ggplot(rank.summary3, 
-                             aes(x = runID2, y = value, group = Parameter, 
-                                 color = Parameter)) +
-  geom_line() + ylab("Rank") + theme_classic() +
-  scale_color_discrete(labels=c("Chr8q24\nenrichment", "Difference\nin degree","% terminal\nnodes used","Overall"))+
-  ggplot2::scale_x_discrete(limits = runOrder) +
-  theme(axis.title.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank())
-rank.plot <- ggplot2::ggplot(rank.summary3, 
-                             aes(x = runID2, y = value, group = Parameter, 
-                                 color = Parameter)) +
-  geom_line() + ylab("Rank") + theme_classic() +
-  scale_color_discrete(labels=c("Difference\nin degree","% terminal\nnodes used","Overall"))+
-  ggplot2::scale_x_discrete(limits = runOrder) +
-  theme(axis.title.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank())
 rank.plot
 
 ### create plots now that runID overall ranks are known
 # create line plot of node degrees vs. runID
 #runOrder <- sort(unique(rank.summary$runID))
-deg.plot <- ggplot2::ggplot(degree.summary, aes(x = runID2, y = degree_sum, group = type, color = type)) +
-  geom_line() + ylab("Sum of Node Degrees") + theme_classic() + 
-  ggplot2::scale_x_discrete(limits = runOrder) +
+degree.summary$runID2 <- paste0("omega_", degree.summary$omega, "_mu_", 
+                                 degree.summary$mu, "_beta_",degree.summary$beta)
+degree.summary$DirectionType <- paste0(degree.summary$Direction, "-", degree.summary$type)
+deg.plot <- ggplot2::ggplot(degree.summary, aes(x = runID2, y = degree_sum, 
+                                                group = DirectionType, color = type)) +
+  geom_line(aes(linetype=Direction)) + ylab("Sum of Node Degrees") + theme_classic() + 
+  ggplot2::scale_x_discrete(limits = runOrder) + 
+  scale_linetype_discrete(labels=c("Negative", "Positive")) +
   labs(color="Node Type")+
   theme(axis.title.x = element_blank(),
         axis.ticks.x = element_blank(),
@@ -442,10 +404,12 @@ deg.plot <- ggplot2::ggplot(degree.summary, aes(x = runID2, y = degree_sum, grou
 deg.plot
 
 # percent terminal nodes used
-perc.plot <- ggplot2::ggplot(perc.term, aes(x = runID2, y = percent_terminal, group = 1)) +
+perc.plot <- ggplot2::ggplot(perc.term, aes(x = runID2, y = percent_terminal, 
+                                            group=Direction, linetype = Direction)) +
   geom_line() + ylab("% Terminal Nodes") + theme_classic() + 
   ggplot2::scale_x_discrete(limits = runOrder)+
-  scale_y_continuous(limits=c(94,97)) +
+  scale_linetype_discrete(labels=c("Negative", "Positive")) +
+  scale_y_continuous(limits=c(0, 100)) +
   theme(axis.title.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.text.x = element_blank())
@@ -476,8 +440,7 @@ if (nrow(temp.8q24) > 0) {
 
 ### parameter info
 param.info$runID2 <- paste0("omega_", param.info$omega, "_mu_", param.info$mu,
-                            "_beta_TF_",param.info$betaTF, "_prot_",param.info$betaProt, 
-                            "_kin_",param.info$betaKin)
+                            "_beta_",param.info$beta)
 param.info <- reshape2::melt(param.info, id = "runID2", variable.name = "parameter")
 # inspired by: https://r-graph-gallery.com/79-levelplot-with-ggplot2.html
 param.info$value <- as.numeric(param.info$value)
@@ -518,12 +481,11 @@ for (i in params[2:length(params)]) {
   }
 }
 param.plot
-source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
+#source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 param.plot <- param.plot + plot_layout(guides = 'collect')
 param.plot
 
 ### combine plots
-library(patchwork)
 if (nrow(temp.8q24) > 0) {
   combo.plot <- rank.plot / deg.plot / perc.plot / chr8.plot / param.plot
 } else {
@@ -531,180 +493,29 @@ if (nrow(temp.8q24) > 0) {
 }
 combo.plot
 ggplot2::ggsave(paste0("parameter_sweep_v3_",Sys.Date(),".pdf"), combo.plot, width = 6, height = 16)
+ggplot2::ggsave(paste0("parameter_sweep_v3_shorter_",Sys.Date(),".pdf"), combo.plot, width = 4, height = 7)
 saveRDS(combo.plot, paste0("parameter_sweep_v3_",Sys.Date(),".rds"))
 
-#### plot all results - wo chr8q24, heatmap ####
-library(patchwork)
-
-### node degrees (steiner vs. terminal) for each parameter setting
-node.types <- dplyr::distinct(all.vertices[,c("name", "type", "Direction", "runID")])
-node.types$runID2 <- sub(".*tive_degExp_1_","",node.types$runID)
-degree.info <- merge(node.types, dplyr::distinct(all.centrality[,c("name","runID","degree")]), by=c("name","runID"))
-library(plyr)
-degree.summary <- plyr::ddply(degree.info, .(type, runID2), summarize,
-                              degree_sum = sum(degree))
-
-### % of terminal nodes included in output for each parameter setting
-perc.term <- plyr::ddply(node.types, .(Direction, runID2), summarize,
-                         N_terminal = length(unique(name[type == "Terminal"])))
-N.pos.inputs <- nrow(global.result[global.result$Spearman.est > 0,]) # 264
-N.neg.inputs <- nrow(global.result[global.result$Spearman.est < 0,]) # 441
-perc.term$N_inputs <- N.neg.inputs
-perc.term[perc.term$Direction == "positive",]$N_inputs <- N.pos.inputs
-perc.term$percent_terminal <- perc.term$N_terminal * 100 / perc.term$N_inputs
-
-### mean rank (min NES for chr8q24, min diff in node degrees, max percent terminal) - could maybe specify SUMO1, other general nodes to exclude
-rank.df <- data.frame(runID2 = perc.term$runID2,
-                      degree_diff = rank(abs(degree.summary[degree.summary$type == "Steiner",]$degree_sum - 
-                                               degree.summary[degree.summary$type == "Terminal",]$degree_sum)),
-                      perc_terminal = rank(100-perc.term$percent_terminal))
-rank.summary <- plyr::ddply(rank.df, .(runID2), summarize,
-                            degree_diff = mean(degree_diff, na.rm = TRUE),
-                            perc_terminal = mean(perc_terminal, na.rm = TRUE),
-                            rank = mean(c(degree_diff, perc_terminal), na.rm = TRUE)) 
-runOrder <- rank.summary[order(rank.summary$rank),]$runID2
-rank.summary <- reshape2::melt(rank.summary, id = "runID2", variable.name = "Metric")
-rank.summary$Metric <- factor(rank.summary$Metric, levels=c("rank","degree_diff","perc_terminal"))
-# make sure levels, labels for rank.plot, and order of plots in patchwork match
-rank.plot <- ggplot2::ggplot(rank.summary, 
-                             aes(x = runID2, y = value, group = Metric, 
-                                 color = Metric)) +
-  geom_line() + ylab("Rank") + theme_classic() +
-  scale_color_discrete(labels=c("Overall","Difference\nin degree","% terminal\nnodes used"))+
-  ggplot2::scale_x_discrete(limits = runOrder) +
-  theme(axis.title.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank())
-rank.plot
-
-### create plots now that runID overall ranks are known
-# create line plot of node degrees vs. runID
-#runOrder <- sort(unique(rank.summary$runID))
-deg.plot <- ggplot2::ggplot(degree.summary, aes(x = runID2, y = degree_sum, group = type, color = type)) +
-  geom_line() + ylab("Sum of Node Degrees") + theme_classic() + 
-  ggplot2::scale_x_discrete(limits = runOrder) +
-  labs(color="Node Type")+
-  theme(axis.title.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank())
-deg.plot
-
-# percent terminal nodes used
-perc.plot <- ggplot2::ggplot(perc.term, aes(x = runID2, y = percent_terminal, group = 1)) +
-  geom_line() + ylab("% Terminal Nodes") + theme_classic() + 
-  ggplot2::scale_x_discrete(limits = runOrder)+
-  theme(axis.title.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank())
-perc.plot
-
-### parameter info
-param.info <- dplyr::distinct(all.vertices[,c("omega", "mu", "betaProt", "runID")])
-param.info$runID2 <- sub(".*tive_degExp_1_","",param.info$runID)
-param.info <- dplyr::distinct(param.info[,c("runID2","omega","mu","betaProt")])
-colnames(param.info)[4] <- "beta"
-param.info <- reshape2::melt(param.info, id = "runID2", variable.name = "parameter")
-# inspired by: https://r-graph-gallery.com/79-levelplot-with-ggplot2.html
-param.info$value <- as.numeric(param.info$value)
-params <- unique(param.info$parameter)
-temp.param.info <- param.info[param.info$parameter == params[1],]
-maxParam <- max(temp.param.info$value)
-minParam <- min(temp.param.info$value)
-temp.param.info$Value <- ""
-temp.param.info[temp.param.info$value == maxParam,]$Value <- "High"
-temp.param.info[temp.param.info$value == minParam,]$Value <- "Low"
-param.plot <- ggplot2::ggplot(temp.param.info, aes(x=runID2, y = parameter, fill = Value)) +
-  geom_tile() + scale_fill_manual(breaks=c("High","","Low"),values=c("black","grey","white")) + theme_classic() + 
-  ylab(element_blank()) + xlab(element_blank()) + 
-  ggplot2::scale_x_discrete(limits = runOrder) +
-  theme(axis.title.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank())#+ 
-#scale_fill_discrete(labels=c("Low", "High"))
-param.plot
-library(patchwork)
-for (i in params[2:length(params)]) {
-  temp.param.info <- na.omit(param.info[param.info$parameter == i,])
-  if (nrow(temp.param.info) > 0) {
-    maxParam <- max(temp.param.info$value)
-    minParam <- min(temp.param.info$value)
-    temp.param.info$Value <- ""
-    temp.param.info[temp.param.info$value == maxParam,]$Value <- "High"
-    temp.param.info[temp.param.info$value == minParam,]$Value <- "Low"
-    
-    param.plot <- param.plot / (ggplot2::ggplot(temp.param.info, aes(x=runID2, y = parameter, fill = Value)) +
-                                  geom_tile() + scale_fill_manual(breaks=c("High","","Low"),values=c("black","grey","white")) +
-                                  theme_classic() + ylab(element_blank()) + xlab(element_blank()) +
-                                  theme(legend.position = "none") + 
-                                  ggplot2::scale_x_discrete(limits = runOrder)) +
-      theme(axis.title.x = element_blank(),
-            axis.ticks.x = element_blank(),
-            axis.text.x = element_blank()) 
-  }
-}
-param.plot
-source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
-param.plot <- param.plot + plot_layout(guides = 'collect')
-param.plot
-
-### combine plots
-library(patchwork)
-combo.plot <- rank.plot / deg.plot / perc.plot / param.plot
-combo.plot
-ggplot2::ggsave(paste0("parameter_sweep_woChr8q24Ranks_",Sys.Date(),".pdf"), combo.plot, width = 4, height = 7)
-saveRDS(combo.plot, paste0("parameter_sweep_woChr8q24Ranks_",Sys.Date(),".rds"))
-write.csv(perc.term,"PercentTerminalNodesUsed.csv", row.names = FALSE)
-write.csv(degree.summary,"NodeTypeDegrees.csv", row.names = FALSE)
-write.csv(rank.summary,"Ranks.csv", row.names = FALSE)
-write.csv(rank.df,"Rank_info.csv", row.names = FALSE)
-
 #### save optimal run ####
-selectedRun <- runOrder[1] # "omega_2_mu_1e-05_beta_10"
-selectedRun <- "omega_2_mu_1e-05_beta_10"
+selectedRun <- runOrder[1] # "omega_3_mu_0.001_beta_10"
+selectedRun <- "omega_3_mu_0.001_beta_10"
 
-vert.prot <- read.csv("PCSF_Protein_2024-12-12/vertices.csv")
-vert.prot$inputType <- "Protein"
-vert.prot$beta <- vert.prot$betaProt
-vert.prot[,c("betaTF","betaKin","betaProt")] <- NULL
-vert.prot <- vert.prot[vert.prot$runID == "positive_degExp_1_omega_2_mu_1e-05_beta_prot_10",]
-vert.tf <- read.csv("PCSF_Transcription_factor_2025-01-10/vertices.csv")
-vert.tf$inputType <- "Transcription Factor"
-vert.tf <- vert.tf[vert.tf$runID == "positive_degExp_1_omega_2_mu_1e-05_beta_10",]
-vert.kin <- read.csv("PCSF_Kinase_2025-01-10/vertices.csv")
-vert.kin$inputType <- "Kinase"
-vert.kin <- vert.kin[vert.kin$runID == "positive_degExp_1_omega_2_mu_1e-05_beta_10",]
-selectedVertices <- rbind(vert.prot,vert.tf,vert.kin)
+vert.prot <- read.csv("PCSF_Protein_2025-04-16/vertices.csv")
+selectedVertices <- vert.prot[grepl(selectedRun, vert.prot$runID),]
 
-centr.prot <- read.csv("PCSF_Protein_2024-12-12/centrality.csv")
-centr.prot$inputType <- "Protein"
-centr.prot$runID <- sub("_prot_","_",centr.prot$runID)
-centr.tf <- read.csv("PCSF_Transcription_factor_2025-01-10/centrality.csv")
-centr.tf$inputType <- "Transcription Factor"
-centr.kin <- read.csv("PCSF_Kinase_2025-01-10/centrality.csv")
-centr.kin$inputType <- "Kinase"
-keepCols <- colnames(centr.prot)
-centr.tf <- centr.tf[,keepCols]
-centr.kin <- centr.kin[,keepCols]
-all.centrality <- rbind(centr.tf, centr.prot, centr.kin)
+centr.prot <- read.csv("PCSF_Protein_2025-04-16/centrality.csv")
+all.centrality <- centr.prot
 all.centrality$runID2 <- sub(".*tive_degExp_1_","",all.centrality$runID)
 all.centrality$Direction <- sub("\\_.*","",all.centrality$runID)
-selectedCentrality <- all.centrality[all.centrality$runID == "positive_degExp_1_omega_2_mu_1e-05_beta_10",]
+selectedCentrality <- all.centrality[grepl(selectedRun, all.centrality$runID),]
 
-edge.prot <- read.csv("PCSF_Protein_2024-12-12/edges.csv")
-edge.prot$inputType <- "Protein"
-edge.prot$runID <- sub("_prot_","_",edge.prot$runID)
-edge.prot$beta <- edge.prot$betaProt
-edge.prot[,c("betaTF","betaKin","betaProt")] <- NULL
-edge.tf <- read.csv("PCSF_Transcription_factor_2025-01-10/edges.csv")
-edge.tf$inputType <- "Transcription Factor"
-edge.kin <- read.csv("PCSF_Kinase_2025-01-10/edges.csv")
-edge.kin$inputType <- "Kinase"
-all.edges <- rbind(edge.prot, edge.tf, edge.kin)
-selectedEdges <- all.edges[all.edges$runID == "positive_degExp_1_omega_2_mu_1e-05_beta_10",]
+edge.prot <- read.csv("PCSF_Protein_2025-04-16/edges.csv")
+all.edges <- edge.prot
+selectedEdges <- all.edges[grepl(selectedRun, all.edges$runID),]
 write.csv(selectedCentrality, "centrality_optimalRun.csv", row.names = FALSE)
 write.csv(selectedEdges, "edges_optimalRun.csv", row.names = FALSE)
 write.csv(selectedVertices, "vertices_optimalRun.csv", row.names = FALSE)
-directions <- c("positive")
+directions <- c("positive", "negative")
 for (j in directions) {
   temp.centr <- selectedCentrality[grepl(j,selectedCentrality$runID),]
   temp.vert <- selectedVertices[grepl(j, selectedVertices$runID),]
@@ -718,15 +529,8 @@ for (j in directions) {
 library(openxlsx)
 Sheet <- c("Analysis", "Vertices", "Edges")
 
-all.vertices <- read.csv("vertices.csv")
-all.vertices$betaKin <- NULL
-all.vertices$betaTF <- NULL
+all.vertices <- read.csv("PCSF_Protein_2025-04-16/vertices.csv")
 colnames(all.vertices)[3] <- "outputPrize"
-colnames(all.vertices)[9] <- "beta"
-
-all.edges$betaKin <- NULL
-all.edges$betaTF <- NULL
-colnames(all.edges)[7] <- "beta"
 
 readme <- data.frame(Sheet)
 readme$Description <- c("Network analysis including node degree, closeness, betweenness, eigen centrality, hub score, and authority score",
@@ -737,8 +541,8 @@ names(full.list) <- c("README", Sheet)
 openxlsx::write.xlsx(full.list, file=paste0("SupplementaryTable5_NetworkOptimization_",Sys.Date(),".xlsx"), rowNames=FALSE)
 
 
-selectedRun <- runOrder[1] # "omega_3_mu_0.001_beta_prot_10"
-selectedRun <- "omega_2_mu_1e-05_beta_prot_10"
+selectedRun <- runOrder[1] # "omega_3_mu_0.001_beta_10"
+selectedRun <- "omega_3_mu_0.001_beta_10"
 runIDs <- paste0(c("positive_degExp_1_", "negative_degExp_1_"), selectedRun)
 selectedCentrality <- all.centrality[all.centrality$runID %in% runIDs,]
 selectedEdges <- all.edges[all.edges$runID %in% runIDs,]
@@ -750,21 +554,21 @@ openxlsx::write.xlsx(sel.list, file=paste0("SupplementaryTable6_OptimizedNetwork
 
 ### save full networks as PDF
 library(igraph)
-pos.graph <- igraph::read_graph("positive/degExp_1/mu_1e-05/omega_2/beta_prot_10.gml", format="gml")
+setwd("PCSF_Protein_2025-04-16")
+pos.graph <- igraph::read_graph("positive/degExp_1/mu_0.001/omega_3/beta_10.gml", format="gml")
 plot(pos.graph)
-temp.fname <- "positive/degExp_1/mu_1e-05/omega_2/beta_prot_10"
+temp.fname <- "positive/degExp_1/mu_0.001/omega_3/beta_10"
 webshot(paste0(temp.fname,".html"), paste0(temp.fname,".pdf"))
-temp.fname <- "negative/degExp_1/mu_1e-05/omega_2/beta_prot_10"
+temp.fname <- "negative/degExp_1/mu_0.001/omega_3/beta_10"
 webshot(paste0(temp.fname,".html"), paste0(temp.fname,".pdf"))
 
 ### add Spearman correlation estimates to vertex information
 # maybe networks are too big - reduce to top 10-15 nodes by eigen centrality
-setwd("PCSF_Protein_2024-12-12")
 selectedCentrality <- read.csv("centrality_optimalRun.csv")
 selectedEdges <- read.csv("edges_optimalRun.csv")
 selectedVertices <- read.csv("vertices_optimalRun.csv")
 selectedVertices$Spearman.est <- NA
-global.result <- na.omit(read.csv(synapser::synGet("syn63435101")$path))
+global.result <- na.omit(read.csv(synapser::synGet("syn66224803")$path))
 for (i in 1:nrow(selectedVertices)) {
   if (selectedVertices$name[i] %in% global.result$Gene) {
     selectedVertices$Spearman.est[i] <- global.result[global.result$Gene == selectedVertices$name[i],]$Spearman.est
@@ -785,7 +589,7 @@ setwd("~/OneDrive - PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Net
 selectedCentrality <- read.csv("centrality_optimalRun_positive_2025-01-12.csv")
 selectedEdges <- read.csv("edges_optimalRun_positive_2025-01-12.csv")
 selectedVertices <- read.csv("vertices_optimalRun_withSpearmanRho_2025-01-21.csv")
-directions <- "positive"
+directions <- c("positive", "negative")
 library(RCy3)
 nTop.list <- c(50, 25, 20,15,10,5)
 #nTop.list <- 5
@@ -813,7 +617,7 @@ for (nTop in nTop.list) {
     cat(j,"network has", nrow(tempVert2), "nodes and", nrow(tempEdges), "edges from top", nTop, "central nodes")
     topGraph <- igraph::graph_from_data_frame(tempEdges, directed=FALSE, vertices=tempVert2) # error: duplicate vertex names; e.g., DNMT1 is steiner in one but terminal in another
     plot(topGraph)
-    tempTitle <- paste0(j, "_", nTop,"_topCentralNodes_wTFsKinases_",Sys.Date())
+    tempTitle <- paste0(j, "_", nTop,"_topCentralNodes",Sys.Date())
     RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
   } 
 }
@@ -881,10 +685,10 @@ for (nTop in nTop.list) {
 # The subnetwork must be a "PCSF" object derived from an "igraph" class.
 
 # maybe just plot enrichr results from individual omics instead
-setwd("PCSF_Protein_2024-12-12")
+setwd("PCSF_Protein_2025-04-16")
 my.enr <- read.csv("enrichr.csv")
-my.enr <- my.enr[my.enr$mu == "1e-05" & my.enr$betaProt == 10 &
-                   my.enr$omega == 2,]
+my.enr <- my.enr[my.enr$mu == "0.001" & my.enr$beta == 10 &
+                   my.enr$omega == 3,]
 my.enr$N_included <- sub("/.*","",my.enr$Overlap)
 my.enr$N_total <- sub(".*/","",my.enr$Overlap)
 my.enr$perc_included <- 100*as.numeric(my.enr$N_included)/as.numeric(my.enr$N_total)
@@ -905,10 +709,7 @@ for (i in clusters) {
 # make a circular bar plot for each omics' positive network
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/"
 setwd(base.path)
-path.map <- list("Transcription Factor" = "PCSF_Transcription_factor_2025-01-10",
-                 "Protein" = "PCSF_Protein_2024-12-12",
-                 "Kinase" = "PCSF_Kinase_2025-01-10")
-path.map <- list("Protein" = "PCSF_Protein_2024-12-12")
+path.map <- list("Protein" = "PCSF_Protein_2025-04-16")
 n.top <- 3
 enr.plots <- NULL
 #source("~/OneDrive - PNNL/Documents/circBar.R")
@@ -919,8 +720,8 @@ for (i in names(path.map)) {
   my.enr <- read.csv("enrichr.csv")
   
   # filter for parameters, gene set coverage, significance
-  my.enr <- my.enr[my.enr$mu == "1e-05" & my.enr$betaProt == 10 &
-                     my.enr$omega == 2,]
+  my.enr <- my.enr[my.enr$mu == "0.001" & my.enr$beta == 10 &
+                     my.enr$omega == 3,]
   my.enr$N_included <- sub("/.*","",my.enr$Overlap)
   my.enr$N_total <- sub(".*/","",my.enr$Overlap)
   my.enr$perc_included <- 100*as.numeric(my.enr$N_included)/as.numeric(my.enr$N_total)
@@ -988,7 +789,7 @@ for (i in 1:length(inputs)) {
   names(final.inputs[[names(inputs)[i]]]) <- inputs[[i]][,1]
   pcsf.result <- try(computeProteinNetwork_BG(final.inputs, 
                                               betas = 10, 
-                                              mu = 1e-05, w = 2,
+                                              mu = 0.001, w = 3,
                                               deg.exp = 1,
                                               fname = names(inputs)[i]), silent=TRUE)
   my.enr <- try(PCSF::enrichment_analysis(pcsf.result$graph), 
@@ -997,13 +798,13 @@ for (i in 1:length(inputs)) {
   if (!inherits(my.enr, "try-error")) {
     temp.enrichr <- my.enr$enrichment
     temp.enrichr$Direction <- "positive"
-    temp.enrichr[,"mu"] <- 1e-05
+    temp.enrichr[,"mu"] <- 0.001
     temp.enrichr[,"beta"] <- 10
-    temp.enrichr[,"omega"] <- 2
+    temp.enrichr[,"omega"] <- 3
     temp.enrichr[,"degExp"] <- 1
     temp.enrichr$runID <- temp.runID 
   }
-  temp.path <- paste0("PCSF_",names(inputs)[i],"_2025-01-10")
+  temp.path <- paste0("PCSF_",names(inputs)[i],"_",Sys.Date())
   setwd(temp.path)
   write.csv(temp.enrichr, "enrichr.csv", row.names = FALSE)
   setwd(base.path)
@@ -1020,19 +821,17 @@ for (i in 1:length(inputs)) {
 
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/"
 setwd(base.path)
-path.map <- list("Transcription Factor" = "PCSF_Transcription_factor_2025-01-10",
-                 "Protein" = "PCSF_Protein_2024-12-12",
-                 "Kinase" = "PCSF_Kinase_2025-01-10")
-inputs <- list("Transcription_factor" = rna.allSamples.result, "Protein" = global.result, "Kinase" = mit.kin)
+path.map <- list("Protein" = "PCSF_Protein_2025-04-16")
+inputs <- list("Protein" = global.result)
 for (i in 1:length(path.map)) {
   setwd(path.map[[i]])
   temp.vert <- read.csv("vertices.csv")
   if (names(path.map)[i]=="Protein") {
-    temp.vert <- temp.vert[temp.vert$mu==1e-05 & temp.vert$betaProt==10 &
-                             temp.vert$omega==2,]
+    temp.vert <- temp.vert[temp.vert$mu==0.001 & temp.vert$beta==10 &
+                             temp.vert$omega==3,]
   } else {
-    temp.vert <- temp.vert[temp.vert$mu==1e-05 & temp.vert$beta==10 &
-                             temp.vert$omega==2,] 
+    temp.vert <- temp.vert[temp.vert$mu==0.001 & temp.vert$beta==10 &
+                             temp.vert$omega==3,] 
   }
   nInputs <- length(na.omit(unique(inputs[[i]][,1])))
   nIncluded <- length(na.omit(unique(temp.vert[temp.vert$name %in% inputs[[i]][,1],]$name)))
