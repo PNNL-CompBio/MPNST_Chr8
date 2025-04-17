@@ -21,7 +21,11 @@ source("~/OneDrive - PNNL/Documents/GitHub/Chr8/panSEA_helper_20240913.R")
 #source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/networkAnalysis/proteinNetworks_BG.R")
 source("~/OneDrive - PNNL/Documents/GitHub/Chr8/networkAnalysis/proteinNetworks_BG.R")
 #source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/networkAnalysis/PCSF_rand_BG.R")
-source("~/OneDrive - PNNL/Documents/GitHub/Chr8/networkAnalysis/proteinNetworks_BG.R")
+source("~/OneDrive - PNNL/Documents/GitHub/Chr8/networkAnalysis/PCSF_rand_BG.R")
+
+BiocManager::install("topGO") # need for PCSF
+remotes::install_github("sgosline/amlresistancenetworks") # need for PCSF; same repo on PNNL-CompBio
+
 
 if (file.exists("gmt_human_positional.rds")) {
   gmt.pos <- readRDS("gmt_human_positional.rds")
@@ -267,7 +271,7 @@ for (m in 1:length(inputs)) {
                                                         betas = beta, 
                                                         mu = mu, w = omega,
                                                         deg.exp = deg.exp,
-                                                        fname = temp.fname), silent=TRUE)
+                                                        fname = temp.fname))
                 runs.so.far <- c(runs.so.far, temp.runID)
                 all.dfs <- processPCSF(pcsf.result, all.dfs, temp.runID, 
                                        beta, mu, omega, base.path2, deg.exp, j, 
