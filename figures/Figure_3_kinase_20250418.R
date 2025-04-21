@@ -16,7 +16,11 @@ topGenes <- unique(dot.df$Feature_set)
 geneOrder <- dot.df[order(dot.df$NES),]$Feature_set
 dot.df$minusLogP <- -log10(dot.df$p_value)
 dot.df$minusLogFDR <- -log10(dot.df$FDR_q_value)
-absMaxNES <- max(abs(dot.df$NES))
+absMaxNES <- max(abs(dot.df$NES)) # 2.08
+maxLogFDR <- max(abs(dot.df$minusLogFDR)) # slightly over 3.012781 so rounding to 3.0128
+# for same scales as TF plot:
+maxLogFDR <- 3.0128
+absMaxNES <- 2.34
 dot.plot <- ggplot2::ggplot(
   dot.df,
   ggplot2::aes(x="",y = Feature_set, color = NES,
@@ -25,6 +29,7 @@ dot.plot <- ggplot2::ggplot(
 ) +
   ggplot2::geom_point() +
   ggplot2::scale_y_discrete(limits = geneOrder) +
+  scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
   scale_color_gradient2(low="blue",high="red", mid="grey", limits = c(-absMaxNES, absMaxNES)) +
   #viridis::scale_color_viridis() +
   theme_classic() +
@@ -38,7 +43,7 @@ dot.plot <- ggplot2::ggplot(
   geom_point(data = dot.df, col = "black", stroke = 1.5, shape = 21)
 dot.plot
 # most are only in prot and not in RNA
-ggplot2::ggsave("Enriched_kinases_dotPlot_2025-04-20.pdf", dot.plot, width=2.2, height=0.75)
+ggplot2::ggsave("Enriched_kinases_dotPlot_2025-04-20_sameScaleAsTF.pdf", dot.plot, width=2.2, height=0.75)
 dot.plot2 <- dot.plot + theme(legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical")
 ggplot2::ggsave("Enriched_kinases_dotPlot_horizontalLegend_2025-04-20.pdf", dot.plot2, width=1.2, height=2.1)
 

@@ -63,7 +63,11 @@ topGenes <- unique(dot.df$Feature_set)
 geneOrder <- dot.df[order(dot.df$NES),]$TF
 dot.df$minusLogP <- -log(dot.df[,"p_value"], base = 10)
 dot.df$minusLogFDR <- -log(dot.df[,"FDR_q_value"], base = 10)
-maxLogFDR <- max(abs(dot.df$minusLogFDR))
+maxLogFDR <- max(abs(dot.df$minusLogFDR)) # 2.74...
+absMaxNES <- max(abs(dot.df$NES)) # 2.34
+# for same scales as kinase plot:
+maxLogFDR <- 3.0128
+absMaxNES <- 2.34
 dot.plot <- ggplot2::ggplot(
   dot.df,
   ggplot2::aes(
@@ -74,7 +78,7 @@ dot.plot <- ggplot2::ggplot(
   ggplot2::geom_point() +
   ggplot2::scale_y_discrete(limits = geneOrder) +
   scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
-  scale_color_gradient2(low="blue",high="red") +
+  scale_color_gradient2(low="blue",high="red", mid="grey", limits = c(-absMaxNES, absMaxNES)) +
   #viridis::scale_color_viridis() +
   theme_classic() +
   ggplot2::labs(
@@ -88,7 +92,7 @@ dot.plot <- ggplot2::ggplot(
           axis.ticks.x=element_blank())
 dot.plot
 # most are only in prot and not in RNA
-ggplot2::ggsave("Enriched_TFs_dotPlot_top10.pdf", dot.plot, width=2.1, height=2.1)
+ggplot2::ggsave("Enriched_TFs_dotPlot_top10_sameScaleAsKinase.pdf", dot.plot, width=2.1, height=2.1)
 
 dot.plot <- ggplot2::ggplot(
   dot.df,

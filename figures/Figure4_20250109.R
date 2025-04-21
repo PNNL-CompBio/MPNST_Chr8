@@ -489,7 +489,7 @@ moa.results <- moa.results[moa.results$type %in% c("RNA", "Protein") & moa.resul
 colnames(moa.results)[3] <- "moa"
 moa.info <- dplyr::distinct(drug.info[drug.info$moa %in% moa.results$moa,c("moa","target")]) # 19 MOAs
 moa.info <- plyr::ddply(moa.info, .(moa), summarize,
-                        Gene = paste0(unique(target), collapse = " ")) # 10 moas
+                        Gene = paste0(unique(target), collapse = ", ")) # 10 moas
 moa.results2 <- merge(moa.results, moa.info, by="moa", all.x = TRUE)
 moa.results2$Rank <- rank(-moa.results2$NES)
 bestRank <- max(moa.results2$Rank)
@@ -708,7 +708,8 @@ for (j in toxic) {
     }
     
     # Drug correlation
-    if (Target[i] %in% toxDrug$target) {
+    allToxDrugTargets <- unique(unlist(strsplit(toxDrug$target, ", ")))
+    if (Target[i] %in% allToxDrugTargets) {
       tempGSEA <- toxDrug[grepl(Target[i], toxDrug$target),]
       tempDrugs <- paste0(tempGSEA$name, collapse = " ")
       tempScores <- round(mean(tempGSEA$Pearson.est),2)
@@ -728,7 +729,7 @@ for (j in toxic) {
     }
     
     # DMEA
-    if (Target[i] %in% unique(unlist(strsplit(toxMOA$Gene, " ")))) {
+    if (Target[i] %in% unique(unlist(strsplit(toxMOA$Gene, ", ")))) {
       tempGSEA <- toxMOA[grepl(Target[i], toxMOA$Gene),]
       tempTypes <- paste0(unique(tempGSEA$type), collapse = " ")
       tempSets <- paste0(tempGSEA$moa, collapse = " ")
@@ -816,9 +817,6 @@ for (j in toxic) {
     ggsave(paste0(j,"_Target_min3analyses_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
   }
 }
-dot.plot.amp <- readRDS(paste0("chr8qAmp","_Target_min3analyses_dotPlot_",Sys.Date(),".rds"))
-dot.plot.amp
-ggsave(paste0("chr8qAmp","_Target_min3analyses_dotPlot_",Sys.Date(),".pdf"),dot.plot,width=9.5, height=3)
 
 dir.create("mergingNetworks")
 setwd("mergingNetworks")
@@ -850,7 +848,7 @@ for (j in toxic) {
   }
   percScoresInfo <- data.frame(Target)
   percScoresInfo[,c("Correlation", "GSEA", "TF", "Kinase", "Protein", 
-                    "Drug", "DMEA", "MeanPerc", "N","N_best")] <- NA
+                    "Drug", "MeanPerc", "N","N_best")] <- NA
   percScoresInfo$Best <- ""
   percScores <- percScoresInfo
   nScores <- percScoresInfo
@@ -917,7 +915,9 @@ for (j in toxic) {
         percScoresInfo$TF[i] <- paste0(tempScores, " | ", tempPerc)
         percScores$TF[i] <- mean(tempGSEA$percentile)
         nScores$TF[i] <- nrow(tempGSEA)
-      } else if (Target[i] %in% unique(unlist(strsplit(toxTF$Targets, " ")))) { 
+      }
+      
+      if (Target[i] %in% unique(unlist(strsplit(toxTF$Targets, " ")))) { 
         # TFT
         tempGSEA <- toxTF[grepl(Target[i], toxTF$Targets),]
         tempSets <- paste0(tempGSEA$Gene, collapse = " ")
@@ -932,9 +932,15 @@ for (j in toxic) {
         }
         
         # update data frame
-        percScoresInfo$TF[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
-        percScores$TF[i] <- mean(tempGSEA$percentile)
-        nScores$TF[i] <- nrow(tempGSEA)
+        if (is.na(percScoresInfo$TF[i])) {
+          percScoresInfo$TF[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$TF[i] <- mean(tempGSEA$percentile)
+          nScores$TF[i] <- nrow(tempGSEA) 
+        } else {
+          percScoresInfo$TF[i] <- paste0(percScoresInfo$TF[i], " || ", tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$TF[i] <- mean(c(percScores$TF[i], tempGSEA$percentile))
+          nScores$TF[i] <- sum(c(nScores$TF[i], nrow(tempGSEA)))
+        }
       }
     }
       
@@ -957,7 +963,9 @@ for (j in toxic) {
         percScoresInfo$Kinase[i] <- paste0(tempScores, " | ", tempPerc)
         percScores$Kinase[i] <- mean(tempGSEA$percentile)
         nScores$Kinase[i] <- nrow(tempGSEA)
-      } else if (Target[i] %in% unique(unlist(strsplit(toxKin$Substrates, " ")))) {
+      }
+      
+      if (Target[i] %in% unique(unlist(strsplit(toxKin$Substrates, " ")))) {
         # substrate
         tempGSEA <- toxKin[grepl(Target[i], toxKin$Substrates),]
         tempSets <- paste0(tempGSEA$Gene, collapse = " ")
@@ -972,9 +980,15 @@ for (j in toxic) {
         }
         
         # update data frame
-        percScoresInfo$Kinase[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
-        percScores$Kinase[i] <- mean(tempGSEA$percentile)
-        nScores$Kinase[i] <- nrow(tempGSEA)
+        if (is.na(percScoresInfo$Kinase[i])) {
+          percScoresInfo$Kinase[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$Kinase[i] <- mean(tempGSEA$percentile)
+          nScores$Kinase[i] <- nrow(tempGSEA) 
+        } else {
+          percScoresInfo$Kinase[i] <- paste0(percScoresInfo$Kinase[i], " || ", tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$Kinase[i] <- mean(c(percScores$Kinase[i], tempGSEA$percentile))
+          nScores$Kinase[i] <- sum(c(nScores$Kinase[i], nrow(tempGSEA)))
+        }
       } 
     }
     
@@ -998,7 +1012,8 @@ for (j in toxic) {
     }
     
     # Drug correlation
-    if (Target[i] %in% toxDrug$target) {
+    allToxDrugTargets <- unique(unlist(strsplit(toxDrug$target, ", ")))
+    if (Target[i] %in% allToxDrugTargets) {
       tempGSEA <- toxDrug[grepl(Target[i], toxDrug$target),]
       tempDrugs <- paste0(tempGSEA$name, collapse = " ")
       tempScores <- round(mean(tempGSEA$Pearson.est),2)
@@ -1018,7 +1033,7 @@ for (j in toxic) {
     }
     
     # DMEA
-    if (Target[i] %in% unique(unlist(strsplit(toxMOA$Gene, " ")))) {
+    if (Target[i] %in% unique(unlist(strsplit(toxMOA$Gene, ", ")))) {
       tempGSEA <- toxMOA[grepl(Target[i], toxMOA$Gene),]
       tempTypes <- paste0(unique(tempGSEA$type), collapse = " ")
       tempSets <- paste0(tempGSEA$moa, collapse = " ")
@@ -1029,19 +1044,25 @@ for (j in toxic) {
       nRankVals <- nRankVals + nrow(tempGSEA)
       if (any(tempGSEA$Rank == bestRankMOA)) {
         nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankMOA))
-        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "DMEA")
+        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Drug")
       }
       
       # update data frame
-      percScoresInfo$DMEA[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
-      percScores$DMEA[i] <- mean(tempGSEA$percentile)
-      nScores$DMEA[i] <- nrow(tempGSEA)
+      if (is.na(percScoresInfo$Drug[i])) {
+        percScoresInfo$Drug[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
+        percScores$Drug[i] <- mean(tempGSEA$percentile)
+        nScores$Drug[i] <- nrow(tempGSEA) 
+      } else {
+        percScoresInfo$Drug[i] <- paste0(percScoresInfo$Drug[i], " || ", tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
+        percScores$Drug[i] <- mean(c(percScores$Drug[i], tempGSEA$percentile))
+        nScores$Drug[i] <- sum(c(nScores$Drug[i], nrow(tempGSEA)))
+      }
     }
     
     # update data frame
     percScores$N[i] <- nRankVals
     percScores$N_best[i] <- nBestRanks
-    percScores$MeanPerc[i] <- mean(as.numeric(percScores[i,2:10]), na.rm = TRUE)
+    percScores$MeanPerc[i] <- mean(as.numeric(percScores[i,2:7]), na.rm = TRUE)
   }
   percScoresInfo$N_best <- percScores$N_best
   percScoresInfo$N <- percScores$N
@@ -1055,7 +1076,552 @@ for (j in toxic) {
   percScores$MeanPercTimesN <- percScores$MeanPerc*percScores$N
   percScoresInfo$MeanPercTimesN <- percScores$MeanPercTimesN
   
-  percScores$N_analyses <- rowSums(!is.na(percScores[,2:10]))
+  percScores$N_analyses <- rowSums(!is.na(percScores[,2:7]))
+  percScores$MeanPercTimesN_analyses <- percScores$N_analyses * percScores$MeanPerc
+  percScoresInfo$MeanPercTimesN_analyses <- percScores$MeanPercTimesN_analyses
+  write.csv(nScores, paste0(j,"_N_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
+  #nScores <- read.csv(paste0(j,"_N_Percentile_scores_",Sys.Date(),".csv"))
+  write.csv(percScores, paste0(j,"_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
+  write.csv(percScoresInfo, paste0(j, "_Percentile_scores_info_",Sys.Date(),".csv"), row.names = FALSE)
+  
+  filtered.percScores <- percScores[percScores$N_analyses >= 3,]
+  if (nrow(filtered.percScores) > 0) {
+    filtered.percScores <- filtered.percScores[order(-filtered.percScores$MeanPercTimesN_analyses),]
+    targetOrder <- filtered.percScores$Target
+    write.csv(filtered.percScores, paste0(j,"_Percentile_scores_min3analyses_",Sys.Date(),".csv"), row.names = FALSE)
+    
+    filtered.percScores$N <- NULL
+    filtered.percScores$N_best <- NULL
+    filtered.percScores$N_analyses <- NULL
+    filtered.percScores$MeanPerc <- NULL
+    filtered.percScores$MeanPercTimesN <- NULL
+    filtered.percScores$MeanPercTimesN_analyses <- NULL
+    nScores2 <- reshape2::melt(nScores[nScores$Target %in% filtered.percScores$Target,
+                                       colnames(filtered.percScores)], 
+                               id = c("Target","Best"), variable.name = "Analysis", value.name="N")
+    filtered.percScores <- reshape2::melt(filtered.percScores, id = c("Target", "Best"), 
+                                          variable.name = "Analysis", value.name = "Mean Percentile")
+    
+    plot.df <- merge(filtered.percScores, nScores2, by=c("Target","Best","Analysis"))
+    plot.df$`Mean Percentile` <- as.numeric(plot.df$`Mean Percentile`)
+    plot.df$N <- as.numeric(plot.df$N)
+    plot.df <- na.omit(plot.df)
+    plot.df$`Top Score` <- FALSE
+    if (any(plot.df$Best == plot.df$Analysis)) {
+      plot.df[plot.df$Best == plot.df$Analysis,]$`Top Score` <- TRUE 
+    }
+    # create dot plot to represent filtered.percScores
+    dot.plot <- ggplot2::ggplot(plot.df, aes(y = Target, x = Analysis, color = 100*`Mean Percentile`, size=N)) + 
+      ggplot2::geom_point() + scale_color_gradient2(low="grey",high="red", limits=c(0, 100)) +
+      theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+      ggplot2::scale_y_discrete(limits = targetOrder) +
+      geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+      theme(axis.text.y = element_text(angle = 45, vjust=1, hjust=1),
+            axis.text.x = element_text(angle=90,vjust=0.5),
+            axis.title.x=element_text(angle=180)
+      ) + theme(#legend.position="top", 
+        legend.direction="horizontal") + 
+      coord_flip()
+    dot.plot
+    saveRDS(dot.plot, paste0(j,"_Target_min3analyses_dotPlot_",Sys.Date(),".rds"))
+    ggsave(paste0(j,"_Target_min3analyses_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
+  }
+}
+
+# there was overlap before debugging above
+dir.create("unique")
+setwd("unique")
+amp <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/mergingNetworks/chr8qAmp_Percentile_scores_min3analyses_2025-04-21.csv") # 53
+wt <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/mergingNetworks/nonAmp_Percentile_scores_min3analyses_2025-04-21.csv") # 1
+amp.unique <- amp[!(amp$Target %in% wt$Target),] # 53
+wt.unique <- wt[!(wt$Target %in% amp$Target),] # 1
+
+filtered.percScores <- amp.unique
+write.csv(filtered.percScores, paste0("chr8qAmp","_Percentile_scores_min3analyses_unique_",Sys.Date(),".csv"), row.names = FALSE)
+nScores <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/mergingNetworks/chr8qAmp_N_Percentile_scores_2025-04-21.csv")
+targetOrder <- filtered.percScores$Target
+filtered.percScores$N <- NULL
+filtered.percScores$N_best <- NULL
+filtered.percScores$N_analyses <- NULL
+filtered.percScores$MeanPerc <- NULL
+filtered.percScores$MeanPercTimesN <- NULL
+filtered.percScores$MeanPercTimesN_analyses <- NULL
+nScores2 <- reshape2::melt(nScores[nScores$Target %in% filtered.percScores$Target,
+                                   colnames(filtered.percScores)], 
+                           id = c("Target","Best"), variable.name = "Analysis", value.name="N")
+filtered.percScores <- reshape2::melt(filtered.percScores, id = c("Target", "Best"), 
+                                      variable.name = "Analysis", value.name = "Mean Percentile")
+
+plot.df <- merge(filtered.percScores, nScores2, by=c("Target","Best","Analysis"))
+plot.df$`Mean Percentile` <- as.numeric(plot.df$`Mean Percentile`)
+plot.df$N <- as.numeric(plot.df$N)
+plot.df <- na.omit(plot.df)
+plot.df$`Top Score` <- FALSE
+if (any(plot.df$Best == plot.df$Analysis)) {
+  plot.df[plot.df$Best == plot.df$Analysis,]$`Top Score` <- TRUE 
+}
+# # create dot plot to represent filtered.percScores
+# dot.plot <- ggplot2::ggplot(plot.df, aes(y = Target, x = Analysis, color = 100*`Mean Percentile`, size=N)) + 
+#   ggplot2::geom_point() + scale_color_gradient2(low="grey",high="red", limits=c(0, 100)) +
+#   theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+#   ggplot2::scale_y_discrete(limits = targetOrder) +
+#   geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+#   theme(axis.text.y = element_text(angle = 45, vjust=1, hjust=1),
+#         axis.text.x = element_text(angle=90,vjust=0.5),
+#         axis.title.x=element_text(angle=180)
+#   ) + theme(#legend.position="top", 
+#     legend.direction="horizontal") + 
+#   coord_flip()
+# dot.plot
+# saveRDS(dot.plot, paste0("chr8qAmp","_Target_min3analyses_dotPlot_",Sys.Date(),".rds"))
+# ggsave(paste0("chr8qAmp","_Target_min3analyses_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=7, height=2)
+
+# compile number of hits per gene family (remove numbers and subsequent characters)
+plot.df$Family <- sub("\\d.*", "", plot.df$Target)
+
+# manually fix those ending in A, B, C
+plot.df[grepl("AURK", plot.df$Family),]$Family <- "AURK"
+plot.df[grepl("POL", plot.df$Family),]$Family <- "POL"
+plot.df[grepl("TUB", plot.df$Family),]$Family <- "TUB"
+
+fam.counts <- plyr::ddply(plot.df, .(Family), summarize,
+                          N = n(),
+                          `Top Score` = any(`Top Score`))
+fam.counts$`Top Score` <- factor(fam.counts$`Top Score`, levels=c(TRUE, FALSE))
+ggplot2::ggplot(fam.counts, aes(x= N, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$N),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Number of Analyses") + ylab("Target Family")
+ggsave("N_targetsPerFamily.pdf", width=3, height=3)
+write.csv(plot.df, "chr8qAmp_targetFamilyInfo.csv", row.names=FALSE)
+write.csv(fam.counts, "chr8qAmp_targetFamilyCounts.csv", row.names=FALSE)
+
+# use mean or median remove bias for families having more/fewer targets (e.g., if there are more TUBs than CDKs generally speaking, not just as hits)
+# also consider mean percentile in addition to N analyses
+amp <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/mergingNetworks/chr8qAmp_Percentile_scores_min3analyses_2025-04-21.csv") # 53
+wt <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/mergingNetworks/nonAmp_Percentile_scores_min3analyses_2025-04-21.csv") # 1
+amp.unique <- amp[!(amp$Target %in% wt$Target),] # 53
+wt.unique <- wt[!(wt$Target %in% amp$Target),] # 1
+
+filtered.percScores <- amp.unique
+nScores <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/mergingNetworks/chr8qAmp_N_Percentile_scores_2025-04-21.csv")
+nScores$N_analyses <- 0
+for (i in 1:nrow(nScores)) {
+  for (j in 2:7){
+    if (!is.na(nScores[i,j])) {
+      nScores$N_analyses[i] <- nScores$N_analyses[i] + 1
+    }
+  } 
+}
+nScores$MeanPercTimesN <- nScores$MeanPerc * nScores$N
+nScores$MeanPercTimesN_analyses <- nScores$MeanPerc * nScores$N_analyses
+
+plot.df <- nScores
+
+# compile number of hits per gene family (remove numbers and subsequent characters)
+plot.df$Family <- sub("\\d.*", "", plot.df$Target)
+
+# manually fix those ending in A, B, C
+plot.df[grepl("AURK", plot.df$Family),]$Family <- "AURK"
+plot.df[grepl("POL", plot.df$Family),]$Family <- "POL"
+plot.df[grepl("TUB", plot.df$Family),]$Family <- "TUB"
+
+fam.counts <- plyr::ddply(plot.df, .(Family), summarize,
+                          N_hits = sum(N),
+                          N = n(),
+                          N_analyses = sum(N_analyses),
+                          MeanPerc = mean(MeanPerc),
+                          sdMeanPerc = sd(MeanPerc),
+                          MeanPercTimesN = mean(MeanPercTimesN),
+                          sdMeanPercTimesN = sd(MeanPercTimesN),
+                          MeanPercTimesN_analyses = mean(MeanPercTimesN_analyses),
+                          sdMeanPercTimesN_analyses = sd(MeanPercTimesN_analyses),
+                          N_best = sum(N_best))
+fam.counts$`Top Score` <- FALSE
+fam.counts[fam.counts$N_best > 0,]$`Top Score` <- TRUE
+fam.counts$`Top Score` <- factor(fam.counts$`Top Score`, levels=c(TRUE, FALSE))
+fam.counts$MeanPercTimesNoverall <- fam.counts$N * fam.counts$MeanPerc
+fam.counts$MeanPercTimesNhits <- fam.counts$N_hits * fam.counts$MeanPerc
+ggplot2::ggplot(fam.counts, aes(x= N, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$N),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("# of Targets") + ylab("Target Family")
+ggsave("targetsPerFamily.pdf", width=3, height=5)
+
+ggplot2::ggplot(fam.counts, aes(x= MeanPerc, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$MeanPerc),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile") + ylab("Target Family")
+ggsave("meanPerc_targetsPerFamily.pdf", width=3, height=5)
+write.csv(plot.df, "chr8qAmp_targetFamilyInfo.csv", row.names=FALSE)
+write.csv(fam.counts, "chr8qAmp_targetFamilyCounts.csv", row.names=FALSE)
+
+ggplot2::ggplot(fam.counts, aes(x= MeanPercTimesN_analyses, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$MeanPercTimesN_analyses),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Analyses") + ylab("Target Family")
+ggsave("meanPercTimesNanalyses_targetsPerFamily.pdf", width=3, height=5)
+
+ggplot2::ggplot(fam.counts, aes(x= MeanPercTimesN, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$MeanPercTimesN),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Hits") + ylab("Target Family")
+ggsave("meanPercTimesNhits_targetsPerFamily.pdf", width=3, height=5)
+
+fam.counts2 <- fam.counts[fam.counts$N >= 3,]
+ggplot2::ggplot(fam.counts2, aes(x= N, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$N),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("# of Targets") + ylab("Target Family")
+ggsave("targetsPerFamily_min3targets.pdf", width=3, height=5)
+
+ggplot2::ggplot(fam.counts2, aes(x= MeanPerc, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPerc),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile") + ylab("Target Family")
+ggsave("meanPerc_targetsPerFamily_min3targets.pdf", width=3, height=3)
+write.csv(plot.df, "chr8qAmp_targetFamilyInfo_min3targets.csv", row.names=FALSE)
+write.csv(fam.counts, "chr8qAmp_targetFamilyCounts_min3targets.csv", row.names=FALSE)
+
+ggplot2::ggplot(fam.counts2, aes(x= MeanPercTimesN_analyses, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPercTimesN_analyses),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Analyses") + ylab("Target Family")
+ggsave("meanPercTimesNanalyses_targetsPerFamily_min3targets.pdf", width=3, height=3)
+
+ggplot2::ggplot(fam.counts2, aes(x= MeanPercTimesN, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPercTimesN),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Hits") + ylab("Target Family")
+ggsave("meanPercTimesNhits_targetsPerFamily_min3targets.pdf", width=3, height=3)
+
+fam.counts <- plyr::ddply(plot.df[plot.df$N_analyses>=3,], .(Family), summarize,
+                          N_hits = sum(N),
+                          N = n(),
+                          N_analyses = sum(N_analyses),
+                          MeanPerc = mean(MeanPerc),
+                          sdMeanPerc = sd(MeanPerc),
+                          MeanPercTimesN = mean(MeanPercTimesN),
+                          sdMeanPercTimesN = sd(MeanPercTimesN),
+                          MeanPercTimesN_analyses = mean(MeanPercTimesN_analyses),
+                          sdMeanPercTimesN_analyses = sd(MeanPercTimesN_analyses),
+                          N_best = sum(N_best))
+fam.counts$`Top Score` <- FALSE
+fam.counts[fam.counts$N_best > 0,]$`Top Score` <- TRUE
+fam.counts$`Top Score` <- factor(fam.counts$`Top Score`, levels=c(TRUE, FALSE))
+fam.counts$MeanPercTimesNoverall <- fam.counts$N * fam.counts$MeanPerc
+fam.counts$MeanPercTimesNhits <- fam.counts$N_hits * fam.counts$MeanPerc
+fam.counts2 <- fam.counts[fam.counts$N >= 3,]
+ggplot2::ggplot(fam.counts, aes(x= N, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$N),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("# of Targets") + ylab("Target Family")
+ggsave("targetsPerFamily_min3analyses.pdf", width=3, height=5)
+
+ggplot2::ggplot(fam.counts, aes(x= MeanPerc, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$MeanPerc),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile") + ylab("Target Family")
+ggsave("meanPerc_targetsPerFamily_min3analyses.pdf", width=3, height=3)
+write.csv(plot.df, "chr8qAmp_targetFamilyInfo_min3analyses.csv", row.names=FALSE)
+write.csv(fam.counts, "chr8qAmp_targetFamilyCounts_min3analyses.csv", row.names=FALSE)
+
+ggplot2::ggplot(fam.counts, aes(x= MeanPercTimesN_analyses, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$MeanPercTimesN_analyses),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Analyses") + ylab("Target Family")
+ggsave("meanPercTimesNanalyses_targetsPerFamily_min3analyses.pdf", width=3, height=3)
+
+ggplot2::ggplot(fam.counts, aes(x= MeanPercTimesN, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$MeanPercTimesN),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Hits") + ylab("Target Family")
+ggsave("meanPercTimesNhits_targetsPerFamily_min3analyses.pdf", width=3, height=3)
+
+
+ggplot2::ggplot(fam.counts2, aes(x= N, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$N),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("# of Targets") + ylab("Target Family")
+ggsave("targetsPerFamily_min3analyses_min3targets.pdf", width=3, height=5)
+
+ggplot2::ggplot(fam.counts2, aes(x= MeanPerc, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPerc),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile") + ylab("Target Family")
+ggsave("meanPerc_targetsPerFamily_min3analyses_min3targets.pdf", width=3, height=3)
+write.csv(plot.df, "chr8qAmp_targetFamilyInfo_min3analyses_min3targets.csv", row.names=FALSE)
+write.csv(fam.counts2, "chr8qAmp_targetFamilyCounts_min3analyses_min3targets.csv", row.names=FALSE)
+
+ggplot2::ggplot(fam.counts2, aes(x= MeanPercTimesN_analyses, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPercTimesN_analyses),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Analyses") + ylab("Target Family")
+ggsave("meanPercTimesNanalyses_targetsPerFamily_min3analyses_min3targets.pdf", width=3, height=3)
+
+ggplot2::ggplot(fam.counts2, aes(x= MeanPercTimesN, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPercTimesN),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Hits") + ylab("Target Family")
+ggsave("meanPercTimesNhits_targetsPerFamily_min3analyses_min3targets.pdf", width=3, height=3)
+
+temp.plot.df <- plot.df[plot.df$N_analyses>=3 & plot.df$MeanPerc >0.5,]
+fam.counts <- plyr::ddply(temp.plot.df, .(Family), summarize,
+                          N_hits = sum(N),
+                          N = n(),
+                          N_analyses = sum(N_analyses),
+                          MeanPerc = mean(MeanPerc),
+                          sdMeanPerc = sd(MeanPerc),
+                          MeanPercTimesN = mean(MeanPercTimesN),
+                          sdMeanPercTimesN = sd(MeanPercTimesN),
+                          MeanPercTimesN_analyses = mean(MeanPercTimesN_analyses),
+                          sdMeanPercTimesN_analyses = sd(MeanPercTimesN_analyses),
+                          N_best = sum(N_best))
+fam.counts$`Top Score` <- FALSE
+fam.counts[fam.counts$N_best > 0,]$`Top Score` <- TRUE
+fam.counts$`Top Score` <- factor(fam.counts$`Top Score`, levels=c(TRUE, FALSE))
+fam.counts$MeanPercTimesNoverall <- fam.counts$N * fam.counts$MeanPerc
+fam.counts$MeanPercTimesNhits <- fam.counts$N_hits * fam.counts$MeanPerc
+fam.counts2 <- fam.counts[fam.counts$N >= 3,]
+ggplot2::ggplot(fam.counts2, aes(x= MeanPerc, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPerc),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile") + ylab("Target Family")
+ggsave("meanPerc_targetsPerFamily_min3analyses_min3targets.pdf", width=3, height=3)
+write.csv(plot.df, "chr8qAmp_targetFamilyInfo_min3analyses_min3targets.csv", row.names=FALSE)
+write.csv(fam.counts, "chr8qAmp_targetFamilyCounts_min3analyses_min3targets.csv", row.names=FALSE)
+
+ggplot2::ggplot(fam.counts2, aes(x= MeanPercTimesN_analyses, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPercTimesN_analyses),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Analyses") + ylab("Target Family")
+ggsave("meanPercTimesNanalyses_targetsPerFamily_min3analyses_min3targets.pdf", width=3, height=3)
+
+ggplot2::ggplot(fam.counts2, aes(x= MeanPercTimesN, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
+  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts2[order(fam.counts2$MeanPercTimesN),]$Family) + 
+  scale_fill_manual(values=c("red", "grey")) + xlab("Mean Percentile Times # of Hits") + ylab("Target Family")
+ggsave("meanPercTimesNhits_targetsPerFamily_min3analyses_min3targets.pdf", width=3, height=3)
+
+dir.create("noCorr")
+setwd("noCorr")
+for (j in toxic) {
+  if (j == "chr8qAmp") {
+    toxCorr <- corr.result[corr.result$Spearman.est > 0,]
+    toxGSEA <- all.gsea2[all.gsea2$NES > 0,]
+    toxTF <- tf2[tf2$NES > 0,]
+    toxKin <- kin2[kin2$enrichment_value_log2 > 0,]
+    toxDrug <- drug.corr.wInfo[drug.corr.wInfo$Pearson.est < 0,]
+    toxMOA <- moa.results2[moa.results2$NES < 0,]
+    toxNet <- net.centr[grepl("positive",net.centr$runID),]
+  } else if (j == "nonAmp") {
+    toxCorr <- corr.result[corr.result$Spearman.est < 0,]
+    toxGSEA <- all.gsea2[all.gsea2$NES < 0,]
+    toxTF <- tf2[tf2$NES < 0,]
+    toxKin <- kin2[kin2$enrichment_value_log2 < 0,]
+    toxDrug <- drug.corr.wInfo[drug.corr.wInfo$Pearson.est > 0,]
+    toxMOA <- moa.results2[moa.results2$NES > 0,]
+    toxNet <- net.centr[grepl("negative",net.centr$runID),]
+  } else {
+    toxCorr <- corr.result
+    toxGSEA <- all.gsea2
+    toxTF <- tf2
+    toxKin <- kin2
+    toxDrug <- drug.corr.wInfo
+    toxMOA <- moa.results2
+    toxNet <- net.centr
+  }
+  percScoresInfo <- data.frame(Target)
+  percScoresInfo[,c("GSEA", "TF", "Kinase", "Protein", 
+                    "Drug", "MeanPerc", "N","N_best")] <- NA
+  percScoresInfo$Best <- ""
+  percScores <- percScoresInfo
+  nScores <- percScoresInfo
+  for (i in 1:length(Target)) {
+    nRankVals <- 0
+    nBestRanks <- 0
+
+    # GSEA
+    if (Target[i] %in% unique(unlist(strsplit(toxGSEA$Gene, " ")))) {
+      tempGSEA <- toxGSEA[grepl(Target[i], toxGSEA$Gene),]
+      tempTypes <- paste0(unique(tempGSEA$Omics), collapse = " ")
+      tempSets <- paste0(tempGSEA$Feature_set, collapse = " ")
+      tempScores <- round(mean(tempGSEA$NES), digits=2)
+      tempPerc <- round(mean(tempGSEA$percentile), digits=2)
+      
+      # keep score
+      nRankVals <- nRankVals + nrow(tempGSEA)
+      if (any(tempGSEA$Rank == bestRankGSEA)) {
+        nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankGSEA))
+        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "GSEA")
+      }
+      
+      # update data frame
+      percScoresInfo$GSEA[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
+      percScores$GSEA[i] <- mean(tempGSEA$percentile)
+      nScores$GSEA[i] <- nrow(tempGSEA)
+    }
+    
+    if (nrow(toxTF) > 0) {
+      # TF
+      if (Target[i] %in% toxTF$Gene) {
+        tempGSEA <- toxTF[toxTF$Gene == Target[i],]
+        tempScores <- round(mean(tempGSEA$NES), digits=2)
+        tempPerc <- round(mean(tempGSEA$percentile), digits=2)
+        
+        # keep score
+        nRankVals <- nRankVals + nrow(tempGSEA)
+        if (any(tempGSEA$Rank == bestRankTF)) {
+          nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankTF))
+          percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "TF")
+        }
+        
+        # update data frame
+        percScoresInfo$TF[i] <- paste0(tempScores, " | ", tempPerc)
+        percScores$TF[i] <- mean(tempGSEA$percentile)
+        nScores$TF[i] <- nrow(tempGSEA)
+      }
+      
+      if (Target[i] %in% unique(unlist(strsplit(toxTF$Targets, " ")))) { 
+        # TFT
+        tempGSEA <- toxTF[grepl(Target[i], toxTF$Targets),]
+        tempSets <- paste0(tempGSEA$Gene, collapse = " ")
+        tempScores <- round(mean(tempGSEA$NES), digits=2)
+        tempPerc <- round(mean(tempGSEA$percentile), digits=2)
+        
+        # keep score
+        nRankVals <- nRankVals + nrow(tempGSEA)
+        if (any(tempGSEA$Rank == bestRankTF)) {
+          nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankTF))
+          percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "TF")
+        }
+        
+        # update data frame
+        if (is.na(percScoresInfo$TF[i])) {
+          percScoresInfo$TF[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$TF[i] <- mean(tempGSEA$percentile)
+          nScores$TF[i] <- nrow(tempGSEA) 
+        } else {
+          percScoresInfo$TF[i] <- paste0(percScoresInfo$TF[i], " || ", tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$TF[i] <- mean(c(percScores$TF[i], tempGSEA$percentile))
+          nScores$TF[i] <- sum(c(nScores$TF[i], nrow(tempGSEA)))
+        }
+      }
+    }
+    
+    
+    if (nrow(toxKin) > 0) {
+      # Kinase
+      if (Target[i] %in% toxKin$Gene) {
+        tempGSEA <- toxKin[toxKin$Gene == Target[i],]
+        tempScores <- round(mean(tempGSEA$NES),2)
+        tempPerc <- round(mean(tempGSEA$percentile),2)
+        
+        # keep score
+        nRankVals <- nRankVals + nrow(tempGSEA)
+        if (any(tempGSEA$Rank == bestRankKin)) {
+          nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankKin))
+          percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Kinase")
+        }
+        
+        # update data frame
+        percScoresInfo$Kinase[i] <- paste0(tempScores, " | ", tempPerc)
+        percScores$Kinase[i] <- mean(tempGSEA$percentile)
+        nScores$Kinase[i] <- nrow(tempGSEA)
+      }
+      
+      if (Target[i] %in% unique(unlist(strsplit(toxKin$Substrates, " ")))) {
+        # substrate
+        tempGSEA <- toxKin[grepl(Target[i], toxKin$Substrates),]
+        tempSets <- paste0(tempGSEA$Gene, collapse = " ")
+        tempScores <- round(mean(tempGSEA$NES),2)
+        tempPerc <- round(mean(tempGSEA$percentile),2)
+        
+        # keep score
+        nRankVals <- nRankVals + nrow(tempGSEA)
+        if (any(tempGSEA$Rank == bestRankKin)) {
+          nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankKin))
+          percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Kinase")
+        }
+        
+        # update data frame
+        if (is.na(percScoresInfo$Kinase[i])) {
+          percScoresInfo$Kinase[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$Kinase[i] <- mean(tempGSEA$percentile)
+          nScores$Kinase[i] <- nrow(tempGSEA) 
+        } else {
+          percScoresInfo$Kinase[i] <- paste0(percScoresInfo$Kinase[i], " || ", tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$Kinase[i] <- mean(c(percScores$Kinase[i], tempGSEA$percentile))
+          nScores$Kinase[i] <- sum(c(nScores$Kinase[i], nrow(tempGSEA)))
+        }
+      } 
+    }
+    
+    # Network
+    if (Target[i] %in% toxNet$name) {
+      tempGSEA <- toxNet[toxNet$name == Target[i],]
+      tempScores <- round(mean(tempGSEA$eigen_centrality),2)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
+      
+      # keep score
+      nRankVals <- nRankVals + nrow(tempGSEA)
+      if (any(tempGSEA$Rank == bestRankNet)) {
+        nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankNet))
+        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Protein")
+      }
+      
+      # update data frame
+      percScoresInfo$Protein[i] <- paste0(tempScores, " | ", tempPerc)
+      percScores$Protein[i] <- mean(tempGSEA$percentile)
+      nScores$Protein[i] <- nrow(tempGSEA)
+    }
+    
+    # Drug correlation
+    allToxDrugTargets <- unique(unlist(strsplit(toxDrug$target, ", ")))
+    if (Target[i] %in% allToxDrugTargets) {
+      tempGSEA <- toxDrug[grepl(Target[i], toxDrug$target),]
+      tempDrugs <- paste0(tempGSEA$name, collapse = " ")
+      tempScores <- round(mean(tempGSEA$Pearson.est),2)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
+      
+      # keep score
+      nRankVals <- nRankVals + nrow(tempGSEA)
+      if (any(tempGSEA$Rank == bestRankDrug)) {
+        nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankDrug))
+        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Drug")
+      }
+      
+      # update data frame
+      percScoresInfo$Drug[i] <- paste0(tempDrugs, " | ", tempScores, " | ", tempPerc)
+      percScores$Drug[i] <- mean(tempGSEA$percentile)
+      nScores$Drug[i] <- nrow(tempGSEA)
+    }
+    
+    # DMEA
+    if (Target[i] %in% unique(unlist(strsplit(toxMOA$Gene, ", ")))) {
+      tempGSEA <- toxMOA[grepl(Target[i], toxMOA$Gene),]
+      tempTypes <- paste0(unique(tempGSEA$type), collapse = " ")
+      tempSets <- paste0(tempGSEA$moa, collapse = " ")
+      tempScores <- round(mean(tempGSEA$NES),2)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
+      
+      # keep score
+      nRankVals <- nRankVals + nrow(tempGSEA)
+      if (any(tempGSEA$Rank == bestRankMOA)) {
+        nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankMOA))
+        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Drug")
+      }
+      
+      # update data frame
+      if (is.na(percScoresInfo$Drug[i])) {
+        percScoresInfo$Drug[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
+        percScores$Drug[i] <- mean(tempGSEA$percentile)
+        nScores$Drug[i] <- nrow(tempGSEA) 
+      } else {
+        percScoresInfo$Drug[i] <- paste0(percScoresInfo$Drug[i], " || ", tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
+        percScores$Drug[i] <- mean(c(percScores$Drug[i], tempGSEA$percentile))
+        nScores$Drug[i] <- sum(c(nScores$Drug[i], nrow(tempGSEA)))
+      }
+    }
+    
+    # update data frame
+    percScores$N[i] <- nRankVals
+    percScores$N_best[i] <- nBestRanks
+    percScores$MeanPerc[i] <- mean(as.numeric(percScores[i,2:6]), na.rm = TRUE)
+  }
+  percScoresInfo$N_best <- percScores$N_best
+  percScoresInfo$N <- percScores$N
+  percScoresInfo$MeanPerc <- percScores$MeanPerc
+  percScoresInfo$Best <- substring(percScoresInfo$Best, 2)
+  nScores$N_best <- percScoresInfo$N_best
+  nScores$N <- percScoresInfo$N
+  nScores$MeanPerc <- percScoresInfo$MeanPerc
+  nScores$Best <- percScoresInfo$Best
+  percScores$Best <- percScoresInfo$Best
+  percScores$MeanPercTimesN <- percScores$MeanPerc*percScores$N
+  percScoresInfo$MeanPercTimesN <- percScores$MeanPercTimesN
+  
+  percScores$N_analyses <- rowSums(!is.na(percScores[,2:6]))
   percScores$MeanPercTimesN_analyses <- percScores$N_analyses * percScores$MeanPerc
   percScoresInfo$MeanPercTimesN_analyses <- percScores$MeanPercTimesN_analyses
   write.csv(nScores, paste0(j,"_N_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
@@ -1110,66 +1676,274 @@ dot.plot.amp <- readRDS(paste0("chr8qAmp","_Target_min3analyses_dotPlot_",Sys.Da
 dot.plot.amp
 ggsave(paste0("chr8qAmp","_Target_min3analyses_dotPlot_",Sys.Date(),".pdf"),dot.plot,width=13, height=3)
 
-# there is overlap
-dir.create("unique")
-setwd("unique")
-amp <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/mergingNetworks/chr8qAmp_Percentile_scores_min3analyses_2025-04-20.csv") # 86
-wt <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/mergingNetworks/nonAmp_Percentile_scores_min3analyses_2025-04-20.csv") # 31
-amp.unique <- amp[!(amp$Target %in% wt$Target),] # 55
-wt.unique <- wt[!(wt$Target %in% amp$Target),] # 0
-
-filtered.percScores <- amp.unique
-write.csv(filtered.percScores, paste0("chr8qAmp","_Percentile_scores_min3analyses_unique_",Sys.Date(),".csv"), row.names = FALSE)
-targetOrder <- filtered.percScores$Target
-filtered.percScores$N <- NULL
-filtered.percScores$N_best <- NULL
-filtered.percScores$N_analyses <- NULL
-filtered.percScores$MeanPerc <- NULL
-filtered.percScores$MeanPercTimesN <- NULL
-filtered.percScores$MeanPercTimesN_analyses <- NULL
-nScores2 <- reshape2::melt(nScores[nScores$Target %in% filtered.percScores$Target,
-                                   colnames(filtered.percScores)], 
-                           id = c("Target","Best"), variable.name = "Analysis", value.name="N")
-filtered.percScores <- reshape2::melt(filtered.percScores, id = c("Target", "Best"), 
-                                      variable.name = "Analysis", value.name = "Mean Percentile")
-
-plot.df <- merge(filtered.percScores, nScores2, by=c("Target","Best","Analysis"))
-plot.df$`Mean Percentile` <- as.numeric(plot.df$`Mean Percentile`)
-plot.df$N <- as.numeric(plot.df$N)
-plot.df <- na.omit(plot.df)
-plot.df$`Top Score` <- FALSE
-if (any(plot.df$Best == plot.df$Analysis)) {
-  plot.df[plot.df$Best == plot.df$Analysis,]$`Top Score` <- TRUE 
+dir.create("noCorrOrGSEA")
+setwd("noCorrOrGSEA")
+for (j in toxic) {
+  if (j == "chr8qAmp") {
+    toxCorr <- corr.result[corr.result$Spearman.est > 0,]
+    toxGSEA <- all.gsea2[all.gsea2$NES > 0,]
+    toxTF <- tf2[tf2$NES > 0,]
+    toxKin <- kin2[kin2$enrichment_value_log2 > 0,]
+    toxDrug <- drug.corr.wInfo[drug.corr.wInfo$Pearson.est < 0,]
+    toxMOA <- moa.results2[moa.results2$NES < 0,]
+    toxNet <- net.centr[grepl("positive",net.centr$runID),]
+  } else if (j == "nonAmp") {
+    toxCorr <- corr.result[corr.result$Spearman.est < 0,]
+    toxGSEA <- all.gsea2[all.gsea2$NES < 0,]
+    toxTF <- tf2[tf2$NES < 0,]
+    toxKin <- kin2[kin2$enrichment_value_log2 < 0,]
+    toxDrug <- drug.corr.wInfo[drug.corr.wInfo$Pearson.est > 0,]
+    toxMOA <- moa.results2[moa.results2$NES > 0,]
+    toxNet <- net.centr[grepl("negative",net.centr$runID),]
+  } else {
+    toxCorr <- corr.result
+    toxGSEA <- all.gsea2
+    toxTF <- tf2
+    toxKin <- kin2
+    toxDrug <- drug.corr.wInfo
+    toxMOA <- moa.results2
+    toxNet <- net.centr
+  }
+  percScoresInfo <- data.frame(Target)
+  percScoresInfo[,c("TF", "Kinase", "Protein", 
+                    "Drug", "MeanPerc", "N","N_best")] <- NA
+  percScoresInfo$Best <- ""
+  percScores <- percScoresInfo
+  nScores <- percScoresInfo
+  for (i in 1:length(Target)) {
+    nRankVals <- 0
+    nBestRanks <- 0
+    
+    if (nrow(toxTF) > 0) {
+      # TF
+      if (Target[i] %in% toxTF$Gene) {
+        tempGSEA <- toxTF[toxTF$Gene == Target[i],]
+        tempScores <- round(mean(tempGSEA$NES), digits=2)
+        tempPerc <- round(mean(tempGSEA$percentile), digits=2)
+        
+        # keep score
+        nRankVals <- nRankVals + nrow(tempGSEA)
+        if (any(tempGSEA$Rank == bestRankTF)) {
+          nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankTF))
+          percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "TF")
+        }
+        
+        # update data frame
+        percScoresInfo$TF[i] <- paste0(tempScores, " | ", tempPerc)
+        percScores$TF[i] <- mean(tempGSEA$percentile)
+        nScores$TF[i] <- nrow(tempGSEA)
+      }
+      
+      if (Target[i] %in% unique(unlist(strsplit(toxTF$Targets, " ")))) { 
+        # TFT
+        tempGSEA <- toxTF[grepl(Target[i], toxTF$Targets),]
+        tempSets <- paste0(tempGSEA$Gene, collapse = " ")
+        tempScores <- round(mean(tempGSEA$NES), digits=2)
+        tempPerc <- round(mean(tempGSEA$percentile), digits=2)
+        
+        # keep score
+        nRankVals <- nRankVals + nrow(tempGSEA)
+        if (any(tempGSEA$Rank == bestRankTF)) {
+          nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankTF))
+          percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "TF")
+        }
+        
+        # update data frame
+        if (is.na(percScoresInfo$TF[i])) {
+          percScoresInfo$TF[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$TF[i] <- mean(tempGSEA$percentile)
+          nScores$TF[i] <- nrow(tempGSEA) 
+        } else {
+          percScoresInfo$TF[i] <- paste0(percScoresInfo$TF[i], " || ", tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$TF[i] <- mean(c(percScores$TF[i], tempGSEA$percentile))
+          nScores$TF[i] <- sum(c(nScores$TF[i], nrow(tempGSEA)))
+        }
+      }
+    }
+    
+    
+    if (nrow(toxKin) > 0) {
+      # Kinase
+      if (Target[i] %in% toxKin$Gene) {
+        tempGSEA <- toxKin[toxKin$Gene == Target[i],]
+        tempScores <- round(mean(tempGSEA$NES),2)
+        tempPerc <- round(mean(tempGSEA$percentile),2)
+        
+        # keep score
+        nRankVals <- nRankVals + nrow(tempGSEA)
+        if (any(tempGSEA$Rank == bestRankKin)) {
+          nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankKin))
+          percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Kinase")
+        }
+        
+        # update data frame
+        percScoresInfo$Kinase[i] <- paste0(tempScores, " | ", tempPerc)
+        percScores$Kinase[i] <- mean(tempGSEA$percentile)
+        nScores$Kinase[i] <- nrow(tempGSEA)
+      }
+      
+      if (Target[i] %in% unique(unlist(strsplit(toxKin$Substrates, " ")))) {
+        # substrate
+        tempGSEA <- toxKin[grepl(Target[i], toxKin$Substrates),]
+        tempSets <- paste0(tempGSEA$Gene, collapse = " ")
+        tempScores <- round(mean(tempGSEA$NES),2)
+        tempPerc <- round(mean(tempGSEA$percentile),2)
+        
+        # keep score
+        nRankVals <- nRankVals + nrow(tempGSEA)
+        if (any(tempGSEA$Rank == bestRankKin)) {
+          nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankKin))
+          percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Kinase")
+        }
+        
+        # update data frame
+        if (is.na(percScoresInfo$Kinase[i])) {
+          percScoresInfo$Kinase[i] <- paste0(tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$Kinase[i] <- mean(tempGSEA$percentile)
+          nScores$Kinase[i] <- nrow(tempGSEA) 
+        } else {
+          percScoresInfo$Kinase[i] <- paste0(percScoresInfo$Kinase[i], " || ", tempSets, " | ", tempScores, " | ", tempPerc)
+          percScores$Kinase[i] <- mean(c(percScores$Kinase[i], tempGSEA$percentile))
+          nScores$Kinase[i] <- sum(c(nScores$Kinase[i], nrow(tempGSEA)))
+        }
+      } 
+    }
+    
+    # Network
+    if (Target[i] %in% toxNet$name) {
+      tempGSEA <- toxNet[toxNet$name == Target[i],]
+      tempScores <- round(mean(tempGSEA$eigen_centrality),2)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
+      
+      # keep score
+      nRankVals <- nRankVals + nrow(tempGSEA)
+      if (any(tempGSEA$Rank == bestRankNet)) {
+        nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankNet))
+        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Protein")
+      }
+      
+      # update data frame
+      percScoresInfo$Protein[i] <- paste0(tempScores, " | ", tempPerc)
+      percScores$Protein[i] <- mean(tempGSEA$percentile)
+      nScores$Protein[i] <- nrow(tempGSEA)
+    }
+    
+    # Drug correlation
+    allToxDrugTargets <- unique(unlist(strsplit(toxDrug$target, ", ")))
+    if (Target[i] %in% allToxDrugTargets) {
+      tempGSEA <- toxDrug[grepl(Target[i], toxDrug$target),]
+      tempDrugs <- paste0(tempGSEA$name, collapse = " ")
+      tempScores <- round(mean(tempGSEA$Pearson.est),2)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
+      
+      # keep score
+      nRankVals <- nRankVals + nrow(tempGSEA)
+      if (any(tempGSEA$Rank == bestRankDrug)) {
+        nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankDrug))
+        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Drug")
+      }
+      
+      # update data frame
+      percScoresInfo$Drug[i] <- paste0(tempDrugs, " | ", tempScores, " | ", tempPerc)
+      percScores$Drug[i] <- mean(tempGSEA$percentile)
+      nScores$Drug[i] <- nrow(tempGSEA)
+    }
+    
+    # DMEA
+    if (Target[i] %in% unique(unlist(strsplit(toxMOA$Gene, ", ")))) {
+      tempGSEA <- toxMOA[grepl(Target[i], toxMOA$Gene),]
+      tempTypes <- paste0(unique(tempGSEA$type), collapse = " ")
+      tempSets <- paste0(tempGSEA$moa, collapse = " ")
+      tempScores <- round(mean(tempGSEA$NES),2)
+      tempPerc <- round(mean(tempGSEA$percentile),2)
+      
+      # keep score
+      nRankVals <- nRankVals + nrow(tempGSEA)
+      if (any(tempGSEA$Rank == bestRankMOA)) {
+        nBestRanks <- nBestRanks + length(which(tempGSEA$Rank == bestRankMOA))
+        percScoresInfo$Best[i] <- paste(percScoresInfo$Best[i], "Drug")
+      }
+      
+      # update data frame
+      if (is.na(percScoresInfo$Drug[i])) {
+        percScoresInfo$Drug[i] <- paste0(tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
+        percScores$Drug[i] <- mean(tempGSEA$percentile)
+        nScores$Drug[i] <- nrow(tempGSEA) 
+      } else {
+        percScoresInfo$Drug[i] <- paste0(percScoresInfo$Drug[i], " || ", tempTypes, " | ", tempSets, " | ", tempScores, " | ", tempPerc)
+        percScores$Drug[i] <- mean(c(percScores$Drug[i], tempGSEA$percentile))
+        nScores$Drug[i] <- sum(c(nScores$Drug[i], nrow(tempGSEA)))
+      }
+    }
+    
+    # update data frame
+    percScores$N[i] <- nRankVals
+    percScores$N_best[i] <- nBestRanks
+    percScores$MeanPerc[i] <- mean(as.numeric(percScores[i,2:5]), na.rm = TRUE)
+  }
+  percScoresInfo$N_best <- percScores$N_best
+  percScoresInfo$N <- percScores$N
+  percScoresInfo$MeanPerc <- percScores$MeanPerc
+  percScoresInfo$Best <- substring(percScoresInfo$Best, 2)
+  nScores$N_best <- percScoresInfo$N_best
+  nScores$N <- percScoresInfo$N
+  nScores$MeanPerc <- percScoresInfo$MeanPerc
+  nScores$Best <- percScoresInfo$Best
+  percScores$Best <- percScoresInfo$Best
+  percScores$MeanPercTimesN <- percScores$MeanPerc*percScores$N
+  percScoresInfo$MeanPercTimesN <- percScores$MeanPercTimesN
+  
+  percScores$N_analyses <- rowSums(!is.na(percScores[,2:5]))
+  percScores$MeanPercTimesN_analyses <- percScores$N_analyses * percScores$MeanPerc
+  percScoresInfo$MeanPercTimesN_analyses <- percScores$MeanPercTimesN_analyses
+  write.csv(nScores, paste0(j,"_N_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
+  #nScores <- read.csv(paste0(j,"_N_Percentile_scores_",Sys.Date(),".csv"))
+  write.csv(percScores, paste0(j,"_Percentile_scores_",Sys.Date(),".csv"), row.names = FALSE)
+  write.csv(percScoresInfo, paste0(j, "_Percentile_scores_info_",Sys.Date(),".csv"), row.names = FALSE)
+  
+  filtered.percScores <- percScores[percScores$N_analyses >= 2,]
+  if (nrow(filtered.percScores) > 0) {
+    filtered.percScores <- filtered.percScores[order(-filtered.percScores$MeanPercTimesN_analyses),]
+    targetOrder <- filtered.percScores$Target
+    write.csv(filtered.percScores, paste0(j,"_Percentile_scores_min2analyses_",Sys.Date(),".csv"), row.names = FALSE)
+    
+    filtered.percScores$N <- NULL
+    filtered.percScores$N_best <- NULL
+    filtered.percScores$N_analyses <- NULL
+    filtered.percScores$MeanPerc <- NULL
+    filtered.percScores$MeanPercTimesN <- NULL
+    filtered.percScores$MeanPercTimesN_analyses <- NULL
+    nScores2 <- reshape2::melt(nScores[nScores$Target %in% filtered.percScores$Target,
+                                       colnames(filtered.percScores)], 
+                               id = c("Target","Best"), variable.name = "Analysis", value.name="N")
+    filtered.percScores <- reshape2::melt(filtered.percScores, id = c("Target", "Best"), 
+                                          variable.name = "Analysis", value.name = "Mean Percentile")
+    
+    plot.df <- merge(filtered.percScores, nScores2, by=c("Target","Best","Analysis"))
+    plot.df$`Mean Percentile` <- as.numeric(plot.df$`Mean Percentile`)
+    plot.df$N <- as.numeric(plot.df$N)
+    plot.df <- na.omit(plot.df)
+    plot.df$`Top Score` <- FALSE
+    if (any(plot.df$Best == plot.df$Analysis)) {
+      plot.df[plot.df$Best == plot.df$Analysis,]$`Top Score` <- TRUE 
+    }
+    # create dot plot to represent filtered.percScores
+    dot.plot <- ggplot2::ggplot(plot.df, aes(y = Target, x = Analysis, color = 100*`Mean Percentile`, size=N)) + 
+      ggplot2::geom_point() + scale_color_gradient2(low="grey",high="red", limits=c(0, 100)) +
+      theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
+      ggplot2::scale_y_discrete(limits = targetOrder) +
+      geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
+      theme(axis.text.y = element_text(angle = 45, vjust=1, hjust=1),
+            axis.text.x = element_text(angle=90,vjust=0.5),
+            axis.title.x=element_text(angle=180)
+      ) + theme(#legend.position="top", 
+        legend.direction="horizontal") + 
+      coord_flip()
+    dot.plot
+    saveRDS(dot.plot, paste0(j,"_Target_min2analyses_dotPlot_",Sys.Date(),".rds"))
+    ggsave(paste0(j,"_Target_min2analyses_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
+  }
 }
-# create dot plot to represent filtered.percScores
-dot.plot <- ggplot2::ggplot(plot.df, aes(y = Target, x = Analysis, color = 100*`Mean Percentile`, size=N)) + 
-  ggplot2::geom_point() + scale_color_gradient2(low="grey",high="red", limits=c(0, 100)) +
-  theme_classic() + ggplot2::labs(color = "Mean Percentile", size = "N") + 
-  ggplot2::scale_y_discrete(limits = targetOrder) +
-  geom_point(data = subset(plot.df, `Top Score`), col = "black", stroke = 1.5, shape = 21) +
-  theme(axis.text.y = element_text(angle = 45, vjust=1, hjust=1),
-        axis.text.x = element_text(angle=90,vjust=0.5),
-        axis.title.x=element_text(angle=180)
-  ) + theme(#legend.position="top", 
-    legend.direction="horizontal") + 
-  coord_flip()
-dot.plot
-saveRDS(dot.plot, paste0("chr8qAmp","_Target_min3analyses_dotPlot_",Sys.Date(),".rds"))
-ggsave(paste0("chr8qAmp","_Target_min3analyses_dotPlot_wider_",Sys.Date(),".pdf"),dot.plot,width=10, height=3)
-
-# compile number of hits per gene family (remove numbers and subsequent characters)
-plot.df$Family <- sub("\\d.*", "", plot.df$Target)
-
-# manually fix those ending in A, B, C
-plot.df[grepl("AURK", plot.df$Family),]$Family <- "AURK"
-plot.df[grepl("POL", plot.df$Family),]$Family <- "POL"
-plot.df[grepl("TUB", plot.df$Family),]$Family <- "TUB"
-
-fam.counts <- plyr::ddply(plot.df, .(Family), summarize,
-                          N = n(),
-                          `Top Score` = any(`Top Score`))
-fam.counts$`Top Score` <- factor(fam.counts$`Top Score`, levels=c(TRUE, FALSE))
-ggplot2::ggplot(fam.counts, aes(x= N, y=Family, fill=`Top Score`)) + geom_bar(stat="identity", alpha = 0.9) + 
-  theme_classic(base_size=12) + scale_y_discrete(limits=fam.counts[order(fam.counts$N),]$Family) + 
-  scale_fill_manual(values=c("red", "grey")) + xlab("Number of Targets")
-ggsave("N_targetsPerFamily.pdf", width=3, height=5)
+dot.plot.amp <- readRDS(paste0("chr8qAmp","_Target_min2analyses_dotPlot_",Sys.Date(),".rds"))
+dot.plot.amp
+ggsave(paste0("chr8qAmp","_Target_min2analyses_dotPlot_",Sys.Date(),".pdf"),dot.plot,width=13, height=3)
