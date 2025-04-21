@@ -585,19 +585,23 @@ write.csv(selectedVertices, paste0("vertices_optimalRun_withSpearmanRho_",Sys.Da
 #install.packages("BiocManager")
 BiocManager::install("RCy3")
 #setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
-setwd("~/OneDrive - PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Network/unified/")
-selectedCentrality <- read.csv("centrality_optimalRun_positive_2025-01-12.csv")
-selectedEdges <- read.csv("edges_optimalRun_positive_2025-01-12.csv")
-selectedVertices <- read.csv("vertices_optimalRun_withSpearmanRho_2025-01-21.csv")
+#setwd("~/OneDrive - PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Network/unified/")
+selectedCentrality <- read.csv("centrality_optimalRun.csv")
+selectedEdges <- read.csv("edges_optimalRun.csv")
+selectedVertices <- read.csv("vertices_optimalRun_withSpearmanRho_2025-04-17.csv")
 directions <- c("positive", "negative")
 library(RCy3)
-nTop.list <- c(50, 25, 20,15,10,5)
+nTop.list <- c(50, 25, 20,15,10,5, 100, "max") # 101 upregulated, 107 downregulated so "positive_107" network is really "positive_101"
 #nTop.list <- 5
 library(plyr); library(dplyr)
 for (nTop in nTop.list) {
   for (j in directions) {
-    topGenes <- selectedCentrality[grepl(j, selectedCentrality$runID),] %>% 
-      slice_max(eigen_centrality,n=nTop) # or maybe 2% but different # of nodes (862 positive, 1219 negative)
+    if (nTop == "max") {
+      topGenes <- selectedCentrality[grepl(j, selectedCentrality$runID),]
+    } else {
+      topGenes <- selectedCentrality[grepl(j, selectedCentrality$runID),] %>% 
+        slice_max(eigen_centrality,n=nTop)
+    }
     # topVert <- selectedVertices[selectedVertices$Direction ==j & 
     #                               selectedVertices$name %in% topGenes$name,]
     tempEdges <- selectedEdges[selectedEdges$Direction==j & 
@@ -612,12 +616,11 @@ for (nTop in nTop.list) {
                             prize = mean(prize),
                             type = ifelse(length(unique(type))==1, unique(type), "Terminal"),
                             inputPrize = mean(inputPrize),
-                            nodeType = paste0(unique(nodeType), collapse=" and "),
-                            inputType = paste0(unique(inputType), collapse=" and "))
+                            nodeType = paste0(unique(nodeType), collapse=" and "))
     cat(j,"network has", nrow(tempVert2), "nodes and", nrow(tempEdges), "edges from top", nTop, "central nodes")
     topGraph <- igraph::graph_from_data_frame(tempEdges, directed=FALSE, vertices=tempVert2) # error: duplicate vertex names; e.g., DNMT1 is steiner in one but terminal in another
     plot(topGraph)
-    tempTitle <- paste0(j, "_", nTop,"_topCentralNodes",Sys.Date())
+    tempTitle <- paste0(j, "_", nrow(topGenes),"_topCentralNodes",Sys.Date())
     RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
   } 
 }
@@ -626,215 +629,22 @@ for (nTop in nTop.list) {
 
 ### create venn diagram of nodes in each network
 venn.list <- list()
-inputTypes <- sort(unique(selectedVertices$inputType))
-my.color.pal <- c("#66C2A5", "#FC8D62", "#FFD92F")
-for (i in inputTypes) {
-  venn.list[[i]] <- selectedVertices[grepl(i,selectedVertices$inputType),]$name
+#my.color.pal <- c("#66C2A5", "#FC8D62", "#FFD92F")
+my.color.pal <- c("red", "blue")
+for (i in directions) {
+  if (i == "positive") {
+    temp.name <- "Positive"
+  } else { temp.name <- "Negative"}
+  venn.list[[temp.name]] <- selectedVertices[selectedVertices$Direction==i,]$name
 }
-ggvenn::ggvenn(venn.list, fill_color = RColorBrewer::brewer.pal(7, "Set2"), show_percentage = FALSE, text_size=6)
-ggplot2::ggsave("PCSF_ProteinTFKinase_unified_vennDiagram.pdf", width=4, height=4)
-
-### also try expanding network based on PPI to connect vertices
-library(PCSF)
-data("STRING") # edges (1991761)
-#ppi <- construct_interactome(STRING)
-
-# keep string db edges if both "to" and "from" are in the vertices
-stringEdges <- STRING[STRING$to %in% selectedVertices$name &
-                        STRING$from %in% selectedVertices$name,] # 35910
-
-# remake networks
-library(RCy3)
-nTop.list <- c(50, 25, 20,15,10,5)
-#nTop.list <- 5
-library(plyr); library(dplyr)
-directions <- "positive"
-for (nTop in nTop.list) {
-  for (j in directions) {
-    topGenes <- selectedCentrality[grepl(j, selectedCentrality$runID),] %>% 
-      slice_max(eigen_centrality,n=nTop) # or maybe 2% but different # of nodes (862 positive, 1219 negative)
-    # topVert <- selectedVertices[selectedVertices$Direction ==j & 
-    #                               selectedVertices$name %in% topGenes$name,]
-    tempEdges <- stringEdges[stringEdges$to %in% topGenes$name | 
-                                    stringEdges$from %in% topGenes$name,]
-    tempGenes <- unique(c(tempEdges$to, tempEdges$from)) # 74
-    tempVert <- selectedVertices[selectedVertices$Direction ==j & 
-                                   selectedVertices$name %in% tempGenes,]
-    tempVert2 <- plyr::ddply(tempVert, .(name, Direction, mu, omega, beta, degExp, Spearman.est, abs.Spearman.est, Spearman.q, sig.corr), 
-                             summarize,
-                             frequency = mean(frequency),
-                             prize = mean(prize),
-                             type = ifelse(length(unique(type))==1, unique(type), "Terminal"),
-                             inputPrize = mean(inputPrize),
-                             nodeType = paste0(unique(nodeType), collapse=" and "),
-                             inputType = paste0(unique(inputType), collapse=" and "))
-    cat(j,"network has", nrow(tempVert2), "nodes and", nrow(tempEdges), "edges from top", nTop, "central nodes")
-    topGraph <- igraph::graph_from_data_frame(tempEdges, directed=FALSE, vertices=tempVert2) # error: duplicate vertex names; e.g., DNMT1 is steiner in one but terminal in another
-    plot(topGraph)
-    tempTitle <- paste0(j, "_", nTop,"_topCentralNodes_wTFsKinases_expandedBySTRING_",Sys.Date())
-    RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-    my.enr <- try(PCSF::enrichment_analysis(topGraph), 
-                  silent = TRUE)
-    if (!inherits(my.enr, "try-error")) {
-     write.csv(my.enr, paste0("enrichr_",tempTitle,".csv"), row.names = FALSE)
-    }
-  } 
-}
-
-# Error in PCSF::enrichment_analysis(topGraph) : 
-# The subnetwork must be a "PCSF" object derived from an "igraph" class.
+#ggvenn::ggvenn(venn.list, fill_color = RColorBrewer::brewer.pal(7, "Set2"), show_percentage = FALSE, text_size=6)
+ggvenn::ggvenn(venn.list, fill_color = my.color.pal, show_percentage = FALSE, text_size=6, set_name_size=4.25)
+ggplot2::ggsave("PCSF_Protein_Direction_unified_vennDiagram.pdf", width=4, height=4)
+venn.list[["Positive"]][venn.list[["Positive"]] %in% venn.list[["Negative"]]]
+# "ATG12"   "CHCHD4"  "CSK"     "DEPDC5"  "FBLIM1"  "FGFR2"   "GFER"    "ITGA1"   "ITGA4"   "MADCAM1" "MON1B"   "RAB7A"   "RRAGA"   "SDC2"    "SELL"    "VASP"  
 
 # maybe just plot enrichr results from individual omics instead
 setwd("PCSF_Protein_2025-04-16")
 my.enr <- read.csv("enrichr.csv")
-my.enr <- my.enr[my.enr$mu == "0.001" & my.enr$beta == 10 &
-                   my.enr$omega == 3,]
-my.enr$N_included <- sub("/.*","",my.enr$Overlap)
-my.enr$N_total <- sub(".*/","",my.enr$Overlap)
-my.enr$perc_included <- 100*as.numeric(my.enr$N_included)/as.numeric(my.enr$N_total)
-my.enr2 <- my.enr[my.enr$N_included >= 6 & my.enr$perc_included >= 10,] # 341
-
-pos.enr <- my.enr2[my.enr2$Direction == "positive",] # 148
-sig.pos.enr <- pos.enr[pos.enr$Adjusted.P.value <= 0.05,] # 148
-sig.pos.enr.info <- plyr::ddply(sig.pos.enr, .(Term), summarize,
-                                nClusters = length(unique(Cluster)),
-                                meanOR = mean(Odds.Ratio)) # only 2 / 146 are in more than 1 cluster (and those are in 2)
-clusters <- unique(sig.pos.enr$Cluster)
-top.pos.enr <- data.frame()
-for (i in clusters) {
-  temp.pos.enr <- sig.pos.enr[sig.pos.enr$Cluster == i,] %>% slice_max(Odds.Ratio, n = 5) 
-  top.pos.enr <- rbind(top.pos.enr, temp.pos.enr)
-}
-
-# make a circular bar plot for each omics' positive network
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/"
-setwd(base.path)
-path.map <- list("Protein" = "PCSF_Protein_2025-04-16")
-n.top <- 3
-enr.plots <- NULL
-#source("~/OneDrive - PNNL/Documents/circBar.R")
-directions <- c("positive","negative")
-for (i in names(path.map)) {
-  # load enrichr results
-  setwd(path.map[[i]])
-  my.enr <- read.csv("enrichr.csv")
-  
-  # filter for parameters, gene set coverage, significance
-  my.enr <- my.enr[my.enr$mu == "0.001" & my.enr$beta == 10 &
-                     my.enr$omega == 3,]
-  my.enr$N_included <- sub("/.*","",my.enr$Overlap)
-  my.enr$N_total <- sub(".*/","",my.enr$Overlap)
-  my.enr$perc_included <- 100*as.numeric(my.enr$N_included)/as.numeric(my.enr$N_total)
-  my.enr2 <- my.enr[my.enr$N_included >= 6 & my.enr$perc_included >= 10,] # 341
-  for (k in directions) {
-    pos.enr <- my.enr2[my.enr2$Direction == k,] # 148
-    sig.pos.enr <- pos.enr[pos.enr$Adjusted.P.value <= 0.05,] # 148
-    
-    # get top gene sets for each cluster
-    clusters <- unique(sig.pos.enr$Cluster)
-    top.pos.enr <- data.frame()
-    for (j in clusters) {
-      temp.pos.enr <- sig.pos.enr[sig.pos.enr$Cluster == j,] %>% slice_max(Odds.Ratio, n = 3) 
-      top.pos.enr <- rbind(top.pos.enr, temp.pos.enr)
-    }
-    top.pos.enr$minusLogFDR <- -log(top.pos.enr$Adjusted.P.value, base=10)
-    top.pos.enr$Odds.Ratio <- as.numeric(top.pos.enr$Odds.Ratio)
-    top.pos.enr$Cluster2 <- paste("Cluster",top.pos.enr$Cluster)
-    top.pos.enr$alpha <- 0.5 # 47 terms
-    top.pos.enr$`Odds Ratio` <- top.pos.enr$Odds.Ratio
-    top.pos.enr$`-Log(FDR)` <- top.pos.enr$minusLogFDR
-    
-    # generate and save plot
-    setwd(base.path)
-    # temp.enr.plot <- circBar(top.pos.enr, x="Term", y="Odds.Ratio", 
-    #                          fill="Cluster2", alpha="alpha", ymin = 0,
-    #                          ymax= 1200,
-    #                          fillVals=grDevices::colorRampPalette(
-    #                            RColorBrewer::brewer.pal(12, "Set3"))(length(clusters)),
-    #                          title = i, fname=paste0(i,"_",k,"_enrichr_circBarPlot.pdf"))
-    ggplot2::ggplot(top.pos.enr, aes(x=Term, y=`Odds Ratio`, fill=as.factor(Cluster), alpha=0.5)) +
-      geom_col() + scale_fill_manual(values = c(grDevices::colorRampPalette(
-        RColorBrewer::brewer.pal(8, "Set2"))(length(clusters)))) +
-      theme_classic(base_size=12)
-    ggplot2::ggplot(top.pos.enr, aes(x=Term, y=`Odds Ratio`, fill=as.factor(Cluster), alpha=0.5)) +
-      geom_col() + facet_wrap(~Cluster) +
-      theme_minimal(base_size=12)
-    absMax <- max(abs(top.pos.enr$Odds.Ratio))
-    ggplot2::ggplot(top.pos.enr, aes(x=Cluster, y=Term, fill=`Odds Ratio`, 
-                                     size=`-Log(FDR)`)) + geom_point() + 
-      theme_minimal(base_size=12) +
-      scale_color_gradient2(low="red",high="blue", mid="grey", limits=c(-absMax, absMax))
-    
-    top.top.pos.enr <- sig.pos.enr %>% slice_max(Odds.Ratio, n = 10) # 11 terms
-    absMax <- max(abs(top.top.pos.enr$Odds.Ratio))
-    minVal <- floor(min(top.top.pos.enr$Odds.Ratio))
-    top.top.pos.enr$`-Log(FDR)` <- -log(top.top.pos.enr$Adjusted.P.value, base=10)
-    top.top.pos.enr$`Odds Ratio` <- top.top.pos.enr$Odds.Ratio
-    termOrder <- top.top.pos.enr[order(top.top.pos.enr$Combined.Score),]$Term
-    ggplot2::ggplot(top.top.pos.enr, aes(x=as.factor(Cluster), y=Term, color=`Odds Ratio`, 
-                                         size=`-Log(FDR)`)) + geom_point() + 
-      theme_minimal(base_size=12) + ggplot2::scale_y_discrete(limits = termOrder) +
-      scale_color_gradient2(high="red",low="grey", limits=c(minVal, absMax)) + xlab("Cluster")
-    ggplot2::ggsave(paste0(i,"_",k,"_enrichr_dotPlot.pdf"), width=9, height=3)
-  }
-}
-
-# don't have enrichr results for TF, kinase; need to check if it just wasn't run or if the network was too small
-inputs <- list("Transcription_factor" = rna.allSamples.result,
-               "Kinase" = mit.kin)
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/"
-for (i in 1:length(inputs)) {
-  final.inputs <- list()
-  final.inputs[[names(inputs)[i]]] <- as.list(inputs[[i]]$Spearman.est)
-  names(final.inputs[[names(inputs)[i]]]) <- inputs[[i]][,1]
-  pcsf.result <- try(computeProteinNetwork_BG(final.inputs, 
-                                              betas = 10, 
-                                              mu = 0.001, w = 3,
-                                              deg.exp = 1,
-                                              fname = names(inputs)[i]), silent=TRUE)
-  my.enr <- try(PCSF::enrichment_analysis(pcsf.result$graph), 
-                silent = TRUE) 
-  temp.runID <- paste0(j, "_degExp_", deg.exp, "_omega_",omega,"_mu_",mu,"_beta_", beta)
-  if (!inherits(my.enr, "try-error")) {
-    temp.enrichr <- my.enr$enrichment
-    temp.enrichr$Direction <- "positive"
-    temp.enrichr[,"mu"] <- 0.001
-    temp.enrichr[,"beta"] <- 10
-    temp.enrichr[,"omega"] <- 3
-    temp.enrichr[,"degExp"] <- 1
-    temp.enrichr$runID <- temp.runID 
-  }
-  temp.path <- paste0("PCSF_",names(inputs)[i],"_",Sys.Date())
-  setwd(temp.path)
-  write.csv(temp.enrichr, "enrichr.csv", row.names = FALSE)
-  setwd(base.path)
-}
-
-# Performing enrichment analysis...
-# 
-# Enrichment is being performed by EnrichR (http://amp.pharm.mssm.edu/Enrichr) API ...
-# Error in `[<-.data.frame`(`*tmp*`, i, , value = c("", "<title>Enrichr</title>" : 
-#                                                     replacement has 2 rows, data has 1
-#                                                   In addition: Warning message:
-#                                                     In cluster_edge_betweenness(subnet) :
-#                                                     At vendor/cigraph/src/community/edge_betweenness.c:504 : Membership vector will be selected based on the highest modularity score.
-
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/"
-setwd(base.path)
-path.map <- list("Protein" = "PCSF_Protein_2025-04-16")
-inputs <- list("Protein" = global.result)
-for (i in 1:length(path.map)) {
-  setwd(path.map[[i]])
-  temp.vert <- read.csv("vertices.csv")
-  if (names(path.map)[i]=="Protein") {
-    temp.vert <- temp.vert[temp.vert$mu==0.001 & temp.vert$beta==10 &
-                             temp.vert$omega==3,]
-  } else {
-    temp.vert <- temp.vert[temp.vert$mu==0.001 & temp.vert$beta==10 &
-                             temp.vert$omega==3,] 
-  }
-  nInputs <- length(na.omit(unique(inputs[[i]][,1])))
-  nIncluded <- length(na.omit(unique(temp.vert[temp.vert$name %in% inputs[[i]][,1],]$name)))
-  cat(names(path.map)[i], nIncluded, "/", nInputs, "included\n")
-  setwd(base.path)
-}
+my.enr <- my.enr[my.enr$mu == 0.001 & my.enr$beta == 10 &
+                   my.enr$omega == 3,] # none

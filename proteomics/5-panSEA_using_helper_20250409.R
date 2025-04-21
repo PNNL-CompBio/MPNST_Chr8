@@ -18,6 +18,7 @@ library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
 #source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/panSEA_helper_20240913.R")
+source("~/OneDrive - PNNL/Documents/GitHub/Chr8/panSEA_helper_20240913.R")
 synapser::synLogin()
 
 #### 1. Import metadata & crosstabs ####
@@ -349,9 +350,129 @@ gmt1.rest <- list("Hallmark" = gmt1$Hallmark,
                   "KEGG" = gmt1$KEGG,
                   "Oncogenic" = gmt1$Oncogenic,
                   "PID" = gmt1$PID,
-                  "TFT_GTRD" = gmt1$TFT_GTRD)
+                  "TFT_GTRD" = gmt1$TFT_GTRD,
+                  "WikiPathways" = gmt1$WikiPathways)
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest, gmt2=gmt2,
              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
 
+# in retrospect, also interested in WikiPathways
+# load correlations
+corr.list <- list("Global" = "syn66224803",
+                  "RNA-Seq" = "syn66226866") # where to get correlations (unfiltered correlation results)
+syn.list <- list("Global" = "syn66224809",
+                 "RNA-Seq" = "syn66226872") # where to store GSEA results (GSEA folder)
+base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
+setwd(base.path)
+gmt1 <- readRDS("gmt1_more.rds")
+#gmt1.wp <- list("WikiPathways" = gmt1$WikiPathways) # 653?
+gmt1.wp <- DMEA::as_gmt(as.data.frame(msigdbr::msigdbr(collection="C2", subcollection = "CP:WIKIPATHWAYS")),
+                        element.names="gene_symbol", set.names="gs_name") # 812
+for (i in names(corr.list)) {
+  if (i == "Global") {
+    setwd(file.path(base.path,"Chr8_quant_20250409/Spearman/Proteomics",i, i))
+  } else {
+    setwd(file.path(base.path,"Chr8_quant_20250409/Spearman",i, i))
+  }
+  
+  # load correlations
+  corr.result <- read.csv(synapser::synGet(corr.list[[i]])$path)
+  gsea.input <- corr.result[,c("Gene","Spearman.est")]
+  
+  # run GSEA
+  gsea.result <- panSEA::ssGSEA(gsea.input, gmt1.wp, ties=TRUE) 
+  
+  # save results
+  gsea.files <- list("GSEA_results.csv" = gsea.result$result,
+                     "GSEA_results_withoutShufflingTies.csv" = gsea.result$result.w.ties,
+                     "GSEA_volcano_plot.pdf" = gsea.result$volcano.plot,
+                     "GSEA_dot_plot.pdf" = gsea.result$dot.plot,
+                     "GSEA_dot_plot_withSD.pdf" = gsea.result$dot.sd,
+                     "GSEA_bar_plot.pdf" = gsea.result$bar.plot,
+                     "mtn_plots" = get_top_mtn_plots(gsea.result))
+  setwd("GSEA")
+  dir.create("GSEA_WikiPathways")
+  setwd("GSEA_WikiPathways")
+  gseaFolder <- synapser::synStore(synapser::Folder("GSEA_WikiPathways", parent = syn.list[[i]]))
+  save_to_synapse_v2(gsea.files, gseaFolder)
+}
 
+# re-do KSEA
+gmt2 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Exp21_NRAS_ASO_treated_patients/proteomics/analysis/gmt2.rds")
+# load correlations
+corr.result <- read.csv(synapser::synGet("syn66226338")$path)
+gsea.input <- corr.result[,c("SUB_SITE","Spearman.est")]
+
+# run GSEA
+gsea.result <- panSEA::ssGSEA(gsea.input, gmt2[[1]], ties=TRUE) 
+
+# save results
+gsea.files <- list("KSEA_results.csv" = gsea.result$result,
+                   "KSEA_results_withoutShufflingTies.csv" = gsea.result$result.w.ties,
+                   "KSEA_volcano_plot.pdf" = gsea.result$volcano.plot,
+                   "KSEA_dot_plot.pdf" = gsea.result$dot.plot,
+                   "KSEA_dot_plot_withSD.pdf" = gsea.result$dot.sd,
+                   "KSEA_bar_plot.pdf" = gsea.result$bar.plot,
+                   "mtn_plots" = get_top_mtn_plots(gsea.result))
+setwd(file.path(base.path,"Chr8_quant_20250409/Spearman/Proteomics","Phospho", "Phospho"))
+dir.create("KSEA")
+setwd("KSEA")
+gseaFolder <- synapser::synStore(synapser::Folder("KSEA", parent = "syn66226336"))
+save_to_synapse_v2(gsea.files, gseaFolder)
+
+# create bar plots for PCSF cytoscape overrepresentation analysis
+library(patchwork)
+base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
+setwd(file.path(base.path,"Chr8_quant_20250409/PCSF_Protein_2025-04-16"))
+posEnr <- read.csv("positive_323_topCentralNodes2025-04-20_enrichment_noRedundantTerms0.5.csv")
+posEnr$Direction <- "Positive"
+negEnr <- read.csv("negative_275_topCentralNodes2025-04-20_enrichment_noRedundantTerms0.5.csv")
+negEnr$Direction <- "Negative"
+wp <- rbind(posEnr[posEnr$source=="WikiPathways",], negEnr[negEnr$source=="WikiPathways",])
+wp <- wp[wp$chart.color != "" | wp$p.value= 0.05,]
+wp$minusLogP <- -log10(wp$p.value)
+maxLogP <- max(abs(wp$minusLogP))
+wp[wp$chart.color == "",]$chart.color <- "grey"
+directions <- c("Positive", "Negative")
+wp.plot <- NULL
+for (dir in directions) {
+  pos.wp <- wp[wp$Direction == dir,]
+  tempTitle <- ifelse(dir == "Positive", "Chr8q-amplified", "Chr8q-WT")
+  pos.wp.plot <- ggplot2::ggplot(pos.wp, aes(x=minusLogP, y=term.name, 
+                                             fill = chart.color)) +
+    geom_bar(stat="identity") + theme_classic(base_size=12) + 
+    scale_fill_identity() +
+    labs(x="-log(p-value)") + ggtitle(paste(tempTitle,"Network Enrichment")) +
+    scale_x_continuous(limits=c(0,maxLogP)) + geom_vline(xintercept=-log10(0.05), linetype = "dashed") +
+    theme(axis.title.y = element_blank(), legend.position = "none") + 
+    scale_y_discrete(limits=pos.wp[order(pos.wp$minusLogP),]$term.name) 
+  if (is.null(wp.plot)) {
+    wp.plot <- pos.wp.plot
+  } else {
+    wp.plot <- wp.plot + pos.wp.plot + plot_layout(nrow=2)
+  }
+}
+ggsave("WP_PCSF_Cytoscape_Enrichment.pdf", wp.plot, width=6, height=8)
+
+wp2 <- wp[wp$chart.color != "grey",]
+wp2$minusLogP <- -log10(wp2$p.value)
+maxLogP <- max(abs(wp2$minusLogP))
+wp.plot <- NULL
+for (dir in directions) {
+  pos.wp <- wp2[wp2$Direction == dir,]
+  tempTitle <- ifelse(dir == "Positive", "Chr8q-amplified", "Chr8q-WT")
+  pos.wp.plot <- ggplot2::ggplot(pos.wp, aes(x=minusLogP, y=term.name, 
+                                             fill = chart.color)) +
+    geom_bar(stat="identity") + theme_classic(base_size=12) + 
+    scale_fill_identity() +
+    labs(x="-log(p-value)") + ggtitle(paste(tempTitle,"Network Enrichment")) +
+    scale_x_continuous(limits=c(0,maxLogP)) + geom_vline(xintercept=-log10(0.05), linetype = "dashed") +
+    theme(axis.title.y = element_blank(), legend.position = "none") + 
+    scale_y_discrete(limits=pos.wp[order(pos.wp$minusLogP),]$term.name) 
+  if (is.null(wp.plot)) {
+    wp.plot <- pos.wp.plot
+  } else {
+    wp.plot <- wp.plot + pos.wp.plot + plot_layout(nrow=2)
+  }
+}
+ggsave("WP_PCSF_Cytoscape_Enrichment_networkOnly.pdf", wp.plot, width=6, height=4)

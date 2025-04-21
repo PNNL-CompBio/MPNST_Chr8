@@ -46,11 +46,6 @@ library(ggplot2); library(patchwork)
 hist.plots <- NULL
 for (i in 1:length(inputs)) {
   temp.df <- na.omit(inputs[[i]])
-  # temp.df$`Adjusted p <= 0.05` <- FALSE
-  # temp.df[temp.df$Spearman.q <= 0.05, ]$`Adjusted p <= 0.05` <- TRUE
-  # temp.df$`Adjusted p <= 0.05` <- factor(temp.df$`Adjusted p <= 0.05`, 
-  #                                        levels=c(TRUE, FALSE))
-  # temp.df$Significant <- temp.df$`Adjusted p <= 0.05`
   temp.df$Significance <- "Adjusted p > 0.05"
   if (any(temp.df$Spearman.q <= 0.05)) {
     temp.df[which(temp.df$Spearman.q <= 0.05),]$Significance <- "Adjusted p <= 0.05"

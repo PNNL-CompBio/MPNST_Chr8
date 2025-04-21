@@ -16,9 +16,12 @@ library(htmlwidgets); library(webshot); library(scales); library(msigdbr)
 library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 #webshot::install_phantomjs()
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
-source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/panSEA_helper_20240913.R")
-source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/networkAnalysis/proteinNetworks_BG.R")
-source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/networkAnalysis/PCSF_rand_BG.R")
+#source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/panSEA_helper_20240913.R")
+source("~/OneDrive - PNNL/Documents/GitHub/Chr8/panSEA_helper_20240913.R")
+#source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/networkAnalysis/proteinNetworks_BG.R")
+source("~/OneDrive - PNNL/Documents/GitHub/Chr8/networkAnalysis/proteinNetworks_BG.R")
+#source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/networkAnalysis/PCSF_rand_BG.R")
+source("~/OneDrive - PNNL/Documents/GitHub/Chr8/networkAnalysis/proteinNetworks_BG.R")
 
 posEnr <- function(all.vertices, gmt.pos) {
   all.runIDs <- unique(all.vertices$runID)
@@ -61,7 +64,7 @@ posEnr <- function(all.vertices, gmt.pos) {
   #write.csv(enr.8q24,paste0("chr8q24_enrichment_unweighted_",Sys.Date(),".csv"), row.names = FALSE)
   return(list(gsea = all.gsea, q24 = enr.8q24))
 }
-redidPosEnr <- posEnr(all.vertices, gmt.pos)
+#redidPosEnr <- posEnr(all.vertices, gmt.pos)
 
 processPCSF <- function(pcsf.result, all.dfs, temp.runID, beta, mu, omega, 
                         base.path2, deg.exp, j = "positive", temp.fname) {
@@ -154,18 +157,18 @@ processPCSF <- function(pcsf.result, all.dfs, temp.runID, beta, mu, omega,
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"
 setwd(base.path)
 setwd("Chr8_quant")
-gmt1 <- readRDS("gmt1_less.rds")
+# gmt1 <- readRDS("gmt1_less.rds")
+# # 
+# # # run TFT GSEA for all RNAseq sample corr
+# # gene.allSamples.result <- read.csv(synapser::synGet("syn63394665")$path)
+# gmt.pos <- gmt1$Positional
+# # gmt1TF <- gmt1$TFT_GTRD
+# # RNA.allSamples.TF <- panSEA::drugSEA_ties(gene.allSamples.result, gmt1TF, "Gene", "Spearman.est", ties = TRUE)
+# # write.csv(RNA.allSamples.TF$result, "Chr8_RNA_allSamples_GSEA_TFT_GTRD_results.csv", row.names = FALSE)
+# # saveRDS(RNA.allSamples.TF, "Chr8_RNA_allSamples_GSEA_TFT_GTRD_results.rds")
 # 
-# # run TFT GSEA for all RNAseq sample corr
-# gene.allSamples.result <- read.csv(synapser::synGet("syn63394665")$path)
-gmt.pos <- gmt1$Positional
-# gmt1TF <- gmt1$TFT_GTRD
-# RNA.allSamples.TF <- panSEA::drugSEA_ties(gene.allSamples.result, gmt1TF, "Gene", "Spearman.est", ties = TRUE)
-# write.csv(RNA.allSamples.TF$result, "Chr8_RNA_allSamples_GSEA_TFT_GTRD_results.csv", row.names = FALSE)
-# saveRDS(RNA.allSamples.TF, "Chr8_RNA_allSamples_GSEA_TFT_GTRD_results.rds")
-
-RNA.allSamples.TF <- list()
-RNA.allSamples.TF$result <- read.csv("Chr8_RNA_allSamples_GSEA_TFT_GTRD_results.csv")
+# RNA.allSamples.TF <- list()
+# RNA.allSamples.TF$result <- read.csv("Chr8_RNA_allSamples_GSEA_TFT_GTRD_results.csv")
 
 #### PCSF sig v3 ####
 # try using top 50 sig prot, phospho, WES - directional this time
