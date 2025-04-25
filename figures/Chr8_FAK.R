@@ -1,6 +1,22 @@
 # FAK in Chr8q
 # Author: Belinda B. Garana
 
+# make bar plot of survival p-values
+survival.p <- readxl::read_excel("~/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/chr8_crispr_target_survival.xlsx", sheet=3)
+survival.p <- survival.p[survival.p$Groups=="Amp vs diploid",]
+survival.p$Significance <- "p > 0.05"
+survival.p[survival.p$p < 0.05,]$Significance <- "p < 0.05"
+survival.p$Significance <- factor(survival.p$Significance, levels=c("p < 0.05", "p > 0.05"))
+geneOrder <- survival.p[order(survival.p$p),]$Gene
+ggplot2::ggplot(survival.p, aes(x=Gene, y=-log10(p), fill=Significance)) + geom_bar(stat="identity") +
+  theme_classic(base_size=12) + scale_fill_manual(values=c("red","grey"), 
+                                                  breaks=c("p < 0.05", "p > 0.05")) +
+  ylab("-Log(p-value)") + ggtitle("Association with\nOverall Survival (N=236)") +
+  scale_x_discrete(limits=geneOrder) +
+  theme(axis.title.x=element_blank(), axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        plot.title=element_text(hjust=0.5))
+ggsave("Association_w_OS_fillSig_2025-04-24.pdf",width=2.7, height=2.1)
+
 # load human kinase-substrate database
 ksdb <- read.csv("~/OneDrive - PNNL/Documents/ksdb_human_20231101.csv")
 
