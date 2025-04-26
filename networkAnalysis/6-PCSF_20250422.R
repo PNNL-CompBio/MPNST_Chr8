@@ -169,7 +169,8 @@ base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"
 setwd(base.path)
 setwd("Chr8_quant_20250409")
 
-#### PCSF sig v3 ####
+
+#### prep inputs ####
 # try using top 50 sig prot, phospho, WES - directional this time
 # load feature weights
 synapser::synLogin()
@@ -190,6 +191,105 @@ kin.result <- kin.result[kin.result$p_value <= 0.05 & kin.result$FDR_q_value <= 
 tf.result$Gene <- sub("_.*","",tf.result$Feature_set)
 
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
+
+#### use all terminals since PCSF only uses kinases ####
+library(PCSF)
+data("STRINGv12") # 1477610
+pos.terms <- c(global.result[global.result$Spearman.est>0,]$Gene, 
+                      tf.result[tf.result$NES>0,]$Gene) # 305; no pos kinases
+# are any terms from both protein or TF or kinase?
+any(duplicated(pos.terms)) # yes
+dup.pos <- pos.terms[duplicated(pos.terms)] # ZNF22 up in both protein and TF
+
+neg.terms <- c(global.result[global.result$Spearman.est<0,]$Gene, 
+                      tf.result[tf.result$NES<0,]$Gene, kin.result[kin.result$NES<0,]$Feature_set) # 110
+# are any terms from both protein or TF or kinase?
+any(duplicated(neg.terms)) # no
+
+pos.edges <- STRINGv12[STRINGv12$from %in% pos.terms | STRINGv12$to %in% pos.terms,] # 58206
+pos.genes <- unique(c(pos.edges$from, pos.edges$to)) # 9133
+pos.vert <- data.frame(pos.genes, type = "Inferred", Omics = NA)
+pos.vert[pos.vert$pos.genes %in% pos.terms,]$type <- "Terminal"
+nrow(pos.vert[pos.vert$type == "Inferred",]) # 8834
+pos.vert[pos.vert$pos.genes %in% global.result[global.result$Spearman.est>0,]$Gene,]$Omics <- "Protein"
+pos.vert[pos.vert$pos.genes %in% tf.result[tf.result$NES>0,]$Gene,]$Omics <- "TF"
+pos.vert[pos.vert$pos.genes == dup.pos,]$Omics <- "Protein & TF"
+
+neg.edges <- STRINGv12[STRINGv12$from %in% neg.terms | STRINGv12$to %in% neg.terms,] # 26390
+neg.genes <- unique(c(neg.edges$from, neg.edges$to)) # 6374
+neg.vert <- data.frame(neg.genes, type = "Inferred", Omics=NA)
+neg.vert[neg.vert$neg.genes %in% neg.terms,]$type <- "Terminal"
+nrow(neg.vert[neg.vert$type == "Inferred",]) # 6265
+neg.vert[neg.vert$neg.genes %in% global.result[global.result$Spearman.est<0,]$Gene,]$Omics <- "Protein"
+neg.vert[neg.vert$neg.genes %in% tf.result[tf.result$NES<0,]$Gene,]$Omics <- "TF"
+neg.vert[neg.vert$neg.genes %in% kin.result[kin.result$NES<0,]$Feature_set,]$Omics <- "Kinase"
+
+# narrow it down by filtering for nodes with most interactions
+posN <- plyr::ddply(pos.edges, .(from), summarize,
+                    N = n()) # only need 'from' since edges are symmetrical
+colnames(pos.vert)[1] <- "from"
+posN <- merge(posN, pos.vert, by="from")
+hist(posN$N)
+hist(posN[posN$N < 50,]$N)
+hist(posN[posN$N < 10,]$N)
+quantile(posN$N)
+# 0%  25%  50%  75% 100% 
+# 1    1    2    4  897 
+nrow(posN[posN$N > 4,]) # 2057
+pos500 <- posN %>% slice_max(N, n=500) # 525
+min(pos500$N) # 13
+pos1000 <- posN %>% slice_max(N, n=1000) # 1024
+min(pos1000$N) # 8
+pos1000edges <- pos.edges[pos.edges$from %in% pos1000$from,] # fine because symmetrical
+pos1000vert <- pos.vert[pos.vert$from %in% c(pos1000edges$from, pos1000edges$to),] # back to 9133
+
+negN <- plyr::ddply(neg.edges, .(from), summarize,
+                    N = n()) # only need 'from' since edges are symmetrical
+colnames(neg.vert)[1] <- "from"
+negN <- merge(negN, neg.vert, by="from")
+hist(negN$N)
+hist(negN[negN$N < 50,]$N)
+hist(negN[negN$N < 10,]$N)
+quantile(negN$N)
+# 0%  25%  50%  75% 100% 
+# 1    1    1    2  592 
+nrow(negN[negN$N > 2,]) # 1544
+neg500 <- negN %>% slice_max(N, n=500) # 605
+min(neg500$N) # 5
+neg1000 <- negN %>% slice_max(N, n=1000) # 1544
+min(neg1000$N) # 3
+
+# make graphs
+topGraph <- igraph::graph_from_data_frame(pos.edges, directed=FALSE, vertices=posN) 
+plot(topGraph)
+tempTitle <- paste0("positive", "_", nrow(pos1000),"_topConnectedNodes_manual_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+
+topGraph <- igraph::graph_from_data_frame(neg.edges, directed=FALSE, vertices=negN) 
+plot(topGraph)
+tempTitle <- paste0("negative", "_", nrow(neg1000),"_topConnectedNodes_manual_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+
+# try filtering for nodes which connect terminals
+pos.con <- pos.edges[pos.edges$from %in% pos.terms & pos.edges$to %in% pos.terms,] # 752
+pos.con.vert <- posN[posN$from %in% c(pos.con$from, pos.con$to),] # 206 - all terminal
+
+pos.con.vert <- posN[posN$N > 1,] # 5630
+pos.con <- pos.edges[pos.edges$from %in% pos.con.vert$from & pos.edges$to %in% pos.con.vert$from,] # 51200
+topGraph <- igraph::graph_from_data_frame(pos.con, directed=FALSE, vertices=pos.con.vert) 
+#plot(topGraph)
+tempTitle <- paste0("positive", "_", nrow(pos.con.vert),"_topConnectedNodes_manual_1PlusConnection_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+
+pos.con.centrality <- data.frame(name = V(topGraph)$name,
+                                   degree = igraph::degree(topGraph, mode="all"),
+                                   closeness = igraph::closeness(topGraph, mode="all"),
+                                   betweenness = igraph::betweenness(topGraph, directed = FALSE),
+                                   eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+                                   hub_score = igraph::hub_score(topGraph)$vector,
+                                   authority_score = igraph::authority_score(topGraph)$vector)
+
+#### multiomics PCSF ####
 #temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date(), "_kinasesRenamed")
 
 deg.exp.vals <- 1
