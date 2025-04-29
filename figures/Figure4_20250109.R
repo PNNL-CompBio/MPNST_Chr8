@@ -293,7 +293,8 @@ for (i in 1:length(moaOrder)) {
     drug.corr.wInfo[drug.corr.wInfo$Mechanism == "Other" & 
                       grepl(moaOrder[i],drug.corr.wInfo$moa),]$Mechanism <- moaOrder[i]
   }
-}
+} # accidentally labeled VEGFR inhibitor as EGFR inhibitor
+
 
 # repeat in case of any change
 MOAsInTop50 <- c() 

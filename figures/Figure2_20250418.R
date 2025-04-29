@@ -44,8 +44,8 @@ gsea.prot.onc$Collection <- "Oncogenic_signatures"
 gsea.prot.wp <- read.csv(synapser::synGet("syn66278971")$path)
 gsea.prot.wp$Omics <- "Protein"
 gsea.prot.wp$Collection <- "WikiPathways"
-all.gsea <- rbind(gsea.cn, gsea.rna.hall, gsea.rna.wp, gsea.rna.onc,
-                  gsea.prot.hall, gsea.prot.wp, gsea.prot.onc)
+all.gsea <- rbind(gsea.cn, gsea.rna.hall, #gsea.rna.wp, gsea.rna.onc,
+                  gsea.prot.hall)#, gsea.prot.wp, gsea.prot.onc)
 write.csv(all.gsea, "SupplementaryTable2_GSEA.csv", row.names=FALSE)
 
 #### 1. bar plot of # of enriched gene sets stacked by collection ####

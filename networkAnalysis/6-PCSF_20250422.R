@@ -220,6 +220,8 @@ pos.vert$chr8q <- FALSE
 pos.vert[pos.vert$from %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(pos.vert, "positive_vertices.csv", row.names=FALSE)
 write.csv(pos.edges, "positive_edges.csv", row.names=FALSE)
+pos.vert <- read.csv("positive_vertices.csv")
+pos.edges <- read.csv("positive_edges.csv")
 
 neg.edges <- STRINGv12[STRINGv12$from %in% neg.terms | STRINGv12$to %in% neg.terms,] # 26390
 neg.genes <- unique(c(neg.edges$from, neg.edges$to)) # 6374
@@ -233,6 +235,8 @@ neg.vert$chr8q <- FALSE
 neg.vert[neg.vert$from %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(neg.vert, "negative_vertices.csv", row.names=FALSE)
 write.csv(neg.edges, "negative_edges.csv", row.names=FALSE)
+neg.vert <- read.csv("negative_vertices.csv")
+neg.edges <- read.csv("negative_edges.csv")
 
 # look for connections between chr8q genes and altered TFs/kinases
 neg.tf.con <- neg.edges[(neg.edges$from %in% c(tf.result$Gene, kin.result$Feature_set) | 
@@ -308,127 +312,15 @@ pos.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     authority_score = igraph::authority_score(topGraph)$vector)
 write.csv(pos.tf.con.centrality, "positive_Chr8_centrality.csv", row.names=FALSE)
 
-
-# narrow it down by filtering for nodes with most interactions
-posN <- plyr::ddply(pos.edges, .(from), summarize,
-                    N = n()) # only need 'from' since edges are symmetrical
-colnames(pos.vert)[1] <- "from"
-posN <- merge(posN, pos.vert, by="from")
-hist(posN$N)
-hist(posN[posN$N < 50,]$N)
-hist(posN[posN$N < 10,]$N)
-quantile(posN$N)
-# 0%  25%  50%  75% 100% 
-# 1    1    2    4  897 
-nrow(posN[posN$N > 4,]) # 2057
-pos500 <- posN %>% slice_max(N, n=500) # 525
-min(pos500$N) # 13
-pos1000 <- posN %>% slice_max(N, n=1000) # 1024
-min(pos1000$N) # 8
-pos1000edges <- pos.edges[pos.edges$from %in% pos1000$from,] # fine because symmetrical
-pos1000vert <- pos.vert[pos.vert$from %in% c(pos1000edges$from, pos1000edges$to),] # back to 9133
-
-negN <- plyr::ddply(neg.edges, .(from), summarize,
-                    N = n()) # only need 'from' since edges are symmetrical
-colnames(neg.vert)[1] <- "from"
-negN <- merge(negN, neg.vert, by="from")
-hist(negN$N)
-hist(negN[negN$N < 50,]$N)
-hist(negN[negN$N < 10,]$N)
-quantile(negN$N)
-# 0%  25%  50%  75% 100% 
-# 1    1    1    2  592 
-nrow(negN[negN$N > 2,]) # 1544
-neg500 <- negN %>% slice_max(N, n=500) # 605
-min(neg500$N) # 5
-neg1000 <- negN %>% slice_max(N, n=1000) # 1544
-min(neg1000$N) # 3
-
-# # make graphs
-# topGraph <- igraph::graph_from_data_frame(pos.edges, directed=FALSE, vertices=posN) 
-# plot(topGraph)
-# tempTitle <- paste0("positive", "_", nrow(pos1000),"_topConnectedNodes_manual_",Sys.Date())
-# RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-# 
-# topGraph <- igraph::graph_from_data_frame(neg.edges, directed=FALSE, vertices=negN) 
-# plot(topGraph)
-# tempTitle <- paste0("negative", "_", nrow(neg1000),"_topConnectedNodes_manual_",Sys.Date())
-# RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-
-# try filtering for nodes which connect terminals
-# pos.con <- pos.edges[pos.edges$from %in% pos.terms & pos.edges$to %in% pos.terms,] # 752
-# pos.con.vert <- posN[posN$from %in% c(pos.con$from, pos.con$to),] # 206 - all terminal
-
-pos.con.vert <- posN[posN$N > 1,] # 5630
-pos.con.vert$chr8q <- FALSE
-pos.con.vert[pos.con.vert$from %in% chr8q.genes,]$chr8q <- TRUE
-length(pos.terms[pos.terms %in% pos.con.vert$from]) * 100 / length(pos.terms) # 97.71242% of terminals included
-pos.con <- pos.edges[pos.edges$from %in% pos.con.vert$from & pos.edges$to %in% pos.con.vert$from,] # 51200
-write.csv(pos.con.vert, "positive_1PlusConnection_vertices.csv", row.names=FALSE)
-write.csv(pos.con, "positive_1PlusConnection_edges.csv", row.names=FALSE)
-topGraph <- igraph::graph_from_data_frame(pos.con, directed=FALSE, vertices=pos.con.vert) 
-#plot(topGraph)
-tempTitle <- paste0("positive", "_", nrow(pos.con.vert),"_topConnectedNodes_manual_1PlusConnection_",Sys.Date())
-RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-
-pos.con.centrality <- data.frame(name = V(topGraph)$name,
-                                   degree = igraph::degree(topGraph, mode="all"),
-                                   closeness = igraph::closeness(topGraph, mode="all"),
-                                   betweenness = igraph::betweenness(topGraph, directed = FALSE),
-                                   eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
-                                   hub_score = igraph::hub_score(topGraph)$vector,
-                                   authority_score = igraph::authority_score(topGraph)$vector)
-write.csv(pos.con.centrality, "positive_1PlusConnection_centrality.csv", row.names=FALSE)
-
-pos.tf.con <- pos.con[(pos.con$from %in% tf.result$Gene | pos.con$to %in% tf.result$Gene) &
-                        (pos.con$from %in% chr8q.genes | pos.con$to %in% chr8q.genes),] # 5050
-pos.tf.con.vert <- pos.con.vert[pos.con.vert$from %in% c(pos.tf.con$from, pos.tf.con$to),] # 815
-topGraph <- igraph::graph_from_data_frame(pos.tf.con, directed=FALSE, vertices=pos.tf.con.vert) 
-#plot(topGraph)
-tempTitle <- paste0("positive", "_", nrow(pos.tf.con.vert),"_connectedTFChr8Nodes_manual_1PlusConnection_",Sys.Date())
-RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-write.csv(pos.tf.con.vert, "positive_TFChr8_1PlusConnection_vertices.csv", row.names=FALSE)
-write.csv(pos.tf.con, "positive_TFChr8_1PlusConnection_edges.csv", row.names=FALSE)
-pos.tf.con.centrality <- data.frame(name = V(topGraph)$name,
-                                 degree = igraph::degree(topGraph, mode="all"),
-                                 closeness = igraph::closeness(topGraph, mode="all"),
-                                 betweenness = igraph::betweenness(topGraph, directed = FALSE),
-                                 eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
-                                 hub_score = igraph::hub_score(topGraph)$vector,
-                                 authority_score = igraph::authority_score(topGraph)$vector)
-write.csv(pos.tf.con.centrality, "positive_TFChr8_1PlusConnection_centrality.csv", row.names=FALSE)
-
-neg.con.vert <- negN[negN$N > 1,] # 2890
-neg.con.vert$chr8q <- FALSE
-neg.con.vert[neg.con.vert$from %in% chr8q.genes,]$chr8q <- TRUE
-length(neg.terms[neg.terms %in% neg.con.vert$from]) * 100 / length(neg.terms) # 99.09091% of terminals included
-neg.con <- neg.edges[neg.edges$from %in% neg.con.vert$from & neg.edges$to %in% neg.con.vert$from,] # 19422
-write.csv(neg.con.vert, "negative_1PlusConnection_vertices.csv", row.names=FALSE)
-write.csv(neg.con, "negative_1PlusConnection_edges.csv", row.names=FALSE)
-topGraph <- igraph::graph_from_data_frame(neg.con, directed=FALSE, vertices=neg.con.vert) 
-#plot(topGraph)
-tempTitle <- paste0("negative", "_", nrow(neg.con.vert),"_topConnectedNodes_manual_1PlusConnection_",Sys.Date())
-RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-
-neg.con.centrality <- data.frame(name = V(topGraph)$name,
-                                 degree = igraph::degree(topGraph, mode="all"),
-                                 closeness = igraph::closeness(topGraph, mode="all"),
-                                 betweenness = igraph::betweenness(topGraph, directed = FALSE),
-                                 eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
-                                 hub_score = igraph::hub_score(topGraph)$vector,
-                                 authority_score = igraph::authority_score(topGraph)$vector)
-write.csv(neg.con.centrality, "negative_1PlusConnection_centrality.csv", row.names=FALSE)
-
-neg.tf.con <- neg.con[(neg.con$from %in% c(tf.result$Gene, kin.result$Feature_set) | 
-                         neg.con$to %in% c(tf.result$Gene, kin.result$Feature_set)) &
-                        (neg.con$from %in% chr8q.genes | neg.con$to %in% chr8q.genes),] # 5050
-neg.tf.con.vert <- neg.con.vert[neg.con.vert$from %in% c(neg.tf.con$from, neg.tf.con$to),] # 815
+# look for connections between MYC and PLK1/EGFR
+neg.tf.con <- neg.edges[neg.edges$from %in% c("MYC", "EGFR") | neg.edges$to %in% c("MYC", "EGFR"),] # 68
+neg.tf.con.vert <- neg.vert[neg.vert$from %in% c(neg.tf.con$from, neg.tf.con$to),] # 32
 topGraph <- igraph::graph_from_data_frame(neg.tf.con, directed=FALSE, vertices=neg.tf.con.vert) 
 #plot(topGraph)
-tempTitle <- paste0("negative", "_", nrow(neg.tf.con.vert),"_connectedTFChr8Nodes_manual_1PlusConnection_",Sys.Date())
+tempTitle <- paste0("negative", "_", nrow(neg.tf.con.vert),"_MYC_EGFR_manual_",Sys.Date())
 RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-write.csv(neg.tf.con.vert, "negative_TFChr8_1PlusConnection_vertices.csv", row.names=FALSE)
-write.csv(neg.tf.con, "negative_TFChr8_1PlusConnection_edges.csv", row.names=FALSE)
+write.csv(neg.tf.con.vert, "negative_MYC_EGFR_vertices.csv", row.names=FALSE)
+write.csv(neg.tf.con, "negative_MYC_EGFR_edges.csv", row.names=FALSE)
 neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     degree = igraph::degree(topGraph, mode="all"),
                                     closeness = igraph::closeness(topGraph, mode="all"),
@@ -436,7 +328,153 @@ neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
                                     hub_score = igraph::hub_score(topGraph)$vector,
                                     authority_score = igraph::authority_score(topGraph)$vector)
-write.csv(neg.tf.con.centrality, "negative_TFChr8_1PlusConnection_centrality.csv", row.names=FALSE)
+write.csv(neg.tf.con.centrality, "negative_MYC_EGFR_centrality.csv", row.names=FALSE)
+
+pos.tf.con <- pos.edges[pos.edges$from %in% c("MYC", "PLK1") | pos.edges$to %in% c("MYC", "PLK1"),] # 118
+pos.tf.con.vert <- pos.vert[pos.vert$from %in% c(pos.tf.con$from, pos.tf.con$to),] # 58
+topGraph <- igraph::graph_from_data_frame(pos.tf.con, directed=FALSE, vertices=pos.tf.con.vert) 
+#plot(topGraph)
+tempTitle <- paste0("positive", "_", nrow(pos.tf.con.vert),"_MYC_PLK1_manual_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+write.csv(pos.tf.con.vert, "positive_MYC_PLK1_vertices.csv", row.names=FALSE)
+write.csv(pos.tf.con, "positive_MYC_PLK1_edges.csv", row.names=FALSE)
+pos.tf.con.centrality <- data.frame(name = V(topGraph)$name,
+                                    degree = igraph::degree(topGraph, mode="all"),
+                                    closeness = igraph::closeness(topGraph, mode="all"),
+                                    betweenness = igraph::betweenness(topGraph, directed = FALSE),
+                                    eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+                                    hub_score = igraph::hub_score(topGraph)$vector,
+                                    authority_score = igraph::authority_score(topGraph)$vector)
+write.csv(pos.tf.con.centrality, "positive_MYC_PLK1_centrality.csv", row.names=FALSE)
+# 
+# # narrow it down by filtering for nodes with most interactions
+# posN <- plyr::ddply(pos.edges, .(from), summarize,
+#                     N = n()) # only need 'from' since edges are symmetrical
+# colnames(pos.vert)[1] <- "from"
+# posN <- merge(posN, pos.vert, by="from")
+# hist(posN$N)
+# hist(posN[posN$N < 50,]$N)
+# hist(posN[posN$N < 10,]$N)
+# quantile(posN$N)
+# # 0%  25%  50%  75% 100% 
+# # 1    1    2    4  897 
+# nrow(posN[posN$N > 4,]) # 2057
+# pos500 <- posN %>% slice_max(N, n=500) # 525
+# min(pos500$N) # 13
+# pos1000 <- posN %>% slice_max(N, n=1000) # 1024
+# min(pos1000$N) # 8
+# pos1000edges <- pos.edges[pos.edges$from %in% pos1000$from,] # fine because symmetrical
+# pos1000vert <- pos.vert[pos.vert$from %in% c(pos1000edges$from, pos1000edges$to),] # back to 9133
+# 
+# negN <- plyr::ddply(neg.edges, .(from), summarize,
+#                     N = n()) # only need 'from' since edges are symmetrical
+# colnames(neg.vert)[1] <- "from"
+# negN <- merge(negN, neg.vert, by="from")
+# hist(negN$N)
+# hist(negN[negN$N < 50,]$N)
+# hist(negN[negN$N < 10,]$N)
+# quantile(negN$N)
+# # 0%  25%  50%  75% 100% 
+# # 1    1    1    2  592 
+# nrow(negN[negN$N > 2,]) # 1544
+# neg500 <- negN %>% slice_max(N, n=500) # 605
+# min(neg500$N) # 5
+# neg1000 <- negN %>% slice_max(N, n=1000) # 1544
+# min(neg1000$N) # 3
+# 
+# # # make graphs
+# # topGraph <- igraph::graph_from_data_frame(pos.edges, directed=FALSE, vertices=posN) 
+# # plot(topGraph)
+# # tempTitle <- paste0("positive", "_", nrow(pos1000),"_topConnectedNodes_manual_",Sys.Date())
+# # RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+# # 
+# # topGraph <- igraph::graph_from_data_frame(neg.edges, directed=FALSE, vertices=negN) 
+# # plot(topGraph)
+# # tempTitle <- paste0("negative", "_", nrow(neg1000),"_topConnectedNodes_manual_",Sys.Date())
+# # RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+# 
+# # try filtering for nodes which connect terminals
+# # pos.con <- pos.edges[pos.edges$from %in% pos.terms & pos.edges$to %in% pos.terms,] # 752
+# # pos.con.vert <- posN[posN$from %in% c(pos.con$from, pos.con$to),] # 206 - all terminal
+# 
+# pos.con.vert <- posN[posN$N > 1,] # 5630
+# pos.con.vert$chr8q <- FALSE
+# pos.con.vert[pos.con.vert$from %in% chr8q.genes,]$chr8q <- TRUE
+# length(pos.terms[pos.terms %in% pos.con.vert$from]) * 100 / length(pos.terms) # 97.71242% of terminals included
+# pos.con <- pos.edges[pos.edges$from %in% pos.con.vert$from & pos.edges$to %in% pos.con.vert$from,] # 51200
+# write.csv(pos.con.vert, "positive_1PlusConnection_vertices.csv", row.names=FALSE)
+# write.csv(pos.con, "positive_1PlusConnection_edges.csv", row.names=FALSE)
+# topGraph <- igraph::graph_from_data_frame(pos.con, directed=FALSE, vertices=pos.con.vert) 
+# #plot(topGraph)
+# tempTitle <- paste0("positive", "_", nrow(pos.con.vert),"_topConnectedNodes_manual_1PlusConnection_",Sys.Date())
+# RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+# 
+# pos.con.centrality <- data.frame(name = V(topGraph)$name,
+#                                    degree = igraph::degree(topGraph, mode="all"),
+#                                    closeness = igraph::closeness(topGraph, mode="all"),
+#                                    betweenness = igraph::betweenness(topGraph, directed = FALSE),
+#                                    eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+#                                    hub_score = igraph::hub_score(topGraph)$vector,
+#                                    authority_score = igraph::authority_score(topGraph)$vector)
+# write.csv(pos.con.centrality, "positive_1PlusConnection_centrality.csv", row.names=FALSE)
+# 
+# pos.tf.con <- pos.con[(pos.con$from %in% tf.result$Gene | pos.con$to %in% tf.result$Gene) &
+#                         (pos.con$from %in% chr8q.genes | pos.con$to %in% chr8q.genes),] # 5050
+# pos.tf.con.vert <- pos.con.vert[pos.con.vert$from %in% c(pos.tf.con$from, pos.tf.con$to),] # 815
+# topGraph <- igraph::graph_from_data_frame(pos.tf.con, directed=FALSE, vertices=pos.tf.con.vert) 
+# #plot(topGraph)
+# tempTitle <- paste0("positive", "_", nrow(pos.tf.con.vert),"_connectedTFChr8Nodes_manual_1PlusConnection_",Sys.Date())
+# RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+# write.csv(pos.tf.con.vert, "positive_TFChr8_1PlusConnection_vertices.csv", row.names=FALSE)
+# write.csv(pos.tf.con, "positive_TFChr8_1PlusConnection_edges.csv", row.names=FALSE)
+# pos.tf.con.centrality <- data.frame(name = V(topGraph)$name,
+#                                  degree = igraph::degree(topGraph, mode="all"),
+#                                  closeness = igraph::closeness(topGraph, mode="all"),
+#                                  betweenness = igraph::betweenness(topGraph, directed = FALSE),
+#                                  eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+#                                  hub_score = igraph::hub_score(topGraph)$vector,
+#                                  authority_score = igraph::authority_score(topGraph)$vector)
+# write.csv(pos.tf.con.centrality, "positive_TFChr8_1PlusConnection_centrality.csv", row.names=FALSE)
+# 
+# neg.con.vert <- negN[negN$N > 1,] # 2890
+# neg.con.vert$chr8q <- FALSE
+# neg.con.vert[neg.con.vert$from %in% chr8q.genes,]$chr8q <- TRUE
+# length(neg.terms[neg.terms %in% neg.con.vert$from]) * 100 / length(neg.terms) # 99.09091% of terminals included
+# neg.con <- neg.edges[neg.edges$from %in% neg.con.vert$from & neg.edges$to %in% neg.con.vert$from,] # 19422
+# write.csv(neg.con.vert, "negative_1PlusConnection_vertices.csv", row.names=FALSE)
+# write.csv(neg.con, "negative_1PlusConnection_edges.csv", row.names=FALSE)
+# topGraph <- igraph::graph_from_data_frame(neg.con, directed=FALSE, vertices=neg.con.vert) 
+# #plot(topGraph)
+# tempTitle <- paste0("negative", "_", nrow(neg.con.vert),"_topConnectedNodes_manual_1PlusConnection_",Sys.Date())
+# RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+# 
+# neg.con.centrality <- data.frame(name = V(topGraph)$name,
+#                                  degree = igraph::degree(topGraph, mode="all"),
+#                                  closeness = igraph::closeness(topGraph, mode="all"),
+#                                  betweenness = igraph::betweenness(topGraph, directed = FALSE),
+#                                  eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+#                                  hub_score = igraph::hub_score(topGraph)$vector,
+#                                  authority_score = igraph::authority_score(topGraph)$vector)
+# write.csv(neg.con.centrality, "negative_1PlusConnection_centrality.csv", row.names=FALSE)
+# 
+# neg.tf.con <- neg.con[(neg.con$from %in% c(tf.result$Gene, kin.result$Feature_set) | 
+#                          neg.con$to %in% c(tf.result$Gene, kin.result$Feature_set)) &
+#                         (neg.con$from %in% chr8q.genes | neg.con$to %in% chr8q.genes),] # 5050
+# neg.tf.con.vert <- neg.con.vert[neg.con.vert$from %in% c(neg.tf.con$from, neg.tf.con$to),] # 815
+# topGraph <- igraph::graph_from_data_frame(neg.tf.con, directed=FALSE, vertices=neg.tf.con.vert) 
+# #plot(topGraph)
+# tempTitle <- paste0("negative", "_", nrow(neg.tf.con.vert),"_connectedTFChr8Nodes_manual_1PlusConnection_",Sys.Date())
+# RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+# write.csv(neg.tf.con.vert, "negative_TFChr8_1PlusConnection_vertices.csv", row.names=FALSE)
+# write.csv(neg.tf.con, "negative_TFChr8_1PlusConnection_edges.csv", row.names=FALSE)
+# neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
+#                                     degree = igraph::degree(topGraph, mode="all"),
+#                                     closeness = igraph::closeness(topGraph, mode="all"),
+#                                     betweenness = igraph::betweenness(topGraph, directed = FALSE),
+#                                     eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+#                                     hub_score = igraph::hub_score(topGraph)$vector,
+#                                     authority_score = igraph::authority_score(topGraph)$vector)
+# write.csv(neg.tf.con.centrality, "negative_TFChr8_1PlusConnection_centrality.csv", row.names=FALSE)
 
 #### multiomics PCSF ####
 #temp.path <- paste0("PCSF_TFProteinKinase_", Sys.Date(), "_kinasesRenamed")
