@@ -346,6 +346,274 @@ pos.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     hub_score = igraph::hub_score(topGraph)$vector,
                                     authority_score = igraph::authority_score(topGraph)$vector)
 write.csv(pos.tf.con.centrality, "positive_MYC_PLK1_centrality.csv", row.names=FALSE)
+
+# how many connections does MYC have in these networks?
+pos.myc.con <- pos.edges[pos.edges$from=="MYC"|pos.edges$to=="MYC",]
+pos.myc.con <- unique(c(pos.myc.con$from,pos.myc.con$to))
+pos.myc.con <- pos.myc.con[pos.myc.con!="MYC"] # 50
+
+neg.myc.con <- neg.edges[neg.edges$from=="MYC"|neg.edges$to=="MYC",]
+neg.myc.con <- unique(c(neg.myc.con$from,neg.myc.con$to))
+neg.myc.con <- neg.myc.con[neg.myc.con!="MYC"] # 21
+
+myc.con <- unique(c(pos.myc.con, neg.myc.con)) # 71
+
+con <- unique(c(pos.vert$from, neg.vert$from)) # 11084
+con <- con[con != "MYC"] # 11083
+
+# how many of those are quantified in proteomics/TF/kinases?
+synapser::synLogin()
+global.result <- na.omit(read.csv(synapser::synGet("syn66224803")$path))
+tf.result <- na.omit(read.csv(synapser::synGet("syn66226952")$path))
+tf.result$Gene <- sub("_.*","",tf.result$Feature_set)
+kin.result <- read.csv(synapser::synGet("syn66279699")$path)
+quant.genes <- unique(c(global.result$Gene, tf.result$Gene, kin.result$Feature_set))
+quant.con <- con[con %in% quant.genes] # 6969
+quant.myc.con <- myc.con[myc.con %in% quant.genes] # all 71
+
+# how many of those pass our significance thresholds?
+sig.global <- global.result[global.result$Spearman.q <= 0.05, ] # 208 / 9013 (2.31%); 98.02% of 101 positive, 100% of 107 negative are in the interactome
+sig.tf <- tf.result[tf.result$p_value <= 0.05 & tf.result$FDR_q_value <= 0.25, ] # 206 / 408 (50.49%); 96.1% of 205 positive, 100% of 1 negative are in the interactome
+sig.kin <- kin.result[kin.result$p_value <= 0.05 & kin.result$FDR_q_value <= 0.25, ] # 2 / 184 (1.09%); 100% of 2 negative are in the interactome
+sig.quant <- unique(c(sig.global$Gene, sig.tf$Gene, sig.kin$Feature_set)) # 415
+sig.quant.con <- quant.con[quant.con %in% sig.quant] # 408
+sig.quant.myc.con <- quant.myc.con[quant.myc.con %in% sig.quant] # all 71
+
+# fisher's exact test: are MYC's connections which we quantified altered with Chr8q status more than by random chance?
+non.myc.quant.con <- quant.con[!(quant.con %in% quant.myc.con)] # 6898
+sig.non.myc.quant.con <- sig.quant.con[!(sig.quant.con %in% quant.myc.con)] # 337
+contingency.matrix <- data.frame("MYC_interaction" = c(length(sig.quant.myc.con), # 71
+                                                       length(quant.myc.con) - length(sig.quant.myc.con)), # 0
+                                 "Non_MYC_interaction" = c(length(sig.non.myc.quant.con), # 337
+                                                           length(non.myc.quant.con) - length(sig.non.myc.quant.con)), # 6561
+                                 row.names = c("Chr8q_association", "Non_associated"))
+# contingency.matrix <- data.frame("MYC_interaction" = c(length(sig.quant.myc.con), 
+#                                                        length(quant.myc.con) - length(sig.quant.myc.con)),
+#                                  "Non_MYC_interaction" = c(length(sig.quant.con) - length(sig.quant.myc.con), 
+#                                                            length(quant.con) - length(sig.quant.con)),
+#                                  row.names = c("Chr8q_association", "Non_associated"))
+if (length(quant.con) == sum(c(contingency.matrix$MYC_interaction,contingency.matrix$Non_MYC_interaction))) {
+  mosaicplot(contingency.matrix, color=TRUE)
+  fisher.result <- fisher.test(contingency.matrix) # < 2.2e-16
+  fisher.p <- fisher.result$p.value # 6.83817802826197E-91
+} else {
+  warning("number of genes in matrix does not match number quantified in network")
+}
+
+# how many connections does MYC have in STRING network?
+myc.con <- STRINGv12[STRINGv12$from == "MYC" | STRINGv12$to == "MYC",]
+myc.con <- unique(c(myc.con$from, myc.con$to))
+myc.con <- myc.con[myc.con != "MYC"] # 2023
+
+con <- unique(c(STRINGv12$from, STRINGv12$to)) # 18767
+con <- con[con != "MYC"] # 18766
+
+# how many of those are quantified in proteomics/TF/kinases?
+synapser::synLogin()
+global.result <- na.omit(read.csv(synapser::synGet("syn66224803")$path))
+tf.result <- na.omit(read.csv(synapser::synGet("syn66226952")$path))
+tf.result$Gene <- sub("_.*","",tf.result$Feature_set)
+kin.result <- read.csv(synapser::synGet("syn66279699")$path)
+quant.genes <- unique(c(global.result$Gene, tf.result$Gene, kin.result$Feature_set)) # 9281
+quant.con <- con[con %in% quant.genes] # 9115
+quant.myc.con <- myc.con[myc.con %in% quant.genes] # 1711
+
+# how many of those pass our significance thresholds?
+sig.global <- global.result[global.result$Spearman.q <= 0.05, ] # 208 / 9013 (2.31%); 98.02% of 101 positive, 100% of 107 negative are in the interactome
+sig.tf <- tf.result[tf.result$p_value <= 0.05 & tf.result$FDR_q_value <= 0.25, ] # 206 / 408 (50.49%); 96.1% of 205 positive, 100% of 1 negative are in the interactome
+sig.kin <- kin.result[kin.result$p_value <= 0.05 & kin.result$FDR_q_value <= 0.25, ] # 2 / 184 (1.09%); 100% of 2 negative are in the interactome
+sig.quant <- unique(c(sig.global$Gene, sig.tf$Gene, sig.kin$Feature_set)) # 415
+sig.pos.quant <- unique(c(sig.global[sig.global$Spearman.est>0,]$Gene, 
+                          sig.tf[sig.tf$NES>0,]$Gene, 
+                          sig.kin[sig.kin$NES>0,]$Feature_set)) # 305
+sig.neg.quant <- unique(c(sig.global[sig.global$Spearman.est<0,]$Gene, 
+                          sig.tf[sig.tf$NES<0,]$Gene, 
+                          sig.kin[sig.kin$NES<0,]$Feature_set)) # 110
+sig.quant.con <- quant.con[quant.con %in% sig.quant] # 408
+sig.quant.myc.con <- quant.myc.con[quant.myc.con %in% sig.quant] # 71
+
+sig.quant.pos.con <- quant.con[quant.con %in% sig.pos.quant] # 299
+sig.quant.pos.myc.con <- quant.myc.con[quant.myc.con %in% sig.pos.quant] # 50
+
+sig.quant.neg.con <- quant.con[quant.con %in% sig.neg.quant] # 109
+sig.quant.neg.myc.con <- quant.myc.con[quant.myc.con %in% sig.neg.quant] # 20
+
+# fisher's exact test: are MYC's connections which we quantified altered with Chr8q status more than by random chance?
+non.myc.quant.con <- quant.con[!(quant.con %in% quant.myc.con)] # 7404
+sig.non.myc.quant.con <- sig.quant.con[!(sig.quant.con %in% quant.myc.con)] # 337
+contingency.matrix <- data.frame("MYC_interaction" = c(length(sig.quant.myc.con), # 71
+                                                       length(quant.myc.con) - length(sig.quant.myc.con)), # 1640
+                                 "Non_MYC_interaction" = c(length(sig.non.myc.quant.con), # 337
+                                                           length(non.myc.quant.con) - length(sig.non.myc.quant.con)), # 7067
+                                 row.names = c("Chr8q_association", "Non_associated"))
+if (length(quant.con) == sum(c(contingency.matrix$MYC_interaction,contingency.matrix$Non_MYC_interaction))) {
+  mosaicplot(contingency.matrix, color=TRUE)
+  fisher.result <- fisher.test(contingency.matrix) # 0.5165
+  fisher.p <- fisher.result$p.value # 0.516528134580918
+} else {
+  warning("number of genes in matrix does not match number quantified in network")
+}
+
+non.myc.quant.con <- quant.con[!(quant.con %in% quant.myc.con)] # 7404
+sig.pos.non.myc.quant.con <- sig.quant.pos.con[!(sig.quant.pos.con %in% quant.myc.con)] # 337
+contingency.matrix <- data.frame("MYC_interaction" = c(length(sig.quant.pos.myc.con), # 71
+                                                       length(quant.myc.con) - length(sig.quant.pos.myc.con)), # 1640
+                                 "Non_MYC_interaction" = c(length(sig.pos.non.myc.quant.con), # 337
+                                                           length(non.myc.quant.con) - length(sig.pos.non.myc.quant.con)), # 7067
+                                 row.names = c("Chr8q_association", "Non_associated"))
+if (length(quant.con) == sum(c(contingency.matrix$MYC_interaction,contingency.matrix$Non_MYC_interaction))) {
+  mosaicplot(contingency.matrix, color=TRUE)
+  fisher.result <- fisher.test(contingency.matrix) # 0.4073
+  fisher.p <- fisher.result$p.value # 0.407280880077656
+} else {
+  warning("number of genes in matrix does not match number quantified in network")
+}
+
+non.myc.quant.con <- quant.con[!(quant.con %in% quant.myc.con)] # 7404
+sig.neg.non.myc.quant.con <- sig.quant.neg.con[!(sig.quant.neg.con %in% quant.myc.con)] # 337
+contingency.matrix <- data.frame("MYC_interaction" = c(length(sig.quant.neg.myc.con), # 21
+                                                       length(quant.myc.con) - length(sig.quant.neg.myc.con)), # 1690
+                                 "Non_MYC_interaction" = c(length(sig.neg.non.myc.quant.con), # 88
+                                                           length(non.myc.quant.con) - length(sig.neg.non.myc.quant.con)), # 7316
+                                 row.names = c("Chr8q_association", "Non_associated"))
+if (length(quant.con) == sum(c(contingency.matrix$MYC_interaction,contingency.matrix$Non_MYC_interaction))) {
+  mosaicplot(contingency.matrix, color=TRUE)
+  fisher.result <- fisher.test(contingency.matrix) # 0.9017634
+  fisher.p <- fisher.result$p.value # 0.90176337076464
+} else {
+  warning("number of genes in matrix does not match number quantified in network")
+}
+
+#### Fisher's exact test for all non-terminal nodes ####
+con <- unique(c(STRINGv12$from, STRINGv12$to)) # 18767
+# how many of those are quantified in proteomics/TF/kinases?
+synapser::synLogin()
+global.result <- na.omit(read.csv(synapser::synGet("syn66224803")$path))
+tf.result <- na.omit(read.csv(synapser::synGet("syn66226952")$path))
+tf.result$Gene <- sub("_.*","",tf.result$Feature_set)
+kin.result <- read.csv(synapser::synGet("syn66279699")$path)
+quant.genes <- unique(c(global.result$Gene, tf.result$Gene, kin.result$Feature_set)) # 9281
+quant.con <- con[con %in% quant.genes] # 9115
+
+# how many of those pass our significance thresholds?
+sig.global <- global.result[global.result$Spearman.q <= 0.05, ] # 208 / 9013 (2.31%); 98.02% of 101 positive, 100% of 107 negative are in the interactome
+sig.tf <- tf.result[tf.result$p_value <= 0.05 & tf.result$FDR_q_value <= 0.25, ] # 206 / 408 (50.49%); 96.1% of 205 positive, 100% of 1 negative are in the interactome
+sig.kin <- kin.result[kin.result$p_value <= 0.05 & kin.result$FDR_q_value <= 0.25, ] # 2 / 184 (1.09%); 100% of 2 negative are in the interactome
+sig.quant <- unique(c(sig.global$Gene, sig.tf$Gene, sig.kin$Feature_set)) # 415
+sig.pos.quant <- unique(c(sig.global[sig.global$Spearman.est>0,]$Gene, 
+                          sig.tf[sig.tf$NES>0,]$Gene, 
+                          sig.kin[sig.kin$NES>0,]$Feature_set)) # 305
+sig.neg.quant <- unique(c(sig.global[sig.global$Spearman.est<0,]$Gene, 
+                          sig.tf[sig.tf$NES<0,]$Gene, 
+                          sig.kin[sig.kin$NES<0,]$Feature_set)) # 110
+sig.quant.con <- quant.con[quant.con %in% sig.quant] # 408
+sig.quant.pos.con <- quant.con[quant.con %in% sig.pos.quant] # 299
+sig.quant.neg.con <- quant.con[quant.con %in% sig.neg.quant] # 109
+
+directions <- list("positive" = list(#"edges" = pos.edges,
+                                  "vert" = pos.vert),
+                "negative" = list(#"edges" = neg.edges,
+                                  "vert" = neg.vert))
+mosaics <- list()
+contingency.matrices <- list()
+fisher.df <- data.frame()
+for (dir in names(directions)) {
+  temp.edges <- directions[[dir]][["edges"]]
+  temp.vert <- directions[[dir]][["vert"]]
+  
+  inferred <- unique(temp.vert[temp.vert$type == "Inferred" & is.na(temp.vert$Omics),]$from)
+  titleSigInt <- ifelse(dir=="positive"," interactors tend to be Chr8q-upregulated proteins (p = ",
+                   " interactors tend to be Chr8q-downregulated proteins (p = ")
+  titleSig <- ifelse(dir=="positive"," interactors tend not to be Chr8q-upregulated proteins (p = ",
+                     " interactors tend not to be Chr8q-downregulated proteins (p = ")
+  titleInsig <- ifelse(dir=="positive"," interactors are equally likely to be Chr8q-upregulated proteins (p = ",
+                     " interactors are equally likely to be Chr8q-downregulated proteins (p = ")
+  dir.rowname <- ifelse(dir=="positive", "Up with Chr8q", "Down with Chr8q")
+  dir.mosaics <- list()
+  dir.matrices <- list()
+  dir.fisher <- data.frame(inferred, Direction = dir, N_interactor_terminals = NA, 
+                           N_noninteractor_terminals = NA, p = NA)
+  for (node in inferred) {
+    temp.con <- con[con != node]
+   
+    # how many connections does node have in STRING network?
+    node.con <- STRINGv12[STRINGv12$from == node | STRINGv12$to == node,]
+    node.con <- unique(c(node.con$from, node.con$to))
+    node.con <- node.con[node.con != node] # 2023 
+    
+    # how many of those are quantified
+    if (dir == "positive") {
+      dir.quant.con <- quant.con[!(quant.con %in% sig.quant.neg.con)] # exclude negative terminals from positive analysis
+    } else {
+      dir.quant.con <- quant.con[!(quant.con %in% sig.quant.pos.con)] # exclude positive terminals from negative analysis
+    }
+    quant.node.con <- node.con[node.con %in% dir.quant.con] # 1711
+    
+    # how many are up- or down-regulated?
+    sig.quant.node.con <- quant.node.con[quant.node.con %in% sig.quant]
+    if (dir == "positive") {
+      sig.quant.dir.node.con <- quant.node.con[quant.node.con %in% sig.pos.quant] 
+      sig.quant.dir.con <- sig.quant.pos.con
+    } else {
+      sig.quant.dir.node.con <- quant.node.con[quant.node.con %in% sig.neg.quant]
+      sig.quant.dir.con <- sig.quant.neg.con
+    }
+    
+    # prepare contingency matrix
+    non.node.quant.con <- dir.quant.con[!(dir.quant.con %in% quant.node.con)]
+    sig.dir.non.node.quant.con <- sig.quant.dir.con[!(sig.quant.dir.con %in% quant.node.con)]
+    contingency.matrix <- data.frame("node_interaction" = c(length(sig.quant.dir.node.con),
+                                                           length(quant.node.con) - length(sig.quant.dir.node.con)),
+                                     "Non_node_interaction" = c(length(sig.dir.non.node.quant.con),
+                                                               length(non.node.quant.con) - length(sig.dir.non.node.quant.con)),
+                                     row.names = c(dir.rowname,"Unaltered with Chr8q"))
+    colnames(contingency.matrix) <- paste0(node, c(" Interactor", " Non-interactor"))
+    if (length(dir.quant.con) == sum(c(contingency.matrix[,1],contingency.matrix[,2]))) {
+      fisher.p <- fisher.test(contingency.matrix)$p.value
+      title <- ifelse(fisher.p <= 0.05 & contingency.matrix[1,1] > contingency.matrix[2,1], 
+                      paste0(node, titleSigInt, fisher.p, ")"), # if tends to be chr8q terminal interactor
+                      ifelse(fisher.p <= 0.05, paste0(node, titleSig, fisher.p, ")"), # if tends to NOT be chr8q terminal interactor
+                             paste0(node, titleInsig, fisher.p, ")"))) # if not significant difference
+      dir.mosaics[[node]] <- mosaicplot(contingency.matrix, main = title, color=TRUE)
+      dir.matrices[[node]] <- contingency.matrix
+      dir.fisher[dir.fisher$inferred==node,]$N_interactor_terminals <- contingency.matrix[1,1]
+      dir.fisher[dir.fisher$inferred==node,]$N_noninteractor_terminals <- contingency.matrix[1,2]
+      dir.fisher[dir.fisher$inferred==node,]$p <- fisher.p
+    } else {
+      stop("number of genes in matrix does not match number quantified in network")
+    }
+  }
+  mosaics[[dir]] <- dir.mosaics
+  contingency.matrices[[dir]] <- dir.matrices
+  fisher.df <- rbind(fisher.df, dir.fisher)
+}
+fisher.df$Terminal_interactor_ratio <- fisher.df$N_interactor_terminals/fisher.df$N_noninteractor_terminals
+fisher.df$minusLogP <- -log10(fisher.df$p)
+write.csv(fisher.df, "FishersExactTest_inferredSTRINGNodes.csv",row.names=FALSE)
+saveRDS(contingency.matrices, "contingencyMatrices_inferredSTRINGNodes.rds")
+saveRDS(mosaics, "mosaics_inferredSTRINGNodes.rds")
+
+maxLogP <- max(fisher.df$minusLogP)
+maxRatio <- max(fisher.df$Terminal_interactor_ratio)
+dot.plots <- NULL
+for (dir in directions) {
+  dot.df <- fisher.df[fisher.df$Direction==dir & fisher.df$p <= 0.05,] %>% slice_max(Terminal_interactor_ratio,n=5)
+  dot.plot <- ggplto2::ggplot(dot.df, aes(x=dir,y=reorder(inferred, -Terminal_interactor_ratio), 
+                                          fill=100*Terminal_interactor_ratio, size=minusLogP)) +
+    geom_point() + theme_classic(base_size=12) + scale_size_continuous(limits=c(0,maxLogP)) +
+    scale_fill_continuous(limits=c(0,maxRatio)) + ggtitle(dir) + 
+    labs(fill="% Interactors", size="-log(p-value)") +
+    geom_point(data = dot.df, col = "black", stroke = 1.5, shape = 21)
+    theme(axis.titles=element_blank(), plot.title=element_text(face=bold, hjust=0.5))
+  if (is.null(dot.plots)) {
+    dot.plots <- dot.plot
+  } else {
+    dot.plots <- dot.plots + dot.plot + plot_layout(guides="collect")
+  }
+}
+dot.plots
+ggsave("FishersExactTest_dotPlots_top5Ratio.pdf", width=5, height=5)
+
 # 
 # # narrow it down by filtering for nodes with most interactions
 # posN <- plyr::ddply(pos.edges, .(from), summarize,
