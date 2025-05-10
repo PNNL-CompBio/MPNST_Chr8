@@ -518,7 +518,7 @@ mosaics <- list()
 contingency.matrices <- list()
 fisher.df <- data.frame()
 for (dir in names(directions)) {
-  temp.edges <- directions[[dir]][["edges"]]
+  #temp.edges <- directions[[dir]][["edges"]]
   temp.vert <- directions[[dir]][["vert"]]
   
   inferred <- unique(temp.vert[temp.vert$type == "Inferred" & is.na(temp.vert$Omics),]$from)
@@ -589,30 +589,228 @@ for (dir in names(directions)) {
 }
 fisher.df$Terminal_interactor_ratio <- fisher.df$N_interactor_terminals/fisher.df$N_noninteractor_terminals
 fisher.df$minusLogP <- -log10(fisher.df$p)
+fisher.df$chr8q <- FALSE
+fisher.df[fisher.df$inferred %in% chr8q.genes,]$chr8q <- TRUE
+fisher.df$drugTarget <- FALSE
+drug.info <- read.csv("https://raw.githubusercontent.com/BelindaBGarana/DMEA/refs/heads/shiny-app/Inputs/PRISM_secondary-screen-replicate-treatment-info.csv")
+drug.targets <- unique(unlist(strsplit(unlist(drug.info$target), ", "))) # 1027
+fisher.df[fisher.df$inferred %in% drug.targets,]$drugTarget <- TRUE
 write.csv(fisher.df, "FishersExactTest_inferredSTRINGNodes.csv",row.names=FALSE)
+if (any(fisher.df$p > 1)) {
+  fisher.df[fisher.df$p>1,]$p <- 1
+}
+fisher.df$q <- NA
+fisher.df$q <- qvalue::qvalue(fisher.df$p,pi0=1)$qvalues
+fisher.df$chr8q_q <- NA
+fisher.df[fisher.df$chr8q==TRUE,]$chr8q_q <- qvalue::qvalue(fisher.df[fisher.df$chr8q==TRUE,]$p,pi0=1)$qvalues
+fisher.df$drugTarget_q <- NA
+fisher.df[fisher.df$drugTarget==TRUE,]$drugTarget_q <- qvalue::qvalue(fisher.df[fisher.df$drugTarget==TRUE,]$p,pi0=1)$qvalues
+write.csv(fisher.df, "FishersExactTest_inferredSTRINGNodes_adjustedP.csv",row.names=FALSE)
 saveRDS(contingency.matrices, "contingencyMatrices_inferredSTRINGNodes.rds")
 saveRDS(mosaics, "mosaics_inferredSTRINGNodes.rds")
 
-maxLogP <- max(fisher.df$minusLogP)
-maxRatio <- max(fisher.df$Terminal_interactor_ratio)
-dot.plots <- NULL
-for (dir in directions) {
-  dot.df <- fisher.df[fisher.df$Direction==dir & fisher.df$p <= 0.05,] %>% slice_max(Terminal_interactor_ratio,n=5)
-  dot.plot <- ggplto2::ggplot(dot.df, aes(x=dir,y=reorder(inferred, -Terminal_interactor_ratio), 
-                                          fill=100*Terminal_interactor_ratio, size=minusLogP)) +
-    geom_point() + theme_classic(base_size=12) + scale_size_continuous(limits=c(0,maxLogP)) +
-    scale_fill_continuous(limits=c(0,maxRatio)) + ggtitle(dir) + 
-    labs(fill="% Interactors", size="-log(p-value)") +
-    geom_point(data = dot.df, col = "black", stroke = 1.5, shape = 21)
-    theme(axis.titles=element_blank(), plot.title=element_text(face=bold, hjust=0.5))
-  if (is.null(dot.plots)) {
-    dot.plots <- dot.plot
-  } else {
-    dot.plots <- dot.plots + dot.plot + plot_layout(guides="collect")
+drug.corr <- read.csv(synapser::synGet("syn66295273")$path)
+mean.drugs <- read.csv(synapser::synGet("syn66295274")$path)
+moa.results <- read.csv(synapser::synGet("syn66295241")$path)
+mean.moa <- read.csv(synapser::synGet("syn66295242")$path)
+gsea.rna.prot <- moa.results[moa.results$type %in% c("RNA", "Protein"),]
+gsea.rna.prot$type <- factor(gsea.rna.prot$type, levels=c("RNA", "Protein"))
+gsea.rna.prot$Significant <- FALSE
+gsea.rna.prot[gsea.rna.prot$p_value <= 0.05 & gsea.rna.prot$FDR_q_value <= 0.25,]$Significant <- TRUE
+gsea.rna.prot$Direction <- "Negative"
+gsea.rna.prot[gsea.rna.prot$NES > 0,]$Direction <- "Positive"
+gsea.rna.prot$Direction <- factor(gsea.rna.prot$Direction, levels=c("Positive", "Negative"))
+gsea.rna.prot$Toxicity <- "Chr8q-amplified"
+gsea.rna.prot[gsea.rna.prot$NES > 0,]$Toxicity <- "Non-amplified"
+
+omics <- c("RNA", "Protein")
+maxAbsEst <- max(na.omit(abs(drug.corr[drug.corr$type %in% omics,]$Pearson.est)))
+#maxAbsEst <- 1
+drug.corr <- na.omit(drug.corr)
+if (any(drug.corr$Pearson.q == 0)) {
+  drug.corr[drug.corr$Pearson.q == 0,]$Pearson.q <- 0.0001
+}
+drug.corr$minusLogP <- -log(drug.corr[,"Pearson.p"], base = 10)
+drug.corr$minusLogFDR <- -log(drug.corr[,"Pearson.q"], base = 10)
+drug.info$Drug <- gsub("-",".",drug.info$name)
+drug.info$Drug <- gsub("[(]",".",drug.info$Drug)
+drug.info$Drug <- gsub("[)]",".",drug.info$Drug)
+drug.info$Drug <- gsub("[+]",".",drug.info$Drug)
+red.drug.info <- dplyr::distinct(drug.info[,c("Drug","name","moa","target")])
+colnames(drug.corr)[2] <- "Drug"
+drug.corr$sig <- FALSE
+drug.corr[drug.corr$Pearson.q <= 0.05,]$sig <- TRUE # Synapse "sig" was mistakenly based on Spearman
+drug.corr.wInfo <- merge(red.drug.info, drug.corr[drug.corr$sig,], by="Drug", all.y = TRUE)
+sig.pos.corr.targets <- na.omit(unique(unlist(strsplit(drug.corr.wInfo[drug.corr.wInfo$Pearson.q <= 0.05 & drug.corr.wInfo$Pearson.est>0,]$target, ", ")))) # 88
+fisher.df$drugCorrPos <- FALSE
+fisher.df[fisher.df$inferred %in% sig.pos.corr.targets,]$drugCorrPos <- TRUE
+sig.neg.corr.targets <- na.omit(unique(unlist(strsplit(drug.corr.wInfo[drug.corr.wInfo$Pearson.q <= 0.05 & drug.corr.wInfo$Pearson.est>0,]$target, ", ")))) # 88
+fisher.df$drugCorrNeg <- FALSE
+fisher.df[fisher.df$inferred %in% sig.neg.corr.targets,]$drugCorrNeg <- TRUE
+
+posMOAs <- na.omit(unique(gsea.rna.prot[gsea.rna.prot$p_value <= 0.05 & gsea.rna.prot$FDR_q_value <= 0.25 &
+                           gsea.rna.prot$NES > 0,]$Drug_set))
+negMOAs <- na.omit(unique(gsea.rna.prot[gsea.rna.prot$p_value <= 0.05 & gsea.rna.prot$FDR_q_value <= 0.25 &
+                                          gsea.rna.prot$NES < 0,]$Drug_set))
+"VEGFR inhibitor" %in% c(posMOAs,negMOAs) # FALSE: make sure we don't get VEGFRi when looking for EGFRi
+posMOAtargets <- c()
+negMOAtargets <- c()
+for (i in 1:nrow(red.drug.info)) {
+  tempMOAs <- na.omit(unique(strsplit(red.drug.info$moa[i], ", ")))
+  tempTargets <- na.omit(unique(strsplit(red.drug.info$target[i], ", ")))
+  if (any(tempMOAs %in% posMOAs)) {
+    posMOAtargets <- c(posMOAtargets, red.drug.info$target[i])
+  }
+  if (any(tempMOAs %in% negMOAs)) {
+    negMOAtargets <- c(negMOAtargets, red.drug.info$target[i])
   }
 }
-dot.plots
-ggsave("FishersExactTest_dotPlots_top5Ratio.pdf", width=5, height=5)
+fisher.df$drugMOATargetPos <- FALSE
+fisher.df[fisher.df$inferred %in% posMOAtargets,]$drugMOATargetPos <- TRUE
+fisher.df$drugMOATargetNeg <- FALSE
+fisher.df[fisher.df$inferred %in% negMOAtargets,]$drugMOATargetNeg <- TRUE
+write.csv(fisher.df, "FishersExactTest_inferredSTRINGNodes_adjustedP_wDrugInfo.csv",row.names=FALSE)
+
+
+
+# pseudo volcano plot
+dot.df <- fisher.df
+dot.df$Score <- dot.df$Terminal_interactor_ratio
+dot.df[dot.df$Direction=="negative",]$Score <- -dot.df[dot.df$Direction=="negative",]$Score
+dot.df$chr8q <- factor(dot.df$chr8q, levels=c(TRUE, FALSE))
+dot.df$drugTarget <- factor(dot.df$drugTarget, levels=c(TRUE, FALSE))
+n.sig.pos <- nrow(dot.df[dot.df$Direction=="positive" & dot.df$p<=0.05,]) # 658
+n.pos <- nrow(dot.df[dot.df$Direction=="positive",]) # 8834
+perc.sig.pos <- round(100*n.sig.pos/n.pos,2) # 7.45%
+n.sig.neg <- nrow(dot.df[dot.df$Direction=="negative" & dot.df$p<=0.05,]) # 803
+n.neg <- nrow(dot.df[dot.df$Direction=="negative",]) # 6265
+perc.sig.neg <- round(100*n.sig.neg/n.neg,2) # 12.82%
+n.sig <- nrow(dot.df[dot.df$p<=0.05,]) # 1461
+n.total <- nrow(dot.df) # 8834
+perc.sig <- round(100*n.sig/n.total,2) # 9.68%
+title <- paste0(n.sig," / ",n.total, " (", perc.sig, "%) Proteins More Likely to\nInteract with Chr8q-affected Proteins")
+ggplot2::ggplot(dot.df, aes(x=Score, y = -log10(p), shape=chr8q, 
+                            color=drugTarget, size=N_interactor_terminals)) + 
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_classic(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.df$drugTarget)) + 
+  scale_shape_manual(values=c(17,19)) + ggrepel::geom_text_repel(data=subset(dot.df, p <= 0.05), 
+                                                                 aes(label=inferred), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Drug Target", shape = "Chr8q Gene") +
+  geom_point(data = subset(dot.df, p <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("inferredSTRINGNodes_volcanoPlot_p.pdf",width=8,height=6)
+
+n.sig <- nrow(dot.df[dot.df$q<=0.05,]) # 79
+n.total <- nrow(dot.df) # 8834
+perc.sig <- round(100*n.sig/n.total,2) # 0.52%
+title <- paste0(n.sig," / ",n.total, " (", perc.sig, "%) Proteins More Likely to\nInteract with Chr8q-affected Proteins")
+ggplot2::ggplot(dot.df, aes(x=Score, y = -log10(p), shape=chr8q, 
+                            color=drugTarget, size=N_interactor_terminals)) + 
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_classic(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                      breaks=levels(dot.df$drugTarget)) + 
+  scale_shape_manual(values=c(17,19)) + ggrepel::geom_text_repel(data=subset(dot.df, p <= 0.05), 
+                                                                 aes(label=inferred), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Drug Target", shape = "Chr8q Gene") +
+  geom_point(data = subset(dot.df, q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("inferredSTRINGNodes_volcanoPlot_q.pdf",width=8,height=6)
+
+ggplot2::ggplot(dot.df, aes(x=Score, y = -log10(p), color=chr8q, size=N_interactor_terminals)) + 
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_classic(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.df$chr8q)) + 
+  ggrepel::geom_text_repel(data=subset(dot.df, q <= 0.05), aes(label=inferred), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Chr8q Gene") +
+  geom_point(data = subset(dot.df, q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("inferredSTRINGNodes_volcanoPlot_q_v2.pdf",width=8,height=6)
+
+ggplot2::ggplot(dot.df, aes(x=Score, y = -log10(p), color=chr8q, size=N_interactor_terminals)) + 
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_classic(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.df$chr8q)) + 
+  ggrepel::geom_text_repel(data=subset(dot.df, p <= 0.05), aes(label=inferred), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Chr8q Gene") +
+  geom_point(data = subset(dot.df, q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("inferredSTRINGNodes_volcanoPlot_q_v3.pdf",width=8,height=6)
+
+dot.drug <- dot.df[dot.df$drugTarget==TRUE | dot.df$chr8q==TRUE,]
+n.sig <- nrow(dot.drug[dot.drug$p<=0.05,]) # 141
+n.total <- nrow(dot.drug) # 1372
+perc.sig <- round(100*n.sig/n.total,2) # 10.28%
+title <- paste0(n.sig," / ",n.total, " (", perc.sig, "%) Proteins More Likely to\nInteract with Chr8q-affected Proteins")
+ggplot2::ggplot(dot.drug, aes(x=Score, y = -log10(p), shape=chr8q, 
+                            color=drugTarget, size=N_interactor_terminals)) + 
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_classic(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.drug$drugTarget)) + 
+  scale_shape_manual(values=c(17,19)) + ggrepel::geom_text_repel(data=subset(dot.drug, p <= 0.05), 
+                                                                 aes(label=inferred), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Drug Target", shape = "Chr8q Gene") +
+  geom_point(data = subset(dot.drug, p <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("inferredSTRINGNodes_drugTargetsAndChr8q_volcanoPlot_p.pdf",width=8,height=6)
+
+n.sig <- nrow(dot.drug[dot.drug$q<=0.05,]) # 79
+n.total <- nrow(dot.drug) # 8834
+perc.sig <- round(100*n.sig/n.total,2) # 0.52%
+title <- paste0(n.sig," / ",n.total, " (", perc.sig, "%) Proteins More Likely to\nInteract with Chr8q-affected Proteins")
+ggplot2::ggplot(dot.drug, aes(x=Score, y = -log10(p), shape=chr8q, 
+                            color=drugTarget, size=N_interactor_terminals)) + 
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_classic(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.drug$drugTarget)) + 
+  scale_shape_manual(values=c(17,19)) + ggrepel::geom_text_repel(data=subset(dot.drug, p <= 0.05), 
+                                                                 aes(label=inferred), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Drug Target", shape = "Chr8q Gene") +
+  geom_point(data = subset(dot.drug, q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("inferredSTRINGNodes_drugTargetsAndChr8q_volcanoPlot_q.pdf",width=8,height=6)
+# 
+# maxLogP <- max(fisher.df$minusLogP)
+# maxRatio <- max(fisher.df$Terminal_interactor_ratio)
+# directions <- c("positive","negative")
+# filter <- c("none", "chr8q", "drugTarget")
+# fname <- "FishersExactTest_dotPlots_top5Ratio"
+# for (f in filter) {
+#   dot.plots <- NULL
+#   for (dir in directions) {
+#     dot.df <- fisher.df[fisher.df$Direction==dir & fisher.df$p <= 0.05,] 
+#     if (f == "chr8q") {
+#       dot.df <- dot.df[dot.df$chr8q,]
+#       fname2 <- paste0(fname,"_",f)
+#     } else if (f == "drugTarget") {
+#       dot.df <- dot.df[dot.df$drugTarget,]
+#       fname2 <- paste0(fname,"_",f)
+#     } else {
+#       fname2 <- fname
+#     }
+#     dot.df <- dot.df %>% slice_max(Terminal_interactor_ratio,n=5)
+#     dot.plot <- ggplot2::ggplot(dot.df, aes(x=dir,y=reorder(inferred, -Terminal_interactor_ratio), 
+#                                             fill=100*Terminal_interactor_ratio, size=minusLogP)) +
+#       geom_point() + theme_classic(base_size=12) + scale_size_continuous(limits=c(0,maxLogP)) +
+#       scale_fill_continuous(limits=c(0,maxRatio)) + ggtitle(dir) + 
+#       labs(fill="% Interactors", size="-log(p-value)") +
+#       geom_point(data = dot.df, col = "black", stroke = 1.5, shape = 21) +
+#       theme(axis.title=element_blank(), plot.title=element_text(face="bold", hjust=0.5))
+#     if (is.null(dot.plots)) {
+#       dot.plots <- dot.plot
+#     } else {
+#       dot.plots <- dot.plots + dot.plot + plot_layout(guides="collect")
+#     }
+#   }
+#   dot.plots
+#   ggsave(paste0(fname2,".pdf"), width=5, height=5)
+# }
 
 # 
 # # narrow it down by filtering for nodes with most interactions
