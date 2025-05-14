@@ -36,6 +36,7 @@ if (file.exists("gmt_human_positional.rds")) {
 }
 chr8q.genes <- unlist(gmt.pos$genesets[grepl("chr8q",names(gmt.pos$genesets))]) # 1010
 saveRDS(chr8q.genes, "chr8qGenes.rds")
+chr8q.genes <- readRDS("chr8qGenes.rds")
 
 posEnr <- function(all.vertices, gmt.pos) {
   all.runIDs <- unique(all.vertices$runID)
@@ -220,8 +221,19 @@ pos.vert$chr8q <- FALSE
 pos.vert[pos.vert$from %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(pos.vert, "positive_vertices.csv", row.names=FALSE)
 write.csv(pos.edges, "positive_edges.csv", row.names=FALSE)
+topGraph <- igraph::graph_from_data_frame(pos.edges, directed=FALSE, vertices=pos.vert) 
+pos.centrality <- data.frame(name = V(topGraph)$name,
+                             degree = igraph::degree(topGraph, mode="all"),
+                             closeness = igraph::closeness(topGraph, mode="all"),
+                             betweenness = igraph::betweenness(topGraph, directed = FALSE),
+                             eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+                             hub_score = igraph::hub_score(topGraph)$vector,
+                             authority_score = igraph::authority_score(topGraph)$vector)
+write.csv(pos.centrality, "positive_centrality.csv", row.names=FALSE)
 pos.vert <- read.csv("positive_vertices.csv")
 pos.edges <- read.csv("positive_edges.csv")
+
+chr8.pos.centr <- pos.centrality[pos.centrality$name %in% chr8q.genes,]
 
 neg.edges <- STRINGv12[STRINGv12$from %in% neg.terms | STRINGv12$to %in% neg.terms,] # 26390
 neg.genes <- unique(c(neg.edges$from, neg.edges$to)) # 6374
@@ -235,9 +247,98 @@ neg.vert$chr8q <- FALSE
 neg.vert[neg.vert$from %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(neg.vert, "negative_vertices.csv", row.names=FALSE)
 write.csv(neg.edges, "negative_edges.csv", row.names=FALSE)
+topGraph <- igraph::graph_from_data_frame(neg.edges, directed=FALSE, vertices=neg.vert) 
+neg.centrality <- data.frame(name = V(topGraph)$name,
+                                    degree = igraph::degree(topGraph, mode="all"),
+                                    closeness = igraph::closeness(topGraph, mode="all"),
+                                    betweenness = igraph::betweenness(topGraph, directed = FALSE),
+                                    eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+                                    hub_score = igraph::hub_score(topGraph)$vector,
+                                    authority_score = igraph::authority_score(topGraph)$vector)
+write.csv(neg.centrality, "negative_centrality.csv", row.names=FALSE)
 neg.vert <- read.csv("negative_vertices.csv")
 neg.edges <- read.csv("negative_edges.csv")
 
+chr8.neg.centr <- neg.centrality[neg.centrality$name %in% chr8q.genes,]
+chr8.neg.centr$Direction <- "negative"
+chr8.pos.centr$Direction <- "positive"
+chr8.centr <- rbind(chr8.neg.centr, chr8.pos.centr)
+chr8.degree <- plyr::ddply(chr8.centr, .(name), summarize,
+                                Directions = paste0(sort(unique(Direction)), collapse=", "),
+                                meanDegree = mean(degree),
+                                sumDegree = sum(degree),
+                                meanCentrality = mean(eigen_centrality))
+
+pos.reg <- c(tf.result[tf.result$NES>0,]$Gene) # 205
+pos.reg.edges <- STRINGv12[STRINGv12$from %in% pos.reg | STRINGv12$to %in% pos.reg,] # 38180
+pos.reg.genes <- unique(c(pos.reg.edges$from, pos.reg.edges$to)) # 7109
+pos.reg.vert <- data.frame(pos.reg.genes, type = "Inferred", Omics=NA)
+pos.reg.vert[pos.reg.vert$pos.reg.genes %in% pos.reg,]$type <- "Terminal"
+pos.reg.vert$chr8q <- FALSE
+pos.reg.vert[pos.reg.vert$pos.reg.genes %in% chr8q.genes,]$chr8q <- TRUE
+topGraph <- igraph::graph_from_data_frame(pos.reg.edges, directed=FALSE, vertices=pos.reg.vert) 
+pos.reg.centrality <- data.frame(name = V(topGraph)$name,
+                                 degree = igraph::degree(topGraph, mode="all"),
+                                 closeness = igraph::closeness(topGraph, mode="all"),
+                                 betweenness = igraph::betweenness(topGraph, directed = FALSE),
+                                 eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+                                 hub_score = igraph::hub_score(topGraph)$vector,
+                                 authority_score = igraph::authority_score(topGraph)$vector)
+pos.reg.centrality$chr8q <- FALSE
+pos.reg.centrality[pos.reg.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
+write.csv(pos.reg.centrality, "positive_TFKin_centrality.csv", row.names=FALSE)
+write.csv(pos.reg.vert, "positive_TFKin_vertices.csv", row.names=FALSE)
+write.csv(pos.reg.edges, "positive_TFKin_edges.csv", row.names=FALSE)
+
+neg.reg <- c(tf.result[tf.result$NES<0,]$Gene, kin.result[kin.result$NES<0,]$Feature_set) # 3
+neg.reg.edges <- STRINGv12[STRINGv12$from %in% neg.reg | STRINGv12$to %in% neg.reg,] # 1172
+neg.reg.genes <- unique(c(neg.reg.edges$from, neg.reg.edges$to)) # 574
+neg.reg.vert <- data.frame(neg.reg.genes, type = "Inferred", Omics=NA)
+neg.reg.vert[neg.reg.vert$neg.reg.genes %in% neg.reg,]$type <- "Terminal"
+neg.reg.vert$chr8q <- FALSE
+neg.reg.vert[neg.reg.vert$neg.reg.genes %in% chr8q.genes,]$chr8q <- TRUE
+topGraph <- igraph::graph_from_data_frame(neg.reg.edges, directed=FALSE, vertices=neg.reg.vert) 
+neg.reg.centrality <- data.frame(name = V(topGraph)$name,
+                             degree = igraph::degree(topGraph, mode="all"),
+                             closeness = igraph::closeness(topGraph, mode="all"),
+                             betweenness = igraph::betweenness(topGraph, directed = FALSE),
+                             eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+                             hub_score = igraph::hub_score(topGraph)$vector,
+                             authority_score = igraph::authority_score(topGraph)$vector)
+neg.reg.centrality$chr8q <- FALSE
+neg.reg.centrality[neg.reg.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
+write.csv(neg.reg.centrality, "negative_TFKin_centrality.csv", row.names=FALSE)
+write.csv(neg.reg.vert, "negative_TFKin_vertices.csv", row.names=FALSE)
+write.csv(neg.reg.edges, "negative_TFKin_edges.csv", row.names=FALSE)
+
+neg.reg.centrality$Direction <- "negative"
+pos.reg.centrality$Direction <- "positive"
+chr8q.reg.centrality <- rbind(pos.reg.centrality[pos.reg.centrality$chr8q,], 
+                              neg.reg.centrality[neg.reg.centrality$chr8q,]) # 173
+chr8q.reg.degree <- plyr::ddply(chr8q.reg.centrality, .(name), summarize,
+                                Directions = paste0(sort(unique(Direction)), collapse=", "),
+                                meanDegree = mean(degree),
+                                sdDegree = sd(degree),
+                                sumDegree = sum(degree),
+                                meanCentrality = mean(eigen_centrality),
+                                sdCentrality = sd(eigen_centrality))
+write.csv(chr8q.reg.degree, "chr8q_TFKin_meanCentrality.csv", row.names=FALSE)
+
+bar.df <- chr8q.reg.degree[chr8q.reg.degree$Directions=="negative, positive",]
+ggplot2::ggplot(bar.df, aes(x=meanCentrality, y=name)) + geom_bar(stat="identity", alpha=0.7) +
+  geom_errorbar(aes(xmin=meanCentrality-sdCentrality, xmax=meanCentrality+sdCentrality, y=name)) + 
+  theme_classic(base_size=12) + labs(x="Mean Centrality", y=NULL) + 
+  scale_y_discrete(limits=bar.df[order(bar.df$meanCentrality),]$name)
+
+bar.df2 <- chr8q.reg.centrality[chr8q.reg.centrality$name %in% bar.df$name,]
+ggplot2::ggplot(bar.df2, aes(x=eigen_centrality, y=name)) + #geom_violin() +
+  geom_boxplot() + geom_point(aes(shape=Direction))+ 
+  scale_shape_manual(values=c(2,6), labels=c("Upregulated\nNetwork","Downregulated\nNetwork"), breaks=c("positive","negative")) +
+  theme_classic(base_size=12) + labs(x="Centrality", y=NULL) + 
+  theme(legend.position="inside", legend.position.inside = c(0.7,0.5)) +
+  scale_y_discrete(limits=bar.df[order(bar.df$meanCentrality),]$name)
+ggsave("chr8qGeneCentralityTFKinNetworks.pdf",width=3.5,height=3)
+  
 # look for connections between chr8q genes and altered TFs/kinases
 neg.tf.con <- neg.edges[(neg.edges$from %in% c(tf.result$Gene, kin.result$Feature_set) | 
                          neg.edges$to %in% c(tf.result$Gene, kin.result$Feature_set)) &
@@ -578,6 +679,8 @@ for (dir in names(directions)) {
       dir.matrices[[node]] <- contingency.matrix
       dir.fisher[dir.fisher$inferred==node,]$N_interactor_terminals <- contingency.matrix[1,1]
       dir.fisher[dir.fisher$inferred==node,]$N_noninteractor_terminals <- contingency.matrix[1,2]
+      dir.fisher[dir.fisher$inferred==node,]$N_interactor_nonterminals <- contingency.matrix[2,1]
+      dir.fisher[dir.fisher$inferred==node,]$N_noninteractor_nonterminals <- contingency.matrix[2,2]
       dir.fisher[dir.fisher$inferred==node,]$p <- fisher.p
     } else {
       stop("number of genes in matrix does not match number quantified in network")
@@ -587,7 +690,7 @@ for (dir in names(directions)) {
   contingency.matrices[[dir]] <- dir.matrices
   fisher.df <- rbind(fisher.df, dir.fisher)
 }
-fisher.df$Terminal_interactor_ratio <- fisher.df$N_interactor_terminals/fisher.df$N_noninteractor_terminals
+fisher.df$Terminal_interactor_ratio <- fisher.df$N_interactor_terminals/(fisher.df$N_noninteractor_terminals + fisher.df$N_interactor_terminals)
 fisher.df$minusLogP <- -log10(fisher.df$p)
 fisher.df$chr8q <- FALSE
 fisher.df[fisher.df$inferred %in% chr8q.genes,]$chr8q <- TRUE
@@ -609,6 +712,7 @@ write.csv(fisher.df, "FishersExactTest_inferredSTRINGNodes_adjustedP.csv",row.na
 saveRDS(contingency.matrices, "contingencyMatrices_inferredSTRINGNodes.rds")
 saveRDS(mosaics, "mosaics_inferredSTRINGNodes.rds")
 
+synapser::synLogin()
 drug.corr <- read.csv(synapser::synGet("syn66295273")$path)
 mean.drugs <- read.csv(synapser::synGet("syn66295274")$path)
 moa.results <- read.csv(synapser::synGet("syn66295241")$path)
@@ -647,6 +751,8 @@ fisher.df[fisher.df$inferred %in% sig.pos.corr.targets,]$drugCorrPos <- TRUE
 sig.neg.corr.targets <- na.omit(unique(unlist(strsplit(drug.corr.wInfo[drug.corr.wInfo$Pearson.q <= 0.05 & drug.corr.wInfo$Pearson.est>0,]$target, ", ")))) # 88
 fisher.df$drugCorrNeg <- FALSE
 fisher.df[fisher.df$inferred %in% sig.neg.corr.targets,]$drugCorrNeg <- TRUE
+fisher.df$drugCorr <- FALSE
+fisher.df[fisher.df$drugCorrNeg | fisher.df$drugCorrPos,]$drugCorr <- TRUE
 
 posMOAs <- na.omit(unique(gsea.rna.prot[gsea.rna.prot$p_value <= 0.05 & gsea.rna.prot$FDR_q_value <= 0.25 &
                            gsea.rna.prot$NES > 0,]$Drug_set))
@@ -670,8 +776,46 @@ fisher.df[fisher.df$inferred %in% posMOAtargets,]$drugMOATargetPos <- TRUE
 fisher.df$drugMOATargetNeg <- FALSE
 fisher.df[fisher.df$inferred %in% negMOAtargets,]$drugMOATargetNeg <- TRUE
 write.csv(fisher.df, "FishersExactTest_inferredSTRINGNodes_adjustedP_wDrugInfo.csv",row.names=FALSE)
+fisher.df <- read.csv("FishersExactTest_inferredSTRINGNodes_adjustedP_wDrugInfo.csv")
+contingency.matrices <- readRDS("contingencyMatrices_inferredSTRINGNodes.rds")
+chr8q.nodes <- fisher.df[fisher.df$chr8q,]$inferred
+fisher.df[,c("N_interactor_nonterminals","N_noninteractor_nonterminals")] <- NA
+for (i in chr8q.nodes) {
+  directions <- na.omit(unique(fisher.df[fisher.df$inferred==i,]$Direction))
+  for (dir in directions) {
+    temp.mat <- contingency.matrices[[dir]][[i]]
+    fisher.df[fisher.df$inferred == i & fisher.df$Direction == dir,]$N_interactor_nonterminals <- temp.mat[2,1]
+    fisher.df[fisher.df$inferred == i & fisher.df$Direction == dir,]$N_noninteractor_nonterminals <- temp.mat[2,2]
+  }
+}
+fisher.df$Nonterminal_interactor_ratio <- fisher.df$N_interactor_nonterminals/(fisher.df$N_noninteractor_nonterminals+fisher.df$N_interactor_nonterminals)
+fisher.df$Terminal_minus_nonterminal_interactor_ratio <- fisher.df$Terminal_interactor_ratio - fisher.df$Nonterminal_interactor_ratio
 
+target.nodes <- fisher.df[fisher.df$drugTarget,]$inferred
+for (i in target.nodes) {
+  directions <- na.omit(unique(fisher.df[fisher.df$inferred==i,]$Direction))
+  for (dir in directions) {
+    temp.mat <- contingency.matrices[[dir]][[i]]
+    fisher.df[fisher.df$inferred == i & fisher.df$Direction == dir,]$N_interactor_nonterminals <- temp.mat[2,1]
+    fisher.df[fisher.df$inferred == i & fisher.df$Direction == dir,]$N_noninteractor_nonterminals <- temp.mat[2,2]
+  }
+}
+fisher.df$Nonterminal_interactor_ratio <- fisher.df$N_interactor_nonterminals/(fisher.df$N_noninteractor_nonterminals+fisher.df$N_interactor_nonterminals)
+fisher.df$Terminal_minus_nonterminal_interactor_ratio <- fisher.df$Terminal_interactor_ratio - fisher.df$Nonterminal_interactor_ratio
 
+other.nodes <- fisher.df[is.na(fisher.df$Nonterminal_interactor_ratio),]$inferred
+for (i in other.nodes) {
+  directions <- na.omit(unique(fisher.df[fisher.df$inferred==i,]$Direction))
+  for (dir in directions) {
+    temp.mat <- contingency.matrices[[dir]][[i]]
+    fisher.df[fisher.df$inferred == i & fisher.df$Direction == dir,]$N_interactor_nonterminals <- temp.mat[2,1]
+    fisher.df[fisher.df$inferred == i & fisher.df$Direction == dir,]$N_noninteractor_nonterminals <- temp.mat[2,2]
+  }
+}
+fisher.df$Nonterminal_interactor_ratio <- fisher.df$N_interactor_nonterminals/(fisher.df$N_noninteractor_nonterminals+fisher.df$N_interactor_nonterminals)
+fisher.df$Terminal_minus_nonterminal_interactor_ratio <- fisher.df$Terminal_interactor_ratio - fisher.df$Nonterminal_interactor_ratio
+fisher.df$minusLogP_signed <- fisher.df$minusLogP * sign(fisher.df$Terminal_minus_nonterminal_interactor_ratio)
+write.csv(fisher.df, "FishersExactTest_inferredSTRINGNodes_adjustedP_wDrugInfo_v2.csv",row.names=FALSE)
 
 # pseudo volcano plot
 dot.df <- fisher.df
@@ -741,6 +885,37 @@ ggplot2::ggplot(dot.df, aes(x=Score, y = -log10(p), color=chr8q, size=N_interact
   ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
 ggsave("inferredSTRINGNodes_volcanoPlot_q_v3.pdf",width=8,height=6)
 
+dot.df$minusLogP_signed <- dot.df$minusLogP * sign(dot.df$Terminal_minus_nonterminal_interactor_ratio)
+ggplot2::ggplot(dot.df, aes(x=Score, y = minusLogP_signed, color=chr8q, size=N_interactor_terminals)) + 
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_hline(yintercept=log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_classic(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.df$chr8q)) + 
+  ggrepel::geom_text_repel(data=subset(dot.df, p <= 0.05), aes(label=inferred), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Chr8q Gene") +
+  geom_point(data = subset(dot.df, q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("inferredSTRINGNodes_volcanoPlot_q_v4.pdf",width=8,height=8)
+
+n.sig <- nrow(dot.df[dot.df$q<=0.05,]) # 79
+n.total <- nrow(dot.df) # 8834
+perc.sig <- round(100*n.sig/n.total,2) # 0.52%
+title <- paste0(n.sig," / ",n.total, " (", perc.sig, "%) Proteins More Likely to\nInteract with Chr8q-affected Proteins")
+ggplot2::ggplot(dot.df, aes(x=Score, y = minusLogP_signed, color=chr8q, shape = drugTarget, size=N_interactor_terminals)) +
+  geom_vline(xintercept=0) + geom_hline(yintercept=0) +
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_hline(yintercept=log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_minimal(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.df$chr8q)) + scale_shape_manual(values=c(17,19)) +
+  ggrepel::geom_text_repel(data=subset(dot.df, p <= 0.05), aes(label=inferred), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Chr8q Gene", shape = "Drug Target") +
+  geom_point(data = subset(dot.df, chr8q == TRUE & q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  geom_point(data = subset(dot.df, drugTarget == TRUE & q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 24) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("inferredSTRINGNodes_volcanoPlot_q_v5.pdf",width=10,height=8)
+
 dot.drug <- dot.df[dot.df$drugTarget==TRUE | dot.df$chr8q==TRUE,]
 n.sig <- nrow(dot.drug[dot.drug$p<=0.05,]) # 141
 n.total <- nrow(dot.drug) # 1372
@@ -775,6 +950,279 @@ ggplot2::ggplot(dot.drug, aes(x=Score, y = -log10(p), shape=chr8q,
   geom_point(data = subset(dot.drug, q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
   ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
 ggsave("inferredSTRINGNodes_drugTargetsAndChr8q_volcanoPlot_q.pdf",width=8,height=6)
+
+# repeat for terminals
+directions <- list("positive" = list(#"edges" = pos.edges,
+  "vert" = pos.vert),
+  "negative" = list(#"edges" = neg.edges,
+    "vert" = neg.vert))
+con <- unique(c(STRINGv12$from, STRINGv12$to)) # 18767
+# how many of those are quantified in proteomics/TF/kinases?
+synapser::synLogin()
+global.result <- na.omit(read.csv(synapser::synGet("syn66224803")$path))
+tf.result <- na.omit(read.csv(synapser::synGet("syn66226952")$path))
+tf.result$Gene <- sub("_.*","",tf.result$Feature_set)
+kin.result <- read.csv(synapser::synGet("syn66279699")$path)
+quant.genes <- unique(c(global.result$Gene, tf.result$Gene, kin.result$Feature_set)) # 9281
+quant.con <- con[con %in% quant.genes] # 9115
+
+# how many of those pass our significance thresholds?
+sig.global <- global.result[global.result$Spearman.q <= 0.05, ] # 208 / 9013 (2.31%); 98.02% of 101 positive, 100% of 107 negative are in the interactome
+sig.tf <- tf.result[tf.result$p_value <= 0.05 & tf.result$FDR_q_value <= 0.25, ] # 206 / 408 (50.49%); 96.1% of 205 positive, 100% of 1 negative are in the interactome
+sig.kin <- kin.result[kin.result$p_value <= 0.05 & kin.result$FDR_q_value <= 0.25, ] # 2 / 184 (1.09%); 100% of 2 negative are in the interactome
+sig.quant <- unique(c(sig.global$Gene, sig.tf$Gene, sig.kin$Feature_set)) # 415
+sig.pos.quant <- unique(c(sig.global[sig.global$Spearman.est>0,]$Gene, 
+                          sig.tf[sig.tf$NES>0,]$Gene, 
+                          sig.kin[sig.kin$NES>0,]$Feature_set)) # 305
+sig.neg.quant <- unique(c(sig.global[sig.global$Spearman.est<0,]$Gene, 
+                          sig.tf[sig.tf$NES<0,]$Gene, 
+                          sig.kin[sig.kin$NES<0,]$Feature_set)) # 110
+sig.quant.con <- quant.con[quant.con %in% sig.quant] # 408
+sig.quant.pos.con <- quant.con[quant.con %in% sig.pos.quant] # 299
+sig.quant.neg.con <- quant.con[quant.con %in% sig.neg.quant] # 109
+
+mosaics <- list()
+contingency.matrices <- list()
+fisher.df <- data.frame()
+for (dir in names(directions)) {
+  #temp.edges <- directions[[dir]][["edges"]]
+  temp.vert <- directions[[dir]][["vert"]]
+  
+  terminal <- unique(temp.vert[temp.vert$type == "Terminal",]$from)
+  titleSigInt <- ifelse(dir=="positive"," interactors tend to be Chr8q-upregulated proteins (p = ",
+                        " interactors tend to be Chr8q-downregulated proteins (p = ")
+  titleSig <- ifelse(dir=="positive"," interactors tend not to be Chr8q-upregulated proteins (p = ",
+                     " interactors tend not to be Chr8q-downregulated proteins (p = ")
+  titleInsig <- ifelse(dir=="positive"," interactors are equally likely to be Chr8q-upregulated proteins (p = ",
+                       " interactors are equally likely to be Chr8q-downregulated proteins (p = ")
+  dir.rowname <- ifelse(dir=="positive", "Up with Chr8q", "Down with Chr8q")
+  dir.mosaics <- list()
+  dir.matrices <- list()
+  dir.fisher <- data.frame(terminal, Direction = dir, N_interactor_terminals = NA, 
+                           N_noninteractor_terminals = NA, 
+                           N_interactor_nonterminals = NA, 
+                           N_noninteractor_nonterminals = NA, p = NA)
+  for (node in terminal) {
+    temp.con <- con[con != node]
+    
+    # how many connections does node have in STRING network?
+    node.con <- STRINGv12[STRINGv12$from == node | STRINGv12$to == node,]
+    node.con <- unique(c(node.con$from, node.con$to))
+    node.con <- node.con[node.con != node] # 2023 
+    
+    # how many of those are quantified
+    if (dir == "positive") {
+      dir.quant.con <- quant.con[!(quant.con %in% sig.quant.neg.con)] # exclude negative terminals from positive analysis
+    } else {
+      dir.quant.con <- quant.con[!(quant.con %in% sig.quant.pos.con)] # exclude positive terminals from negative analysis
+    }
+    quant.node.con <- node.con[node.con %in% dir.quant.con] # 1711
+    
+    # how many are up- or down-regulated?
+    sig.quant.node.con <- quant.node.con[quant.node.con %in% sig.quant]
+    if (dir == "positive") {
+      sig.quant.dir.node.con <- quant.node.con[quant.node.con %in% sig.pos.quant] 
+      sig.quant.dir.con <- sig.quant.pos.con
+    } else {
+      sig.quant.dir.node.con <- quant.node.con[quant.node.con %in% sig.neg.quant]
+      sig.quant.dir.con <- sig.quant.neg.con
+    }
+    
+    # prepare contingency matrix
+    non.node.quant.con <- dir.quant.con[!(dir.quant.con %in% quant.node.con)]
+    sig.dir.non.node.quant.con <- sig.quant.dir.con[!(sig.quant.dir.con %in% quant.node.con)]
+    contingency.matrix <- data.frame("node_interaction" = c(length(sig.quant.dir.node.con),
+                                                            length(quant.node.con) - length(sig.quant.dir.node.con)),
+                                     "Non_node_interaction" = c(length(sig.dir.non.node.quant.con),
+                                                                length(non.node.quant.con) - length(sig.dir.non.node.quant.con)),
+                                     row.names = c(dir.rowname,"Unaltered with Chr8q"))
+    colnames(contingency.matrix) <- paste0(node, c(" Interactor", " Non-interactor"))
+    if (length(dir.quant.con) == sum(c(contingency.matrix[,1],contingency.matrix[,2]))) {
+      fisher.p <- fisher.test(contingency.matrix)$p.value
+      title <- ifelse(fisher.p <= 0.05 & contingency.matrix[1,1] > contingency.matrix[2,1], 
+                      paste0(node, titleSigInt, fisher.p, ")"), # if tends to be chr8q terminal interactor
+                      ifelse(fisher.p <= 0.05, paste0(node, titleSig, fisher.p, ")"), # if tends to NOT be chr8q terminal interactor
+                             paste0(node, titleInsig, fisher.p, ")"))) # if not significant difference
+      dir.mosaics[[node]] <- mosaicplot(contingency.matrix, main = title, color=TRUE)
+      dir.matrices[[node]] <- contingency.matrix
+      dir.fisher[dir.fisher$terminal==node,]$N_interactor_terminals <- contingency.matrix[1,1]
+      dir.fisher[dir.fisher$terminal==node,]$N_noninteractor_terminals <- contingency.matrix[1,2]
+      dir.fisher[dir.fisher$terminal==node,]$N_interactor_nonterminals <- contingency.matrix[2,1]
+      dir.fisher[dir.fisher$terminal==node,]$N_noninteractor_nonterminals <- contingency.matrix[2,2]
+      dir.fisher[dir.fisher$terminal==node,]$p <- fisher.p
+    } else {
+      stop("number of genes in matrix does not match number quantified in network")
+    }
+  }
+  mosaics[[dir]] <- dir.mosaics
+  contingency.matrices[[dir]] <- dir.matrices
+  fisher.df <- rbind(fisher.df, dir.fisher)
+}
+fisher.df$Terminal_interactor_ratio <- fisher.df$N_interactor_terminals/(fisher.df$N_noninteractor_terminals + fisher.df$N_interactor_terminals)
+fisher.df$Nonterminal_interactor_ratio <- fisher.df$N_interactor_nonterminals/(fisher.df$N_noninteractor_nonterminals + fisher.df$N_interactor_nonterminals)
+fisher.df$minusLogP <- -log10(fisher.df$p)
+fisher.df$chr8q <- FALSE
+fisher.df[fisher.df$terminal %in% chr8q.genes,]$chr8q <- TRUE
+fisher.df$drugTarget <- FALSE
+drug.info <- read.csv("https://raw.githubusercontent.com/BelindaBGarana/DMEA/refs/heads/shiny-app/Inputs/PRISM_secondary-screen-replicate-treatment-info.csv")
+drug.targets <- unique(unlist(strsplit(unlist(drug.info$target), ", "))) # 1027
+fisher.df[fisher.df$terminal %in% drug.targets,]$drugTarget <- TRUE
+write.csv(fisher.df, "FishersExactTest_terminalSTRINGNodes.csv",row.names=FALSE)
+if (any(fisher.df$p > 1)) {
+  fisher.df[fisher.df$p>1,]$p <- 1
+}
+fisher.df$q <- NA
+fisher.df$q <- qvalue::qvalue(fisher.df$p,pi0=1)$qvalues
+fisher.df$chr8q_q <- NA
+fisher.df[fisher.df$chr8q==TRUE,]$chr8q_q <- qvalue::qvalue(fisher.df[fisher.df$chr8q==TRUE,]$p,pi0=1)$qvalues
+fisher.df$drugTarget_q <- NA
+fisher.df[fisher.df$drugTarget==TRUE,]$drugTarget_q <- qvalue::qvalue(fisher.df[fisher.df$drugTarget==TRUE,]$p,pi0=1)$qvalues
+fisher.df$Terminal_minus_nonterminal_interactor_ratio <- fisher.df$Terminal_interactor_ratio - fisher.df$Nonterminal_interactor_ratio
+fisher.df$minusLogP_signed <- fisher.df$minusLogP * sign(fisher.df$Terminal_minus_nonterminal_interactor_ratio)
+write.csv(fisher.df, "FishersExactTest_terminalSTRINGNodes_adjustedP.csv",row.names=FALSE)
+saveRDS(contingency.matrices, "contingencyMatrices_terminalSTRINGNodes.rds")
+saveRDS(mosaics, "mosaics_terminalSTRINGNodes.rds")
+
+dot.df <- fisher.df
+dot.df$Score <- dot.df$Terminal_interactor_ratio
+dot.df[dot.df$Direction=="negative",]$Score <- -dot.df[dot.df$Direction=="negative",]$Score
+dot.df$chr8q <- factor(dot.df$chr8q, levels=c(TRUE, FALSE))
+dot.df$drugTarget <- factor(dot.df$drugTarget, levels=c(TRUE, FALSE))
+
+n.sig <- nrow(dot.df[dot.df$q<=0.05 & dot.df$Terminal_minus_nonterminal_interactor_ratio>0,]) # 79
+n.total <- nrow(dot.df) # 8834
+perc.sig <- round(100*n.sig/n.total,2) # 0.52%
+title <- paste0(n.sig," / ",n.total, " (", perc.sig, "%) Proteins More Likely to\nInteract with Chr8q-affected Proteins")
+ggplot2::ggplot(dot.df, aes(x=Score, y = minusLogP_signed, color=chr8q, shape = drugTarget, size=N_interactor_terminals)) +
+  geom_vline(xintercept=0) + geom_hline(yintercept=0) +
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_hline(yintercept=log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_minimal(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.df$chr8q)) + scale_shape_manual(values=c(17,19)) +
+  ggrepel::geom_text_repel(data=subset(dot.df, p <= 0.05), aes(label=terminal), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Chr8q Gene", shape = "Drug Target") +
+  geom_point(data = subset(dot.df, drugTarget == FALSE & q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  geom_point(data = subset(dot.df, drugTarget == TRUE & q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 24) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("terminalSTRINGNodes_volcanoPlot_q_v5.pdf",width=10,height=8)
+
+# went back and revised inferred nodes
+term.fisher <- read.csv("FishersExactTest_terminalSTRINGNodes_adjustedP.csv")
+term.fisher$type <- "Terminal"
+colnames(term.fisher)[1] <- "Gene"
+fisher.df$type <- "Inferred"
+colnames(fisher.df)[1] <- "Gene"
+all.fisher <- rbind(term.fisher, fisher.df)
+
+# actually need to add drug corr and MOA results to terminals
+synapser::synLogin()
+drug.corr <- read.csv(synapser::synGet("syn66295273")$path)
+mean.drugs <- read.csv(synapser::synGet("syn66295274")$path)
+moa.results <- read.csv(synapser::synGet("syn66295241")$path)
+mean.moa <- read.csv(synapser::synGet("syn66295242")$path)
+gsea.rna.prot <- moa.results[moa.results$type %in% c("RNA", "Protein"),]
+gsea.rna.prot$type <- factor(gsea.rna.prot$type, levels=c("RNA", "Protein"))
+gsea.rna.prot$Significant <- FALSE
+gsea.rna.prot[gsea.rna.prot$p_value <= 0.05 & gsea.rna.prot$FDR_q_value <= 0.25,]$Significant <- TRUE
+gsea.rna.prot$Direction <- "Negative"
+gsea.rna.prot[gsea.rna.prot$NES > 0,]$Direction <- "Positive"
+gsea.rna.prot$Direction <- factor(gsea.rna.prot$Direction, levels=c("Positive", "Negative"))
+gsea.rna.prot$Toxicity <- "Chr8q-amplified"
+gsea.rna.prot[gsea.rna.prot$NES > 0,]$Toxicity <- "Non-amplified"
+
+omics <- c("RNA", "Protein")
+maxAbsEst <- max(na.omit(abs(drug.corr[drug.corr$type %in% omics,]$Pearson.est)))
+#maxAbsEst <- 1
+drug.corr <- na.omit(drug.corr)
+if (any(drug.corr$Pearson.q == 0)) {
+  drug.corr[drug.corr$Pearson.q == 0,]$Pearson.q <- 0.0001
+}
+drug.corr$minusLogP <- -log(drug.corr[,"Pearson.p"], base = 10)
+drug.corr$minusLogFDR <- -log(drug.corr[,"Pearson.q"], base = 10)
+drug.info$Drug <- gsub("-",".",drug.info$name)
+drug.info$Drug <- gsub("[(]",".",drug.info$Drug)
+drug.info$Drug <- gsub("[)]",".",drug.info$Drug)
+drug.info$Drug <- gsub("[+]",".",drug.info$Drug)
+red.drug.info <- dplyr::distinct(drug.info[,c("Drug","name","moa","target")])
+colnames(drug.corr)[2] <- "Drug"
+drug.corr$sig <- FALSE
+drug.corr[drug.corr$Pearson.q <= 0.05,]$sig <- TRUE # Synapse "sig" was mistakenly based on Spearman
+drug.corr.wInfo <- merge(red.drug.info, drug.corr[drug.corr$sig,], by="Drug", all.y = TRUE)
+sig.pos.corr.targets <- na.omit(unique(unlist(strsplit(drug.corr.wInfo[drug.corr.wInfo$Pearson.q <= 0.05 & drug.corr.wInfo$Pearson.est>0,]$target, ", ")))) # 88
+term.fisher$drugCorrPos <- FALSE
+term.fisher[term.fisher$Gene %in% sig.pos.corr.targets,]$drugCorrPos <- TRUE
+sig.neg.corr.targets <- na.omit(unique(unlist(strsplit(drug.corr.wInfo[drug.corr.wInfo$Pearson.q <= 0.05 & drug.corr.wInfo$Pearson.est>0,]$target, ", ")))) # 88
+term.fisher$drugCorrNeg <- FALSE
+term.fisher[term.fisher$Gene %in% sig.neg.corr.targets,]$drugCorrNeg <- TRUE
+
+posMOAs <- na.omit(unique(gsea.rna.prot[gsea.rna.prot$p_value <= 0.05 & gsea.rna.prot$FDR_q_value <= 0.25 &
+                                          gsea.rna.prot$NES > 0,]$Drug_set))
+negMOAs <- na.omit(unique(gsea.rna.prot[gsea.rna.prot$p_value <= 0.05 & gsea.rna.prot$FDR_q_value <= 0.25 &
+                                          gsea.rna.prot$NES < 0,]$Drug_set))
+"VEGFR inhibitor" %in% c(posMOAs,negMOAs) # FALSE: make sure we don't get VEGFRi when looking for EGFRi
+posMOAtargets <- c()
+negMOAtargets <- c()
+for (i in 1:nrow(red.drug.info)) {
+  tempMOAs <- na.omit(unique(strsplit(red.drug.info$moa[i], ", ")))
+  tempTargets <- na.omit(unique(strsplit(red.drug.info$target[i], ", ")))
+  if (any(tempMOAs %in% posMOAs)) {
+    posMOAtargets <- c(posMOAtargets, red.drug.info$target[i])
+  }
+  if (any(tempMOAs %in% negMOAs)) {
+    negMOAtargets <- c(negMOAtargets, red.drug.info$target[i])
+  }
+}
+term.fisher$drugMOATargetPos <- FALSE
+term.fisher[term.fisher$Gene %in% posMOAtargets,]$drugMOATargetPos <- TRUE
+term.fisher$drugMOATargetNeg <- FALSE
+term.fisher[term.fisher$Gene %in% negMOAtargets,]$drugMOATargetNeg <- TRUE
+term.fisher$drugCorr <- FALSE
+term.fisher[term.fisher$drugCorrNeg | term.fisher$drugCorrPos,]$drugCorr <- TRUE
+write.csv(term.fisher, "FishersExactTest_terminalSTRINGNodes_adjustedP_wDrugInfo.csv",row.names=FALSE)
+
+all.fisher <- rbind(term.fisher[,colnames(fisher.df)], fisher.df)
+all.fisher$ranking <- all.fisher$Terminal_interactor_ratio * all.fisher$minusLogP_signed
+all.fisher$q <- NA
+all.fisher$q <- qvalue::qvalue(all.fisher$p,pi0=1)$qvalues
+write.csv(all.fisher, "FishersExactTest_STRINGNodes_adjustedP_wDrugInfo.csv")
+nrow(all.fisher[all.fisher$chr8q == TRUE & all.fisher$drugTarget == TRUE,]) # 17
+both.nets <- unique(all.fisher$Gene[all.fisher$Gene %in% all.fisher[all.fisher$Direction=="positive",]$Gene &
+                               all.fisher$Gene %in% all.fisher[all.fisher$Direction=="negative",]$Gene]) # 4423
+target.both.nets <- unique(all.fisher[all.fisher$drugTarget == TRUE,]$Gene[all.fisher[all.fisher$drugTarget == TRUE,]$Gene %in% both.nets]) # 354
+target.both.nets.info <- all.fisher[all.fisher$Gene %in% target.both.nets,]
+
+chr8q.both.nets <- unique(all.fisher[all.fisher$chr8q == TRUE,]$Gene[all.fisher[all.fisher$chr8q == TRUE,]$Gene %in% both.nets]) # 102
+chr8q.both.nets.info <- all.fisher[all.fisher$Gene %in% chr8q.both.nets,]
+
+all.fisher$drugMOATarget <- FALSE
+all.fisher[all.fisher$drugMOATargetNeg == TRUE | all.fisher$drugMOATargetPos == TRUE,]$drugMOATarget <- TRUE
+
+dot.df <- all.fisher
+dot.df$Score <- dot.df$Terminal_interactor_ratio
+dot.df[dot.df$Direction=="negative",]$Score <- -dot.df[dot.df$Direction=="negative",]$Score
+dot.df$chr8q <- factor(dot.df$chr8q, levels=c(TRUE, FALSE))
+dot.df$drugTarget <- factor(dot.df$drugTarget, levels=c(TRUE, FALSE))
+
+n.sig <- nrow(dot.df[dot.df$q<=0.05 & dot.df$Terminal_minus_nonterminal_interactor_ratio>0,]) # 79
+n.total <- nrow(dot.df) # 8834
+perc.sig <- round(100*n.sig/n.total,2) # 0.52%
+title <- paste0(n.sig," / ",n.total, " (", perc.sig, "%) Proteins More Likely to\nInteract with Chr8q-affected Proteins")
+ggplot2::ggplot(dot.df, aes(x=Score, y = minusLogP_signed, color=chr8q, shape = drugTarget, size=N_interactor_terminals)) +
+  geom_vline(xintercept=0) + geom_hline(yintercept=0) +
+  geom_hline(yintercept=-log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_hline(yintercept=log10(0.05),color="lightgrey", linetype="dashed") +
+  geom_point() + theme_minimal(base_size=12) + scale_color_manual(values=c("red", "darkgrey"), 
+                                                                  breaks=levels(dot.df$chr8q)) + scale_shape_manual(values=c(17,19)) +
+  ggrepel::geom_text_repel(data=subset(dot.df, q <= 0.05), aes(label=Gene), show.legend=FALSE) + 
+  labs(x="Fraction of Interactions with Chr8q-affected Proteins",y=expression(paste("-log"[10]," (P-value)")),
+       size = "# of Interactions", color="Chr8q Gene", shape = "Drug Target") +
+  geom_point(data = subset(dot.df, drugTarget == FALSE & q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 21) +
+  geom_point(data = subset(dot.df, drugTarget == TRUE & q <= 0.05), aes(size=N_interactor_terminals), col = "black", shape = 24) +
+  ggtitle(title) + theme(plot.title=element_text(hjust=0.5))
+ggsave("STRINGNodes_volcanoPlot_q_v5.pdf",width=10,height=8)
+
+
 # 
 # maxLogP <- max(fisher.df$minusLogP)
 # maxRatio <- max(fisher.df$Terminal_interactor_ratio)
