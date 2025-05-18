@@ -1,7 +1,7 @@
 # analyzing IncuCyte results
 library(plyr); library(dplyr); library(tidyr)
-setwd("~/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8")
-dataPath <- "/Users/gara093/Downloads/Chr8 IncuCyte drug testing"
+setwd("~/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/drugScreens/WU")
+dataPath <- "~/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/drugScreens/WU/Chr8 IncuCyte drug testing"
 exp <- list.files(dataPath)
 meta <- data.frame(exp)
 meta <- meta %>% tidyr::separate_wider_delim(exp, " ", 
