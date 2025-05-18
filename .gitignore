@@ -105,3 +105,7 @@ proteomics/PCSF_TFProteinKinase_2024-12-06_kinasesRenamed/positive/degExp_2/mu_0
 proteomics/.DS_Store
 proteomics/study_design/.DS_Store
 .DS_Store
+*.xlsx
+/drugScreens/JH/sklearn-env
+*.tsv
+*.0
