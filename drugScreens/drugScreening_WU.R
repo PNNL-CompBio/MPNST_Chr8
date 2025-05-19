@@ -62,6 +62,7 @@ for (i in exp) {
 all.df$time_unit <- "h"
 all.df$author <- "DB"
 write.csv(all.df, paste0("DB_IncuCyte_data_", Sys.Date(),".csv"), row.names=FALSE)
+all.df <- read.csv("DB_IncuCyte_data_2025-05-15.csv")
 
 # add molecular weights to convert to micromolar
 all.df$MW <- NA
@@ -170,7 +171,7 @@ drugPlots <- function(death.df, unit="Death") {
 # get curve fitting script
 if (!file.exists("fit_curve.py")) {download.file('https://raw.githubusercontent.com/PNNL-CompBio/coderdata/refs/heads/main/build/utils/fit_curve.py',
               destfile="fit_curve.py")} # comment out line 268 (don't need to divide values by 100)
-maxConc <- c(10,20) # uM; all non-control concentrations: 0.04  0.08  0.16  0.32  0.63  1.25  2.50  5.00 10.00 20.00
+maxConc <- c(20) # uM; all non-control concentrations: 0.04  0.08  0.16  0.32  0.63  1.25  2.50  5.00 10.00 20.00
 for (m in maxConc) {
   # change colnames to use existing curve fitting script
   confluence.df <- all.df[grepl("Confluence Norm",all.df$unit) & all.df$Drug != "Control" &
@@ -233,6 +234,88 @@ for (m in maxConc) {
       axis.text.x=element_text(angle=45, vjust=1, hjust=1))
   ggsave(paste0("fit_auc_r2_confluence_dotPlot_max",m,"um_no_4-23-25.pdf"), width=10, height=3)
   
+  # also do relative confluence by dividing by control at each timepoint
+  # change colnames to use existing curve fitting script
+  confluence.df <- all.df[grepl("Confluence Norm",all.df$unit) & 
+                            all.df$concUM <= m & 
+                            all.df$exp != "DB JH-2-055d Gef Ribo 4-23-25" &
+                            all.df$exp != "DB WU-356 Gef Ribo 4-23-25",] # 20 um may be too high for gefitinib
+  #ctrl.confl <- confluence.df[confluence.df$Drug == "Control",] # 0 rows
+  ctrl.confl <- all.df[grepl("Confluence Norm",all.df$unit) & 
+                         #all.df$concUM <= m & # this was filtering out DMSO which matches max conc (20 uM)
+                         all.df$Drug == "Control" &
+                         all.df$exp != "DB JH-2-055d Gef Ribo 4-23-25" &
+                         all.df$exp != "DB WU-356 Gef Ribo 4-23-25",]
+  for (cellLine in unique(confluence.df$MPNST)) {
+    for (expt in unique(confluence.df$exp)) {
+      for (t in unique(confluence.df$Elapsed)) {
+        temp.val <- mean(ctrl.confl[ctrl.confl$Elapsed == t & ctrl.confl$MPNST == cellLine &
+                                      ctrl.confl$exp == expt,]$value, na.rm=TRUE)
+        confluence.df[confluence.df$Elapsed == t & confluence.df$MPNST == cellLine & 
+                        confluence.df$exp == expt,]$value <- 
+          (confluence.df[confluence.df$Elapsed == t & confluence.df$MPNST == cellLine & 
+                           confluence.df$exp == expt,]$value)/temp.val
+      }  
+    }
+  }
+  confluence.df <- confluence.df[confluence.df$Drug != "Control",]
+  confluence.df$study <- "Chr8"
+  #oldCols <- c("concentration","value", "study", "author", "MPNST", "Drug", "Elapsed", "time_unit")
+  oldCols <- c("concUM","value", "study", "author", "MPNST", "Drug", "Elapsed", "time_unit")
+  newCols <- c('DOSE','GROWTH','study','source','improve_sample_id','Drug','time','time_unit')
+  confluence.df <- confluence.df %>% rename_at(vars(oldCols), ~ newCols)
+  write.table(confluence.df[,newCols], paste0("chr8_relConfluence_max",m,"um_no_4-23-25.tsv"), sep="\t", row.names=FALSE)
+  
+  # plot each drug
+  drugPlots(confluence.df, "Relative Confluence")
+  
+  # run curve fitting
+  system2("python3", paste0("fit_curve.py --input chr8_relConfluence_max",m,
+                            "um_no_4-23-25.tsv --output chr8_relConfluenceCurves_max",m,"um_no_4-23-25"))
+  
+  confluence <- read.table(paste0("chr8_relConfluenceCurves_max",m,"um_no_4-23-25.0"), header=TRUE, fill=NA)
+  ## plot
+  # AUC
+  auc <- confluence[confluence$dose_response_metric=="fit_auc",]
+  drugPlots(auc, "Relative Confluence Area Under the Curve")
+  quantiles <- quantile(auc$dose_response_value)
+  auc$Quantile <- NA
+  for (q in names(quantiles)) {
+    if (any(auc$dose_response_value >= quantiles[[q]])){
+      auc[auc$dose_response_value >= quantiles[[q]],]$Quantile <- q 
+    }
+  }
+  auc$Quantile <- factor(auc$Quantile, names(quantiles))
+  #auc$time <- paste0(auc$time, "h")
+  #auc$time <- factor(auc$time, levels=c("48h", "120h"))
+  mean.auc <- plyr::ddply(auc, .(improve_drug_id), summarize,
+                          auc=mean(dose_response_value, na.rm=TRUE))
+  
+  # r2
+  r2 <- confluence[confluence$dose_response_metric=="fit_r2",]
+  quantiles <- quantile(r2$dose_response_value)
+  r2$Quantile <- NA
+  for (q in names(quantiles)) {
+    if (any(r2$dose_response_value >= quantiles[[q]])){
+      r2[r2$dose_response_value >= quantiles[[q]],]$Quantile <- q 
+    }
+  }
+  r2$Quantile <- factor(r2$Quantile, names(quantiles))
+  
+  # AUC with r2 fill
+  auc.r2 <- merge(auc, r2, by=c("improve_drug_id","improve_sample_id", "time"))
+  auc.r2[auc.r2$improve_sample_id=="JH-2-055d",]$improve_sample_id <- "JH-2-055d (diploid)"
+  auc.r2[auc.r2$improve_sample_id=="WU-356",]$improve_sample_id <- "WU-356 (gain)"
+  drugOrder <- unique(mean.auc[order(mean.auc$auc),]$improve_drug_id)
+  ggplot2::ggplot(auc.r2, 
+                  aes(x=time, y=dose_response_value.x, color=dose_response_value.y, shape=improve_sample_id)) + 
+    geom_point() + theme_classic(base_size=12) + facet_grid(.~improve_drug_id)+
+    labs(y="AUC: Normalized Confluence", x= "Time (h)", color=expression(paste("Fit R"^"2")), shape="MPNST") + 
+    theme(#axis.title.x=element_blank(), 
+      axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+  ggsave(paste0("fit_auc_r2_relconfluence_dotPlot_max",m,"um_no_4-23-25.pdf"), width=10, height=3)
+  hist(r2$dose_response_value)
+  
   death.df <- all.df[grepl("norm",all.df$unit, ignore.case=TRUE) & 
                        !grepl("confluence", all.df$unit, ignore.case=TRUE) & 
                        all.df$Drug != "Control" & all.df$concUM <= 10 &
@@ -293,6 +376,84 @@ for (m in maxConc) {
       axis.text.x=element_text(angle=45, vjust=1, hjust=1))
   ggsave(paste0("fit_auc_r2_death_dotPlot_max",m,"um_no_4-23-25.pdf"), width=10, height=3)
   
+  death.df <- all.df[grepl("norm",all.df$unit, ignore.case=TRUE) & 
+                       !grepl("confluence", all.df$unit, ignore.case=TRUE) & 
+                       all.df$Drug != "Control" & all.df$concUM <= 10 &
+                       all.df$exp != "DB JH-2-055d Gef Ribo 4-23-25" &
+                       all.df$exp != "DB WU-356 Gef Ribo 4-23-25",]
+  ctrl.death <- all.df[grepl("norm",all.df$unit, ignore.case=TRUE) & 
+                         !grepl("confluence", all.df$unit, ignore.case=TRUE) &
+                         #all.df$concUM <= m & # this was filtering out DMSO which matches max conc (20 uM)
+                         all.df$Drug == "Control" &
+                         all.df$exp != "DB JH-2-055d Gef Ribo 4-23-25" &
+                         all.df$exp != "DB WU-356 Gef Ribo 4-23-25",]
+  for (cellLine in unique(death.df$MPNST)) {
+    for (expt in unique(death.df$exp)) {
+      for (t in unique(death.df$Elapsed)) {
+        temp.val <- mean(ctrl.death[ctrl.death$Elapsed == t & ctrl.death$MPNST == cellLine &
+                                      ctrl.death$exp == expt,]$value, na.rm=TRUE)
+        death.df[death.df$Elapsed == t & death.df$MPNST == cellLine & 
+                   death.df$exp == expt,]$value <- 
+          (death.df[death.df$Elapsed == t & death.df$MPNST == cellLine & 
+                      death.df$exp == expt,]$value)/temp.val
+      }  
+    }
+  }
+  death.df <- death.df[death.df$Drug != "Control",]
+  death.df$study <- "Chr8"
+  #oldCols <- c("concentration","value", "study", "author", "MPNST", "Drug", "Elapsed", "time_unit")
+  oldCols <- c("concUM","value", "study", "author", "MPNST", "Drug", "Elapsed", "time_unit")
+  newCols <- c('DOSE','GROWTH','study','source','improve_sample_id','Drug','time','time_unit')
+  death.df <- death.df %>% rename_at(vars(oldCols), ~ newCols)
+  write.table(death.df[,newCols], paste0("chr8_relDeath_max",m,"um_no_4-23-25.tsv"), sep="\t", row.names=FALSE)
+  
+  # plot each drug
+  drugPlots(death.df, "Relative Death")
+  
+  # run curve fitting
+  system2("python3", paste0("fit_curve.py --input chr8_relDeath_max",m,
+                            "um_no_4-23-25.tsv --output chr8_relDeathCurves_max",m,"um_no_4-23-25"))
+  death <- read.table(paste0("chr8_relDeathCurves_max",m,"um_no_4-23-25.0"), header=TRUE, fill=NA)
+  ## plot
+  # AUC
+  auc <- death[death$dose_response_metric=="fit_auc",]
+  drugPlots(auc, "Relative Death Area Under the Curve")
+  quantiles <- quantile(auc$dose_response_value)
+  auc$Quantile <- NA
+  for (q in names(quantiles)) {
+    if (any(auc$dose_response_value >= quantiles[[q]])){
+      auc[auc$dose_response_value >= quantiles[[q]],]$Quantile <- q 
+    }
+  }
+  auc$Quantile <- factor(auc$Quantile, names(quantiles))
+  #auc$time <- paste0(auc$time, "h")
+  #auc$time <- factor(auc$time, levels=c("48h", "120h"))
+  mean.auc <- plyr::ddply(auc, .(improve_drug_id), summarize,
+                          auc=mean(dose_response_value, na.rm=TRUE))
+  
+  # r2
+  r2 <- death[death$dose_response_metric=="fit_r2",]
+  quantiles <- quantile(r2$dose_response_value)
+  r2$Quantile <- NA
+  for (q in names(quantiles)) {
+    if (any(r2$dose_response_value >= quantiles[[q]])){
+      r2[r2$dose_response_value >= quantiles[[q]],]$Quantile <- q 
+    }
+  }
+  r2$Quantile <- factor(r2$Quantile, names(quantiles))
+  
+  # AUC with r2 fill
+  auc.r2 <- merge(auc, r2, by=c("improve_drug_id","improve_sample_id", "time"))
+  auc.r2[auc.r2$improve_sample_id=="JH-2-055d",]$improve_sample_id <- "JH-2-055d (diploid)"
+  auc.r2[auc.r2$improve_sample_id=="WU-356",]$improve_sample_id <- "WU-356 (gain)"
+  drugOrder <- unique(mean.auc[order(mean.auc$auc),]$improve_drug_id)
+  ggplot2::ggplot(auc.r2, 
+                  aes(x=time, y=dose_response_value.x, color=dose_response_value.y, shape=improve_sample_id)) + 
+    geom_point() + theme_classic(base_size=12) + facet_grid(.~improve_drug_id)+
+    labs(y="AUC: Normalized Death", x= "Time (h)", color=expression(paste("Fit R"^"2")), shape="MPNST") + 
+    theme(#axis.title.x=element_blank(), 
+      axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+  ggsave(paste0("fit_auc_r2_reldeath_dotPlot_max",m,"um_no_4-23-25.pdf"), width=10, height=3)
 }
 
 confluence <- read.table("chr8_normConfluenceCurves.0", header=TRUE, fill=NA)
