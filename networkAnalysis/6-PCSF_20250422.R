@@ -232,7 +232,7 @@ pos.centrality <- data.frame(name = V(topGraph)$name,
 write.csv(pos.centrality, "positive_centrality.csv", row.names=FALSE)
 pos.vert <- read.csv("positive_vertices.csv")
 pos.edges <- read.csv("positive_edges.csv")
-
+pos.centrality <- read.csv("positive_centrality.csv")
 chr8.pos.centr <- pos.centrality[pos.centrality$name %in% chr8q.genes,]
 
 neg.edges <- STRINGv12[STRINGv12$from %in% neg.terms | STRINGv12$to %in% neg.terms,] # 26390
@@ -258,6 +258,7 @@ neg.centrality <- data.frame(name = V(topGraph)$name,
 write.csv(neg.centrality, "negative_centrality.csv", row.names=FALSE)
 neg.vert <- read.csv("negative_vertices.csv")
 neg.edges <- read.csv("negative_edges.csv")
+neg.centrality <- read.csv("negative_centrality.csv")
 
 chr8.neg.centr <- neg.centrality[neg.centrality$name %in% chr8q.genes,]
 chr8.neg.centr$Direction <- "negative"
@@ -268,6 +269,9 @@ chr8.degree <- plyr::ddply(chr8.centr, .(name), summarize,
                                 meanDegree = mean(degree),
                                 sumDegree = sum(degree),
                                 meanCentrality = mean(eigen_centrality))
+write.csv(chr8.degree, "chr8q_centrality.csv", row.names=FALSE)
+chr8.degree$centrPerDegree <- chr8.degree$meanCentrality/chr8.degree$meanDegree
+chr8.degree$centrPerSumDegree <- chr8.degree$meanCentrality/chr8.degree$sumDegree
 
 pos.reg <- c(tf.result[tf.result$NES>0,]$Gene) # 205
 pos.reg.edges <- STRINGv12[STRINGv12$from %in% pos.reg | STRINGv12$to %in% pos.reg,] # 38180
@@ -289,6 +293,7 @@ pos.reg.centrality[pos.reg.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(pos.reg.centrality, "positive_TFKin_centrality.csv", row.names=FALSE)
 write.csv(pos.reg.vert, "positive_TFKin_vertices.csv", row.names=FALSE)
 write.csv(pos.reg.edges, "positive_TFKin_edges.csv", row.names=FALSE)
+pos.reg.centrality <- read.csv("positive_TFKin_centrality.csv")
 
 neg.reg <- c(tf.result[tf.result$NES<0,]$Gene, kin.result[kin.result$NES<0,]$Feature_set) # 3
 neg.reg.edges <- STRINGv12[STRINGv12$from %in% neg.reg | STRINGv12$to %in% neg.reg,] # 1172
@@ -310,11 +315,13 @@ neg.reg.centrality[neg.reg.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(neg.reg.centrality, "negative_TFKin_centrality.csv", row.names=FALSE)
 write.csv(neg.reg.vert, "negative_TFKin_vertices.csv", row.names=FALSE)
 write.csv(neg.reg.edges, "negative_TFKin_edges.csv", row.names=FALSE)
+neg.reg.centrality <- read.csv("negative_TFKin_centrality.csv")
 
 neg.reg.centrality$Direction <- "negative"
 pos.reg.centrality$Direction <- "positive"
 chr8q.reg.centrality <- rbind(pos.reg.centrality[pos.reg.centrality$chr8q,], 
                               neg.reg.centrality[neg.reg.centrality$chr8q,]) # 173
+write.csv(chr8q.reg.centrality, "chr8q_TFKin_centrality.csv", row.names=FALSE)
 chr8q.reg.degree <- plyr::ddply(chr8q.reg.centrality, .(name), summarize,
                                 Directions = paste0(sort(unique(Direction)), collapse=", "),
                                 meanDegree = mean(degree),
@@ -323,6 +330,7 @@ chr8q.reg.degree <- plyr::ddply(chr8q.reg.centrality, .(name), summarize,
                                 meanCentrality = mean(eigen_centrality),
                                 sdCentrality = sd(eigen_centrality))
 write.csv(chr8q.reg.degree, "chr8q_TFKin_meanCentrality.csv", row.names=FALSE)
+chr8q.reg.degree <- read.csv("chr8q_TFKin_meanCentrality.csv")
 
 bar.df <- chr8q.reg.degree[chr8q.reg.degree$Directions=="negative, positive",]
 ggplot2::ggplot(bar.df, aes(x=meanCentrality, y=name)) + geom_bar(stat="identity", alpha=0.7) +
@@ -338,6 +346,30 @@ ggplot2::ggplot(bar.df2, aes(x=eigen_centrality, y=name)) + #geom_violin() +
   theme(legend.position="inside", legend.position.inside = c(0.7,0.5)) +
   scale_y_discrete(limits=bar.df[order(bar.df$meanCentrality),]$name)
 ggsave("chr8qGeneCentralityTFKinNetworks.pdf",width=3.5,height=3)
+
+ggplot2::ggplot(bar.df2, aes(x=eigen_centrality, y=name)) + #geom_violin() +
+  geom_bar(stat="summary", fun="mean", fill="grey") + geom_point(aes(shape=Direction))+ 
+  scale_shape_manual(values=c(2,6), labels=c("Upregulated\nNetwork","Downregulated\nNetwork"), breaks=c("positive","negative")) +
+  theme_classic(base_size=12) + labs(x="Centrality", y=NULL) + 
+  theme(legend.position="inside", legend.position.inside = c(0.7,0.5)) +
+  scale_y_discrete(limits=bar.df[order(bar.df$meanCentrality),]$name)
+ggsave("chr8qGeneCentralityTFKinNetworks_barPlotWithPoints.pdf",width=3.5,height=3)
+
+ggplot2::ggplot(bar.df2, aes(x=eigen_centrality, y=name, fill=Direction)) +
+  geom_bar(position="dodge",stat="identity", alpha=0.7) + 
+  scale_fill_manual(values=c("red","blue"), labels=c("Upregulated\nNetwork","Downregulated\nNetwork"), breaks=c("positive","negative")) +
+  theme_classic(base_size=12) + labs(x="Centrality", y=NULL) + 
+  theme(legend.position="inside", legend.position.inside = c(0.7,0.5)) +
+  scale_y_discrete(limits=bar.df[order(bar.df$meanCentrality),]$name)
+ggsave("chr8qGeneCentralityTFKinNetworks_barPlot.pdf",width=3.5,height=3)
+
+ggplot2::ggplot(bar.df2, aes(x=eigen_centrality, y=name, fill=Direction)) +
+  geom_bar(stat="identity", alpha=0.7) + 
+  scale_fill_manual(values=c("red","blue"), labels=c("Upregulated\nNetwork","Downregulated\nNetwork"), breaks=c("positive","negative")) +
+  theme_classic(base_size=12) + labs(x="Centrality", y=NULL) + 
+  theme(legend.position="inside", legend.position.inside = c(0.7,0.5)) +
+  scale_y_discrete(limits=bar.df[order(bar.df$meanCentrality),]$name)
+ggsave("chr8qGeneCentralityTFKinNetworks_barPlotStacked.pdf",width=3.5,height=3)
   
 # look for connections between chr8q genes and altered TFs/kinases
 neg.tf.con <- neg.edges[(neg.edges$from %in% c(tf.result$Gene, kin.result$Feature_set) | 
@@ -430,6 +462,48 @@ neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     hub_score = igraph::hub_score(topGraph)$vector,
                                     authority_score = igraph::authority_score(topGraph)$vector)
 write.csv(neg.tf.con.centrality, "negative_MYC_EGFR_centrality.csv", row.names=FALSE)
+
+
+neg.tf.con <- neg.edges[neg.edges$from %in% c("MYC", "HRH1") | neg.edges$to %in% c("MYC", "HRH1"),] # 68
+neg.tf.con.vert <- neg.vert[neg.vert$from %in% c(neg.tf.con$from, neg.tf.con$to),] # 32
+topGraph <- igraph::graph_from_data_frame(neg.tf.con, directed=FALSE, vertices=neg.tf.con.vert) 
+#plot(topGraph)
+tempTitle <- paste0("negative", "_", nrow(neg.tf.con.vert),"_MYC_HRH1_manual_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+write.csv(neg.tf.con.vert, "negative_MYC_HRH1_vertices.csv", row.names=FALSE)
+write.csv(neg.tf.con, "negative_MYC_HRH1_edges.csv", row.names=FALSE)
+neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
+                                    degree = igraph::degree(topGraph, mode="all"),
+                                    closeness = igraph::closeness(topGraph, mode="all"),
+                                    betweenness = igraph::betweenness(topGraph, directed = FALSE),
+                                    eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+                                    hub_score = igraph::hub_score(topGraph)$vector,
+                                    authority_score = igraph::authority_score(topGraph)$vector)
+write.csv(neg.tf.con.centrality, "negative_MYC_HRH1_centrality.csv", row.names=FALSE)
+# MYC and HRH1 not connected in this network
+# try pulling from STRING again
+neg.tf.con <- STRINGv12[STRINGv12$from %in% c("MYC", "HRH1") | STRINGv12$to %in% c("MYC", "HRH1"),]
+from <- unique(c(neg.tf.con$from, neg.tf.con$to))
+neg.tf.con.vert <- data.frame(from, type="Inferred", Omics=NA, chr8q=FALSE)
+neg.tf.con.vert[neg.tf.con.vert$from %in% sig.global[sig.global$Spearman.est<0,]$Gene,]$Omics <- "Protein"
+neg.tf.con.vert[neg.tf.con.vert$from %in% sig.tf[sig.tf$NES<0,]$Gene,]$Omics <- "TF"
+neg.tf.con.vert[neg.tf.con.vert$from %in% sig.kin[sig.kin$NES<0,]$Feature_set,]$Omics <- "Kinase"
+neg.tf.con.vert[!is.na(neg.tf.con.vert$Omics),]$type <- "Terminal"
+neg.tf.con.vert[neg.tf.con.vert$from %in% chr8q.genes,]$chr8q <- TRUE
+topGraph <- igraph::graph_from_data_frame(neg.tf.con, directed=FALSE, vertices=neg.tf.con.vert) 
+#plot(topGraph)
+tempTitle <- paste0("STRING_negative", "_", nrow(neg.tf.con.vert),"_MYC_HRH1_manual_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+write.csv(neg.tf.con.vert, "STRING_negative_MYC_HRH1_vertices.csv", row.names=FALSE)
+write.csv(neg.tf.con, "STRING_negative_MYC_HRH1_edges.csv", row.names=FALSE)
+neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
+                                    degree = igraph::degree(topGraph, mode="all"),
+                                    closeness = igraph::closeness(topGraph, mode="all"),
+                                    betweenness = igraph::betweenness(topGraph, directed = FALSE),
+                                    eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
+                                    hub_score = igraph::hub_score(topGraph)$vector,
+                                    authority_score = igraph::authority_score(topGraph)$vector)
+write.csv(neg.tf.con.centrality, "STRING_negative_MYC_HRH1_centrality.csv", row.names=FALSE)
 
 pos.tf.con <- pos.edges[pos.edges$from %in% c("MYC", "PLK1") | pos.edges$to %in% c("MYC", "PLK1"),] # 118
 pos.tf.con.vert <- pos.vert[pos.vert$from %in% c(pos.tf.con$from, pos.tf.con$to),] # 58
