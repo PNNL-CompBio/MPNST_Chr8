@@ -29,6 +29,7 @@ ksea$Collection <- "PhosphoSitePlus"
 all.gsea <- rbind(gsea.cn, gsea.rna.hall,
                   gsea.prot.hall, gsea.rna.tf, ksea)
 write.csv(all.gsea, "SupplementaryTable2_GSEA_and_KSEA.csv", row.names=FALSE)
+all.gsea <- read.csv("SupplementaryTable2_GSEA_and_KSEA.csv")
 all.gsea$Significant <- FALSE
 all.gsea[all.gsea$p_value <= 0.05 & all.gsea$FDR_q_value <= 0.25,]$Significant <- TRUE
 
@@ -95,6 +96,8 @@ for (n in n.cutoff) {
       plot.annot <- paste0("Kinases\n(", nTopGenes, " / ", nGenes, " enriched)")
     }
     dot.plots[[i]] <- dot.plot + ggtitle(plot.annot) + theme(plot.title = element_text(hjust = 0.5, face="bold", size=16))
+    ggplot2::ggsave(paste0(i,"_Enriched_geneSets_dotPlot_patchworkCollection_",25,"maxByNES_2025-04-18.pdf"), dot.plots[[i]], width=2, height=length(geneOrder)/5)
+    ggplot2::ggsave(paste0(i,"_Enriched_geneSets_dotPlot_patchworkCollection_",25,"maxByNES_2025-04-18_wider.pdf"), dot.plots[[i]], width=4.2, height=length(geneOrder)/5)
   }
   all.dot.plots[[as.character(n)]] <- dot.plots
 }
