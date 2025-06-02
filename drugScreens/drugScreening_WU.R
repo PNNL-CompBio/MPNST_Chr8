@@ -1,5 +1,5 @@
 # analyzing IncuCyte results
-library(plyr); library(dplyr); library(tidyr)
+library(plyr); library(dplyr); library(tidyr);library(ggplot2)
 setwd("~/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/drugScreens/WU")
 dataPath <- "~/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/drugScreens/WU/Chr8 IncuCyte drug testing"
 exp <- list.files(dataPath)
@@ -81,6 +81,62 @@ all.df$concUM <- as.numeric(all.df$concUM)
 all.df[all.df$concUnit == "mg/ml",]$concUM <- (10^6)*as.numeric(all.df[all.df$concUnit == "mg/ml",]$concentration) / as.numeric(all.df[all.df$concUnit == "mg/ml",]$MW)
 all.df$concUnitUM <- "um"
 
+chr8_tTest <- function(drug.df, unit) {
+  # reduce to overlapping parameters (dose, time) and filter for cell types
+  wu <- drug.df[drug.df$improve_sample_id == "WU-356",]
+  wu.params <- unique(wu$sample)
+  jh <- drug.df[drug.df$improve_sample_id == "JH-2-055d",]
+  jh.params <- unique(jh$sample)
+  shared.params <- wu.params[wu.params %in% jh.params]
+  wu <- wu[wu$sample %in% shared.params,]
+  jh <- jh[jh$sample %in% shared.params,]
+  
+  # compare paired results
+  if ("GROWTH" %in% colnames(wu)) {
+    wu <- wu[order(wu$sample),]$GROWTH
+    jh <- jh[order(jh$sample),]$GROWTH
+  } else {
+    wu <- wu[order(wu$sample),]$dose_response_value
+    jh <- jh[order(jh$sample),]$dose_response_value
+  }
+  if (length(wu) == length(jh)) {
+    paired <- TRUE
+  } else {paired <- FALSE}
+  if (grepl("Death",unit, ignore.case=TRUE)) {
+    if (median(wu) < median(jh)) {
+      drug.p <- t.test(jh, wu, alternative="greater", paired=paired)$p.value 
+      if (paired) {
+        title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+      } else {
+        title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+      }
+    } else {
+      drug.p <- t.test(wu, jh, alternative="greater", paired=paired)$p.value 
+      if (paired) {
+        title <- paste0("WU-356 (gain) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+      } else {
+        title <- paste0("WU-356 (gain) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+      }
+    } 
+  } else {
+    if (median(wu) > median(jh)) {
+      drug.p <- t.test(wu, jh, alternative="greater", paired=paired)$p.value 
+      if (paired) {
+        title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+      } else {
+        title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+      }
+    } else {
+      drug.p <- t.test(jh, wu, alternative="greater", paired=paired)$p.value 
+      if (paired) {
+        title <- paste0("WU-356 (gain) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+      } else {
+        title <- paste0("WU-356 (gain) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+      }
+    }
+  }
+  return(title)
+}
 drugPlots <- function(death.df, unit="Death") {
   # plot each drug
   if ("Drug" %in% colnames(death.df)) {
@@ -99,59 +155,7 @@ drugPlots <- function(death.df, unit="Death") {
       drug.df$sample <- paste0(drug.df$time,"h")
     }
     
-    # reduce to overlapping parameters (dose, time) and filter for cell types
-    wu <- drug.df[drug.df$improve_sample_id == "WU-356",]
-    wu.params <- unique(wu$sample)
-    jh <- drug.df[drug.df$improve_sample_id == "JH-2-055d",]
-    jh.params <- unique(jh$sample)
-    shared.params <- wu.params[wu.params %in% jh.params]
-    wu <- wu[wu$sample %in% shared.params,]
-    jh <- jh[jh$sample %in% shared.params,]
-    
-    # compare paired results
-    if ("GROWTH" %in% colnames(wu)) {
-      wu <- wu[order(wu$sample),]$GROWTH
-      jh <- jh[order(jh$sample),]$GROWTH
-    } else {
-      wu <- wu[order(wu$sample),]$dose_response_value
-      jh <- jh[order(jh$sample),]$dose_response_value
-    }
-    if (length(wu) == length(jh)) {
-      paired <- TRUE
-    } else {paired <- FALSE}
-    if (grepl("Death",unit, ignore.case=TRUE)) {
-      if (median(wu) < median(jh)) {
-        drug.p <- t.test(jh, wu, alternative="greater", paired=paired)$p.value 
-        if (paired) {
-          title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
-        } else {
-          title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
-        }
-      } else {
-        drug.p <- t.test(wu, jh, alternative="greater", paired=paired)$p.value 
-        if (paired) {
-          title <- paste0("WU-356 (gain) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
-        } else {
-          title <- paste0("WU-356 (gain) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
-        }
-      } 
-    } else {
-      if (median(wu) > median(jh)) {
-      drug.p <- t.test(wu, jh, alternative="greater", paired=paired)$p.value 
-      if (paired) {
-        title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
-      } else {
-        title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
-      }
-    } else {
-      drug.p <- t.test(jh, wu, alternative="greater", paired=paired)$p.value 
-      if (paired) {
-        title <- paste0("WU-356 (gain) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
-      } else {
-        title <- paste0("WU-356 (gain) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
-      }
-    }
-    }
+    title <- chr8_tTest(drug.df, unit)
     if ("GROWTH" %in% colnames(drug.df)) {
       ggplot2::ggplot(drug.df, aes(x=time, y=GROWTH, color=improve_sample_id)) + 
         geom_point() + facet_grid(.~DOSEum) + ggtitle(title) + theme_classic() +
@@ -625,3 +629,79 @@ gef.test <- t.test(wu.gef.death, jh.gef.death, alternative="greater", paired=TRU
 # wu.vol.death is greater (p=3.948041e-274; WU-256 mean 1.39417, JH-2-055d mean 0.7310665) - does not support hypothesis
 mean(wu.gef.death)
 mean(jh.gef.death)
+
+#### also just plot 5d to match data from JH ####
+# get data
+rel.conf <- read.table("WU/chr8_relConfluence_max20um_no_4-23-25.tsv", sep="\t", header=TRUE)
+rel.death <- read.table("WU/chr8_relDeath_max20um_no_4-23-25.tsv", sep="\t", header=TRUE)
+
+# annotate chr8q status
+rel.conf$chr8q <- "Amplified"
+rel.conf[rel.conf$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
+rel.death$chr8q <- "Amplified"
+rel.death[rel.death$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
+
+# add sample column with all parameters
+rel.conf$sample <- paste0(rel.conf$Drug,
+                             "_",rel.conf$DOSE,"uM")
+rel.death$sample <- paste0(rel.death$Drug,
+                              "_",rel.death$DOSE,"uM")
+#times <- unique(c(rel.conf$time, rel.death$time)) # too many
+times <- c(48,72,96)
+setwd("WU")
+dir.create("singleTimePlots")
+setwd("singleTimePlots")
+library(drc) # curve source: answer by greenjune: https://stackoverflow.com/questions/36780357/plotting-dose-response-curves-with-ggplot2-and-drc
+for (t in times) {
+  rel.conf.96 <- rel.conf[rel.conf$time==t,]
+  rel.death.96 <- rel.death[rel.death$time==t,]
+  drugs <- unique(c(rel.conf.96$Drug, rel.death.96$Drug)) # all 6 drugs are now present: AT7519, Mirdametinib, Gefitinib, Ribociclib, Alrizo, Volas
+  mpnst <- unique(c(rel.conf.96$improve_sample_id,rel.death.96$improve_sample_id)) # all 2 cell lines: JH-2-055d and WU-356
+  
+  # plot relative confluence and relative death for each drug
+  for (d in drugs) {
+    # filter for drug
+    drug.conf <- rel.conf.96[rel.conf.96$Drug == d,]
+    drug.death <- rel.death.96[rel.death.96$Drug == d,]
+    
+    # run t-tests between WU-356 (chr8q-gain) and JH-2-055d (chr8q-diploid)
+    conf.title <- chr8_tTest(drug.conf, "Relative Confluence")
+    death.title <- chr8_tTest(drug.death, "Relative Death")
+    
+    # generate plots
+    conf.plot <- ggplot(drug.conf, aes(x=DOSE, y=GROWTH, shape=chr8q, color=improve_sample_id)) +
+      geom_point() + geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.3())) + ggtitle(conf.title) +
+      theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "Relative Confluence", 
+                                         shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+    ggsave(paste0(d,"_",t,"h_relConfluence_max20um_no_4-23-25_v2.pdf"),conf.plot,width=4,height=3)
+    
+    death.plot <- ggplot(drug.death, aes(x=DOSE, y=GROWTH, shape=chr8q, color=improve_sample_id)) +
+      geom_point() + geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.3())) + ggtitle(death.title) +
+      theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "Relative Death", 
+                                         shape = "Chr8q Status", color = "MPNST Cell Line") + 
+      theme(plot.title=element_text(face="bold",hjust=0.5))
+    ggsave(paste0(d,"_",t,"_relDeath_max20um_no_4-23-25_v2.pdf"),death.plot,width=4,height=3)
+    
+    ## try filtering to remove very high concentrations
+    conc.max <- c(0.2,0.5,1,1.25,2.5,5)
+    for (c in conc.max) {
+      # run t-tests between WU-356 (chr8q-gain) and JH-2-055d (chr8q-diploid)
+      conf.title <- chr8_tTest(drug.conf[drug.conf$DOSE <= c,], "Relative Confluence")
+      death.title <- chr8_tTest(drug.death[drug.death$DOSE <= c,], "Relative Death")
+      
+      # generate plots
+      conf.plot <- ggplot(drug.conf[drug.conf$DOSE <= c,], aes(x=DOSE, y=GROWTH, shape=chr8q, color=improve_sample_id)) +
+        geom_point() + geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.3())) + ggtitle(conf.title) +
+        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "Relative Confluence", 
+                                           shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_v2.pdf"),conf.plot,width=4,height=3)
+      
+      death.plot <- ggplot(drug.death[drug.death$DOSE <= c,], aes(x=DOSE, y=GROWTH, shape=chr8q, color=improve_sample_id)) +
+        geom_point() + geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.3())) + ggtitle(death.title) +
+        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "Relative Death", 
+                                           shape = "Chr8q Status", color = "MPNST Cell Line") + 
+        theme(plot.title=element_text(face="bold",hjust=0.5))
+      ggsave(paste0(d,"_",t,"_relDeath_max",c,"um_no_4-23-25_v2.pdf"),death.plot,width=4,height=3) 
+    }
+  }
+}
