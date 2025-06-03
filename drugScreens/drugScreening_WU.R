@@ -635,52 +635,86 @@ mean(jh.gef.death)
 rel.conf <- read.table("WU/chr8_relConfluence_max20um_no_4-23-25.tsv", sep="\t", header=TRUE)
 rel.death <- read.table("WU/chr8_relDeath_max20um_no_4-23-25.tsv", sep="\t", header=TRUE)
 
+# calculate mean and sd for each drug, dose, mpnst, time combo; also preserve sample and chr8q columns
+mean.conf <- plyr::ddply(rel.conf, .(improve_sample_id, time, Drug, DOSE), summarize,
+                         meanGROWTH = mean(GROWTH, na.rm=TRUE),
+                         sdGROWTH = sd(GROWTH, na.rm=TRUE))
+mean.death <- plyr::ddply(rel.death, .(improve_sample_id, time, Drug, DOSE), summarize,
+                         meanGROWTH = mean(GROWTH, na.rm=TRUE),
+                         sdGROWTH = sd(GROWTH, na.rm=TRUE))
+
 # annotate chr8q status
-rel.conf$chr8q <- "Amplified"
-rel.conf[rel.conf$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
-rel.death$chr8q <- "Amplified"
-rel.death[rel.death$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
+mean.conf$chr8q <- "Amplified"
+mean.conf[mean.conf$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
+mean.death$chr8q <- "Amplified"
+mean.death[mean.death$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
 
 # add sample column with all parameters
-rel.conf$sample <- paste0(rel.conf$Drug,
-                             "_",rel.conf$DOSE,"uM")
-rel.death$sample <- paste0(rel.death$Drug,
-                              "_",rel.death$DOSE,"uM")
+mean.conf$sample <- paste0(mean.conf$Drug,
+                          "_",mean.conf$DOSE,"uM")
+mean.death$sample <- paste0(mean.death$Drug,
+                           "_",mean.death$DOSE,"uM")
+
 #times <- unique(c(rel.conf$time, rel.death$time)) # too many
-times <- c(48,72,96)
+times <- c(24,48,72,96,120)
 setwd("WU")
 dir.create("singleTimePlots")
 setwd("singleTimePlots")
 library(drc) # curve source: answer by greenjune: https://stackoverflow.com/questions/36780357/plotting-dose-response-curves-with-ggplot2-and-drc
+# Sara shared these 2 links: https://stackoverflow.com/questions/68209998/plot-drc-using-ggplot; https://forum.posit.co/t/extract-out-points-in-dose-response-curve-produced-by-drc/159433
 for (t in times) {
   rel.conf.96 <- rel.conf[rel.conf$time==t,]
   rel.death.96 <- rel.death[rel.death$time==t,]
-  drugs <- unique(c(rel.conf.96$Drug, rel.death.96$Drug)) # all 6 drugs are now present: AT7519, Mirdametinib, Gefitinib, Ribociclib, Alrizo, Volas
-  mpnst <- unique(c(rel.conf.96$improve_sample_id,rel.death.96$improve_sample_id)) # all 2 cell lines: JH-2-055d and WU-356
+  mean.conf.96 <- mean.conf[mean.conf$time==t,]
+  mean.death.96 <- mean.death[mean.death$time==t,]
+  drugs <- unique(c(mean.conf.96$Drug, mean.death.96$Drug)) # all 6 drugs are now present: AT7519, Mirdametinib, Gefitinib, Ribociclib, Alrizo, Volas
+  mpnst <- unique(c(mean.conf.96$improve_sample_id,mean.death.96$improve_sample_id)) # all 2 cell lines: JH-2-055d and WU-356
   
   # plot relative confluence and relative death for each drug
   for (d in drugs) {
     # filter for drug
     drug.conf <- rel.conf.96[rel.conf.96$Drug == d,]
     drug.death <- rel.death.96[rel.death.96$Drug == d,]
+    mean.drug.conf <- mean.conf.96[mean.conf.96$Drug == d,]
+    mean.drug.death <- mean.death.96[mean.death.96$Drug == d,]
     
     # run t-tests between WU-356 (chr8q-gain) and JH-2-055d (chr8q-diploid)
     conf.title <- chr8_tTest(drug.conf, "Relative Confluence")
     death.title <- chr8_tTest(drug.death, "Relative Death")
     
     # generate plots
-    conf.plot <- ggplot(drug.conf, aes(x=DOSE, y=GROWTH, shape=chr8q, color=improve_sample_id)) +
-      geom_point() + geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.3())) + ggtitle(conf.title) +
+    conf.plot <- ggplot(mean.drug.conf, aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+      geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.4())) + 
+      geom_point() + geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+      ggtitle(conf.title) +
       theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "Relative Confluence", 
                                          shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
     ggsave(paste0(d,"_",t,"h_relConfluence_max20um_no_4-23-25_v2.pdf"),conf.plot,width=4,height=3)
     
-    death.plot <- ggplot(drug.death, aes(x=DOSE, y=GROWTH, shape=chr8q, color=improve_sample_id)) +
-      geom_point() + geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.3())) + ggtitle(death.title) +
+    death.plot <- ggplot(mean.drug.death, aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+      geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.4())) + 
+      geom_point() + geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+      ggtitle(death.title) +
       theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "Relative Death", 
                                          shape = "Chr8q Status", color = "MPNST Cell Line") + 
       theme(plot.title=element_text(face="bold",hjust=0.5))
-    ggsave(paste0(d,"_",t,"_relDeath_max20um_no_4-23-25_v2.pdf"),death.plot,width=4,height=3)
+    ggsave(paste0(d,"_",t,"h_relDeath_max20um_no_4-23-25_v2.pdf"),death.plot,width=4,height=3)
+    
+    conf.plot <- ggplot(mean.drug.conf, aes(x=log10(DOSE), y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+      geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.4())) + 
+      geom_point() + geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+      ggtitle(conf.title) + theme_classic(base_size=12) + 
+      labs(x="Log|Concentration (uM)|", y = "Relative Confluence", shape = "Chr8q Status", color = "MPNST Cell Line") + 
+      theme(plot.title=element_text(face="bold",hjust=0.5))
+    ggsave(paste0(d,"_",t,"h_relConfluence_max20um_no_4-23-25_v2_log10.pdf"),conf.plot,width=4,height=3)
+    
+    death.plot <- ggplot(mean.drug.death, aes(x=log10(DOSE), y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+      geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.4())) + 
+      geom_point() + geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=1) +
+      ggtitle(death.title) + theme_classic(base_size=12) + 
+      labs(x="Log|Concentration (uM)|", y = "Relative Death", shape = "Chr8q Status", color = "MPNST Cell Line") + 
+      theme(plot.title=element_text(face="bold",hjust=0.5))
+    ggsave(paste0(d,"_",t,"h_relDeath_max20um_no_4-23-25_v2_log10.pdf"),death.plot,width=4,height=3)
     
     ## try filtering to remove very high concentrations
     conc.max <- c(0.2,0.5,1,1.25,2.5,5)
@@ -690,18 +724,38 @@ for (t in times) {
       death.title <- chr8_tTest(drug.death[drug.death$DOSE <= c,], "Relative Death")
       
       # generate plots
-      conf.plot <- ggplot(drug.conf[drug.conf$DOSE <= c,], aes(x=DOSE, y=GROWTH, shape=chr8q, color=improve_sample_id)) +
-        geom_point() + geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.3())) + ggtitle(conf.title) +
+      conf.plot <- ggplot(mean.drug.conf[drug.conf$DOSE <= c,], aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+        geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.4())) + 
+        geom_point() + geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=1) +
+        ggtitle(conf.title) +
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "Relative Confluence", 
                                            shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
       ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_v2.pdf"),conf.plot,width=4,height=3)
       
-      death.plot <- ggplot(drug.death[drug.death$DOSE <= c,], aes(x=DOSE, y=GROWTH, shape=chr8q, color=improve_sample_id)) +
-        geom_point() + geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.3())) + ggtitle(death.title) +
+      death.plot <- ggplot(mean.drug.death[drug.death$DOSE <= c,], aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+        geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.4())) + 
+        geom_point() + geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=1) +
+        ggtitle(death.title) +
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "Relative Death", 
                                            shape = "Chr8q Status", color = "MPNST Cell Line") + 
         theme(plot.title=element_text(face="bold",hjust=0.5))
-      ggsave(paste0(d,"_",t,"_relDeath_max",c,"um_no_4-23-25_v2.pdf"),death.plot,width=4,height=3) 
+      ggsave(paste0(d,"_",t,"h_relDeath_max",c,"um_no_4-23-25_v2.pdf"),death.plot,width=4,height=3) 
+      
+      conf.plot <- ggplot(mean.drug.conf[drug.conf$DOSE <= c,], aes(x=log10(DOSE), y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+        geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.4())) +
+        geom_point() + geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+        ggtitle(conf.title) +
+        theme_classic(base_size=12) + labs(x="Log|Concentration (uM)|", y = "Relative Confluence", 
+                                           shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_v2_log10.pdf"),conf.plot,width=4,height=3)
+      
+      death.plot <- ggplot(mean.drug.death[drug.death$DOSE <= c,], aes(x=log10(DOSE), y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+        geom_smooth(linetype="dashed",se=FALSE, method=drc::drm, method.args=list(fct=LL.4())) +
+        geom_point() + geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) + 
+        ggtitle(death.title) + theme_classic(base_size=12) + 
+        labs(x="Log|Concentration (uM)|", y = "Relative Death", shape = "Chr8q Status", color = "MPNST Cell Line") + 
+        theme(plot.title=element_text(face="bold",hjust=0.5))
+      ggsave(paste0(d,"_",t,"h_relDeath_max",c,"um_no_4-23-25_v2_log10.pdf"),death.plot,width=4,height=3) 
     }
   }
 }
