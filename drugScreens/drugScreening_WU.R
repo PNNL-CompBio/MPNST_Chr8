@@ -808,9 +808,9 @@ write.csv(all.p.df, "p_values_relConfluenceORDeath.csv", row.names=FALSE)
 
 #### also plot with JH data ####
 chr8_tTest <- function(drug.df, unit) {
-  known.amp <- c("WU-356", "JH-2-079c", "JH-2-002")
-  gain <- drug.df[drug.df$improve_sample_id %in% known.amp,]
-  diploid <- drug.df[drug.df$improve_sample_id == "JH-2-055d",]
+  #known.amp <- c("WU-356", "JH-2-079c", "JH-2-002")
+  gain <- na.omit(drug.df[drug.df$improve_sample_id != "JH-2-055d",])
+  diploid <- na.omit(drug.df[drug.df$improve_sample_id == "JH-2-055d",])
   
   if (nrow(gain)>0 & nrow(diploid)>0) {
     # reduce to overlapping parameters (dose, time) and filter for cell types
@@ -842,9 +842,9 @@ chr8_tTest <- function(drug.df, unit) {
       } else {
         drug.p <- t.test(gain, diploid, alternative="greater", paired=paired)$p.value 
         if (paired) {
-          title <- paste0("Amp is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+          title <- paste0("Chr8q gain is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
         } else {
-          title <- paste0("Amp is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+          title <- paste0("Chr8q gain is more sensitive to ",d," (p=", signif(drug.p,2),")") 
         }
       } 
     } else {
@@ -858,9 +858,9 @@ chr8_tTest <- function(drug.df, unit) {
       } else {
         drug.p <- t.test(diploid, gain, alternative="greater", paired=paired)$p.value 
         if (paired) {
-          title <- paste0("Amp is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+          title <- paste0("Chr8q gain is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
         } else {
-          title <- paste0("Amp is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+          title <- paste0("Chr8q gain is more sensitive to ",d," (p=", signif(drug.p,2),")") 
         }
       }
     } 
@@ -873,7 +873,8 @@ chr8_tTest <- function(drug.df, unit) {
 # get data
 rel.conf <- read.table("WU/chr8_relConfluence_max20um_no_4-23-25.tsv", sep="\t", header=TRUE)
 rel.conf$GROWTH <- 100*rel.conf$GROWTH
-jh.rel.conf <- read.table("JH/chr8_normConfluence_max1um.tsv", sep="\t", header=TRUE)
+#jh.rel.conf <- read.table("JH/chr8_normConfluence_max1um.tsv", sep="\t", header=TRUE)
+jh.rel.conf <- read.table("JH/chr8_normConfluence_max10um.tsv", sep="\t", header=TRUE)
 rel.conf <- rbind(rel.conf, jh.rel.conf)
 
 # calculate mean and sd for each drug, dose, mpnst, time combo; also preserve sample and chr8q columns
@@ -882,12 +883,12 @@ mean.conf <- plyr::ddply(rel.conf, .(improve_sample_id, time, Drug, DOSE), summa
                          sdGROWTH = sd(GROWTH, na.rm=TRUE))
 
 # annotate chr8q status
-known.amp <- c("WU-356", "JH-2-079c", "JH-2-002")
+known.amp <- unique(mean.conf$improve_sample_id[mean.conf$improve_sample_id != "JH-2-055d"])
 mean.conf$chr8q <- "Not yet known"
-mean.conf[mean.conf$improve_sample_id %in% known.amp,]$chr8q <- "Amplified"
+mean.conf[mean.conf$improve_sample_id %in% known.amp,]$chr8q <- "Gain"
 mean.conf[mean.conf$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
 rel.conf$chr8q <- "Not yet known"
-rel.conf[rel.conf$improve_sample_id %in% known.amp,]$chr8q <- "Amplified"
+rel.conf[rel.conf$improve_sample_id %in% known.amp,]$chr8q <- "Gain"
 rel.conf[rel.conf$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
 mean.conf$knownChr8q <- FALSE
 mean.conf[mean.conf$improve_sample_id %in% c("JH-2-055d",known.amp),]$knownChr8q <- TRUE
@@ -906,8 +907,8 @@ rel.conf$sample <- paste0(rel.conf$Drug,
 times <- c(24,48,72,96,120)
 all.mpnst <- unique(mean.conf$improve_sample_id)
 all.mpnst <- c("JH-2-055d",known.amp, all.mpnst[!(all.mpnst %in% c("JH-2-055d",known.amp))])
-dir.create("singleTimePlots")
-setwd("singleTimePlots")
+dir.create("singleTimePlots_20250516")
+setwd("singleTimePlots_20250516")
 library(drc) # curve source: answer by greenjune: https://stackoverflow.com/questions/36780357/plotting-dose-response-curves-with-ggplot2-and-drc
 # Sara shared these 2 links: https://stackoverflow.com/questions/68209998/plot-drc-using-ggplot; https://forum.posit.co/t/extract-out-points-in-dose-response-curve-produced-by-drc/159433
 Metric <- c("% Relative Viability")
@@ -925,8 +926,9 @@ for (t in times) {
     mean.drug.conf <- mean.conf.96[mean.conf.96$Drug == d,]
     
     ## try filtering to remove very high concentrations
-    conc.max <- c(1,1.25,2.5,5,20)
-    conc.max <- conc.max[conc.max %in% drug.conf$DOSE]
+    #conc.max <- c(1,1.25,2.5,5,10,20)
+    #conc.max <- conc.max[conc.max %in% drug.conf$DOSE]
+    conc.max <- max(drug.conf$DOSE)
     for (c in conc.max) {
       p.df <- data.frame(Metric, moreSensitive = NA, p = NA, Drug=d, Time=t, maxConcUM=c, minValue=NA)
       # run t-tests between WU-356 (chr8q-gain) and JH-2-055d (chr8q-diploid)
@@ -961,6 +963,18 @@ for (t in times) {
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
       ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_alpha.pdf"),conf.plot,width=5,height=4)
+      
+      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
+                          aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id)) +
+        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+        scale_color_manual(values=c("black","grey"), breaks=c("Diploid","Gain")) + 
+        scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+        scale_x_continuous(transform="log10") + geom_point() +
+        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+        ggtitle(conf.title) +
+        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                           color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_v2.pdf"),conf.plot,width=4,height=2.5)
 
       # conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,], 
       #                     aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id, alpha=alpha)) +

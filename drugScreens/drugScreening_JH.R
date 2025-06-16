@@ -43,7 +43,7 @@ for (i in exp) {
 }
 all.df$author <- "AW"
 write.csv(all.df, paste0("AW_drugViability_data_", Sys.Date(),".csv"), row.names=FALSE)
-
+#all.df <- read.csv(paste0("AW_drugViability_data_", Sys.Date(),".csv"))
 all.df$time <- 120
 all.df$time_unit <- "h"
 all.df$concUnitUM <- "um"
