@@ -145,6 +145,8 @@ dir.create("Chr8_quant_20250409")
 setwd("Chr8_quant_20250409")
 dir.create("positional_medians")
 setwd("positional_medians")
+dir.create("20250616")
+setwd("20250616")
 omics2 <- list("Copy Number" = pdxCN,
                "RNA-Seq" = pdxRNA,
                "Proteomics" = global.df)
@@ -152,7 +154,7 @@ omics2 <- list("Copy Number" = pdxCN,
 msigdb.info <- msigdbr::msigdbr(category="C1")
 reduced.msigdb <- dplyr::distinct(msigdb.info[,c("gs_name", "gene_symbol")])
 for (i in 1:length(omics2)) {
-  setwd(file.path(base.path, "Chr8_quant_20250409", "positional_medians"))
+  setwd(file.path(base.path, "Chr8_quant_20250409", "positional_medians","20250616"))
   dir.create(names(omics2)[i])
   setwd(names(omics2)[i])
   pos.GSEA <- list()
@@ -229,6 +231,50 @@ for (i in 1:length(omics2)) {
                   position=position_dodge(0.9))
   ggplot2::ggsave(paste0(names(omics2)[i], "_Chr8q_median.pdf"), width=5, height=5)
   write.csv(med.chr8q, paste0(names(omics2)[i], "_Chr8q_median.csv"), row.names = FALSE)
+  
+  # median chr8p
+  med.chr8p <- plyr::ddply(all.pos.GSEA[grepl("chr8p",all.pos.GSEA$gs_name),], .(Sample), summarize,
+                           `chr8p Median` = median(median_copy_number, na.rm = TRUE),
+                           sd_med_copy_number = sd(median_copy_number, na.rm = TRUE))
+  pdf(paste0(names(omics2)[i], "_chr8p_median_histogram.pdf"))
+  hist(med.chr8p$`chr8p Median`, xlab = "chr8p Median", main = NULL)
+  dev.off()
+  med.chr8p <- med.chr8p[order(med.chr8p$`chr8p Median`),]
+  med.chr8p$'Sample ID' <- med.chr8p$Sample
+  for (j in 1:nrow(med.chr8p)) {
+    med.chr8p$Sample[j] <- stringr::str_split(med.chr8p$`Sample ID`[j], "_")[[1]][1]
+  }
+  ggplot2::ggplot(med.chr8p, aes(x=`Sample ID`, y=`chr8p Median`, fill = Sample)) + 
+    ggplot2::geom_bar(stat="identity", position="dodge") + 
+    scale_x_discrete(limits = med.chr8p$`Sample ID`) + ggplot2::theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) +
+    geom_errorbar(aes(ymin=`chr8p Median` - sd_med_copy_number, 
+                      ymax = `chr8p Median` + sd_med_copy_number), width=0.2,
+                  position=position_dodge(0.9))
+  ggplot2::ggsave(paste0(names(omics2)[i], "_chr8p_median.pdf"), width=5, height=5)
+  write.csv(med.chr8p, paste0(names(omics2)[i], "_chr8p_median.csv"), row.names = FALSE)
+  
+  # median chr8
+  med.chr8 <- plyr::ddply(all.pos.GSEA[grepl("chr8",all.pos.GSEA$gs_name),], .(Sample), summarize,
+                           `chr8 Median` = median(median_copy_number, na.rm = TRUE),
+                           sd_med_copy_number = sd(median_copy_number, na.rm = TRUE))
+  pdf(paste0(names(omics2)[i], "_chr8_median_histogram.pdf"))
+  hist(med.chr8$`chr8 Median`, xlab = "chr8 Median", main = NULL)
+  dev.off()
+  med.chr8 <- med.chr8[order(med.chr8$`chr8 Median`),]
+  med.chr8$'Sample ID' <- med.chr8$Sample
+  for (j in 1:nrow(med.chr8)) {
+    med.chr8$Sample[j] <- stringr::str_split(med.chr8$`Sample ID`[j], "_")[[1]][1]
+  }
+  ggplot2::ggplot(med.chr8, aes(x=`Sample ID`, y=`chr8 Median`, fill = Sample)) + 
+    ggplot2::geom_bar(stat="identity", position="dodge") + 
+    scale_x_discrete(limits = med.chr8$`Sample ID`) + ggplot2::theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) +
+    geom_errorbar(aes(ymin=`chr8 Median` - sd_med_copy_number, 
+                      ymax = `chr8 Median` + sd_med_copy_number), width=0.2,
+                  position=position_dodge(0.9))
+  ggplot2::ggsave(paste0(names(omics2)[i], "_chr8_median.pdf"), width=5, height=5)
+  write.csv(med.chr8, paste0(names(omics2)[i], "_chr8_median.csv"), row.names = FALSE)
   
   pdf(paste0(names(omics2)[i], "_Chr8q_mean_histogram.pdf"))
   hist(med.chr8q$`Chr8q Mean`, xlab = "Chr8q Mean", main = NULL)

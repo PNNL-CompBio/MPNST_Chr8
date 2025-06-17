@@ -808,9 +808,10 @@ write.csv(all.p.df, "p_values_relConfluenceORDeath.csv", row.names=FALSE)
 
 #### also plot with JH data ####
 chr8_tTest <- function(drug.df, unit) {
-  #known.amp <- c("WU-356", "JH-2-079c", "JH-2-002")
-  gain <- na.omit(drug.df[drug.df$improve_sample_id != "JH-2-055d",])
-  diploid <- na.omit(drug.df[drug.df$improve_sample_id == "JH-2-055d",])
+  known.dip <- c("JH-2-055d","ST8814","NF10.1")
+  known.amp <- unique(drug.df$improve_sample_id[!(drug.df$improve_sample_id %in% known.dip)])
+  gain <- na.omit(drug.df[drug.df$improve_sample_id %in% known.amp,])
+  diploid <- na.omit(drug.df[drug.df$improve_sample_id %in% known.dip,])
   
   if (nrow(gain)>0 & nrow(diploid)>0) {
     # reduce to overlapping parameters (dose, time) and filter for cell types
@@ -883,19 +884,25 @@ mean.conf <- plyr::ddply(rel.conf, .(improve_sample_id, time, Drug, DOSE), summa
                          sdGROWTH = sd(GROWTH, na.rm=TRUE))
 
 # annotate chr8q status
-known.amp <- unique(mean.conf$improve_sample_id[mean.conf$improve_sample_id != "JH-2-055d"])
+known.dip <- c("JH-2-055d","ST8814","NF10.1")
+known.amp <- unique(mean.conf$improve_sample_id[!(mean.conf$improve_sample_id %in% known.dip)])
 mean.conf$chr8q <- "Not yet known"
 mean.conf[mean.conf$improve_sample_id %in% known.amp,]$chr8q <- "Gain"
-mean.conf[mean.conf$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
+mean.conf[mean.conf$improve_sample_id %in% known.dip,]$chr8q <- "Diploid"
+mean.conf$chr8qv2 <- mean.conf$chr8q
+mean.conf[mean.conf$improve_sample_id %in% c("ST8814","NF10.1"),]$chr8qv2 <- "Diploid with MYC gain"
+mean.conf$MYC <- "Gain"
+mean.conf[mean.conf$improve_sample_id == 'JH-2-055d',]$MYC <- "Diploid"
+
 rel.conf$chr8q <- "Not yet known"
 rel.conf[rel.conf$improve_sample_id %in% known.amp,]$chr8q <- "Gain"
-rel.conf[rel.conf$improve_sample_id == "JH-2-055d",]$chr8q <- "Diploid"
+rel.conf[rel.conf$improve_sample_id %in% known.dip,]$chr8q <- "Diploid"
 mean.conf$knownChr8q <- FALSE
-mean.conf[mean.conf$improve_sample_id %in% c("JH-2-055d",known.amp),]$knownChr8q <- TRUE
+mean.conf[mean.conf$improve_sample_id %in% c(known.dip,known.amp),]$knownChr8q <- TRUE
 rel.conf$knownChr8q <- FALSE
-rel.conf[rel.conf$improve_sample_id %in% c("JH-2-055d",known.amp),]$knownChr8q <- TRUE
+rel.conf[rel.conf$improve_sample_id %in% c(known.dip,known.amp),]$knownChr8q <- TRUE
 mean.conf$alpha <- 0.5
-mean.conf[mean.conf$improve_sample_id %in% c("JH-2-055d",known.amp),]$alpha <- 1
+mean.conf[mean.conf$improve_sample_id %in% c(known.dip,known.amp),]$alpha <- 1
 
 # add sample column with all parameters
 mean.conf$sample <- paste0(mean.conf$Drug,
@@ -906,9 +913,9 @@ rel.conf$sample <- paste0(rel.conf$Drug,
 #times <- unique(c(rel.conf$time, rel.death$time)) # too many
 times <- c(24,48,72,96,120)
 all.mpnst <- unique(mean.conf$improve_sample_id)
-all.mpnst <- c("JH-2-055d",known.amp, all.mpnst[!(all.mpnst %in% c("JH-2-055d",known.amp))])
-dir.create("singleTimePlots_20250516")
-setwd("singleTimePlots_20250516")
+all.mpnst <- c(known.dip,known.amp, all.mpnst[!(all.mpnst %in% c(known.dip,known.amp))])
+dir.create("singleTimePlots_20250517")
+setwd("singleTimePlots_20250517")
 library(drc) # curve source: answer by greenjune: https://stackoverflow.com/questions/36780357/plotting-dose-response-curves-with-ggplot2-and-drc
 # Sara shared these 2 links: https://stackoverflow.com/questions/68209998/plot-drc-using-ggplot; https://forum.posit.co/t/extract-out-points-in-dose-response-curve-produced-by-drc/159433
 Metric <- c("% Relative Viability")
@@ -975,6 +982,44 @@ for (t in times) {
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
       ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_v2.pdf"),conf.plot,width=4,height=2.5)
+      
+      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
+                          aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id)) +
+        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+        scale_color_manual(values=c("black","grey"), breaks=c("Diploid","Gain")) + 
+        scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+        scale_x_continuous(transform="log10") + geom_point() +
+        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+        ggtitle(conf.title) +
+        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                           color = "Chr8q Status", shape = "MPNST Cell Line") + 
+        theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_v2_angled.pdf"),conf.plot,width=4,height=2.5)
+      
+      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
+                          aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+        scale_color_manual(values=c("black","darkgrey","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+        scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+        scale_x_continuous(transform="log10") + geom_point() +
+        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+        ggtitle(conf.title) +
+        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                           color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8qMYC_log10_v2.pdf"),conf.plot,width=4,height=2.5)
+      
+      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
+                          aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+        scale_color_manual(values=c("black","darkgrey","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+        scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+        scale_x_continuous(transform="log10") + geom_point() +
+        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+        ggtitle(conf.title) +
+        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                           color = "Chr8q Status", shape = "MPNST Cell Line") + 
+        theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8qMYC_log10_v2_angled.pdf"),conf.plot,width=4,height=2.5)
 
       # conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,], 
       #                     aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id, alpha=alpha)) +
@@ -1000,3 +1045,174 @@ for (t in times) {
   }
 }
 write.csv(all.p.df, "p_values_relPercViability_JHandWU.csv", row.names=FALSE)
+all.p.df[all.p.df$Drug == "Volas",]$Drug <- "Volasertib"
+all.p.df$DrugTime <- paste0(all.p.df$Drug, " (", as.numeric(all.p.df$Time)/24,"d)")
+
+# just volasertib, mirdametinib, gefitinib, erlotinib, osimertinib 4-5d
+plot.df <- mean.conf[mean.conf$time >= 96 & mean.conf$Drug %in% c("Volas","Volasertib","Mirdametinib","Gefitinib","Erlotinib","Osimertinib"),]
+plot.df[plot.df$Drug == "Volas",]$Drug <- "Volasertib"
+plot.df$DrugTime <- paste0(plot.df$Drug, " (", as.numeric(plot.df$time)/24,"d)")
+doi <- c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+         "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)")
+doi.p <- all.p.df[all.p.df$DrugTime %in% doi,]
+p0.05 <- unique(doi.p[doi.p$p < 0.05,]$DrugTime)
+p0.01 <- unique(doi.p[doi.p$p < 0.01,]$DrugTime)
+p0.001 <- unique(doi.p[doi.p$p < 0.001,]$DrugTime)
+p0.0001 <- unique(doi.p[doi.p$p < 0.0001,]$DrugTime)
+plot.df <- plot.df[plot.df$DrugTime %in% doi,]
+plot.df$DrugTimeSig <- plot.df$DrugTime
+plot.df[plot.df$DrugTime %in% p0.05,]$DrugTimeSig <- paste0(plot.df[plot.df$DrugTime %in% p0.05,]$DrugTime, "*")
+plot.df[plot.df$DrugTime %in% p0.01,]$DrugTimeSig <- paste0(plot.df[plot.df$DrugTime %in% p0.01,]$DrugTime, "**")
+plot.df[plot.df$DrugTime %in% p0.001,]$DrugTimeSig <- paste0(plot.df[plot.df$DrugTime %in% p0.001,]$DrugTime, "***")
+
+# plot.df$DrugTime <- factor(plot.df$DrugTime, levels=c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+#                                                       "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"))
+plot.df$DrugTimeSig <- factor(plot.df$DrugTimeSig, levels=c("Volasertib (4d)***", "Volasertib (5d)**","Mirdametinib (5d)*",
+                                                      "Gefitinib (4d)***", "Erlotinib (5d)**", "Osimertinib (5d)"))
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+  geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","darkgrey","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v2_angled.pdf",conf.plot,width=7,height=4)
+
+conf.plot <- ggplot(plot.df,
+                    aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+  geom_smooth(linewidth=0.5, linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","gold2","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTimeSig) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v2_angled_diffColors.pdf",conf.plot,width=7,height=4)
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v2_angled_diffColors_wider.pdf",conf.plot,width=8,height=4)
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id, linewidth=chr8qv2)) +
+  geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","darkgrey","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) + scale_linewidth_manual(values=c(1,0.5,0.25),breaks=c("Diploid","Diploid with MYC gain","Gain"))+
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v3_angled.pdf",conf.plot,width=7,height=4)
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v2_angled_taller.pdf",conf.plot,width=7,height=6)
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id, linetype=MYC)) +
+  geom_smooth(se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","grey"), breaks=c("Diploid","Gain")) +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v4_angled.pdf",conf.plot,width=7,height=4)
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id, linetype=MYC)) +
+  geom_smooth(linewidth=0.5, se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","grey"), breaks=c("Diploid","Gain")) +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        legend.position="bottom", legend.direction="horizontal")
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v5_angled.pdf",conf.plot,width=7,height=4)
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id, linetype=MYC)) +
+  geom_smooth(se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","grey"), breaks=c("Diploid","Gain")) +
+  scale_linetype_manual(values=c("solid","dashed"), breaks=c("FALSE","TRUE"), labels=c("Diploid","Gain")) +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        #legend.position="bottom", legend.direction="horizontal"
+        )
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v5_angled.pdf",conf.plot,width=7,height=4)
+
+
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+  geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","darkgrey","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) + scale_y_continuous(limits=c(0,100)) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v2_angled_max100.pdf",conf.plot,width=7,height=4)
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+  geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","darkgrey","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) + scale_y_continuous(limits=c(0,150)) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v2_angled_max150.pdf",conf.plot,width=7,height=4)
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+  geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","darkgrey","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) + scale_y_continuous(limits=c(0,120)) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v2_angled_max120.pdf",conf.plot,width=7,height=4)
+
+conf.plot <- ggplot(plot.df[plot.df$DrugTime %in% c("Volasertib (4d)", "Volasertib (5d)","Mirdametinib (5d)",
+                                                    "Gefitinib (4d)", "Erlotinib (5d)", "Osimertinib (5d)"),],
+                    aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+  geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+  scale_color_manual(values=c("black","darkgrey","lightgrey"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+  scale_x_continuous(transform="log10") + geom_point() +
+  geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+  facet_wrap(.~DrugTime) + scale_y_continuous(limits=c(0,175)) +
+  theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                     color = "Chr8q Status", shape = "MPNST Cell Line") + 
+  theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+ggsave("PLK-MEK-EGFRi_knownChr8qMYC_log10_v2_angled_max175.pdf",conf.plot,width=7,height=4)
