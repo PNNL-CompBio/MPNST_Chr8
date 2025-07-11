@@ -807,68 +807,72 @@ for (t in times) {
 write.csv(all.p.df, "p_values_relConfluenceORDeath.csv", row.names=FALSE)
 
 #### also plot with JH data ####
-chr8_tTest <- function(drug.df, unit) {
-  known.dip <- c("JH-2-055d","ST8814","NF10.1")
-  known.amp <- unique(drug.df$improve_sample_id[!(drug.df$improve_sample_id %in% known.dip)])
-  gain <- na.omit(drug.df[drug.df$improve_sample_id %in% known.amp,])
-  diploid <- na.omit(drug.df[drug.df$improve_sample_id %in% known.dip,])
-  
-  if (nrow(gain)>0 & nrow(diploid)>0) {
-    # reduce to overlapping parameters (dose, time) and filter for cell types
-    gain.params <- unique(gain$sample)
-    diploid.params <- unique(diploid$sample)
-    shared.params <- gain.params[gain.params %in% diploid.params]
-    gain <- gain[gain$sample %in% shared.params,]
-    diploid <- diploid[diploid$sample %in% shared.params,]
-    
-    # compare paired results
-    if ("GROWTH" %in% colnames(gain)) {
-      gain <- gain[order(gain$sample),]$GROWTH
-      diploid <- diploid[order(diploid$sample),]$GROWTH
-    } else {
-      gain <- gain[order(gain$sample),]$dose_response_value
-      diploid <- diploid[order(diploid$sample),]$dose_response_value
-    }
-    if (length(gain) == length(diploid)) {
-      paired <- TRUE
-    } else {paired <- FALSE}
-    if (grepl("Death",unit, ignore.case=TRUE)) {
-      if (median(gain) < median(diploid)) {
-        drug.p <- t.test(diploid, gain, alternative="greater", paired=paired)$p.value 
-        if (paired) {
-          title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
-        } else {
-          title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
-        }
+chr8_tTest <- function(drug.df, unit, factors=c("chr8q","MYC")) {
+  d <- unique(drug.df$Drug)
+  if (length(d) > 1) {
+    stop("more than 1 drug input")
+  }
+  titles <- list()
+  for (f in factors) {
+    if (any(drug.df[,f] == "Diploid") & any(drug.df[,f] == "Gain")) {
+      diploid <- drug.df[drug.df[,f] == "Diploid",]
+      gain <- drug.df[drug.df[,f] == "Gain",]
+      # reduce to overlapping parameters (dose, time) and filter for cell types
+      gain.params <- unique(gain$sample)
+      diploid.params <- unique(diploid$sample)
+      shared.params <- gain.params[gain.params %in% diploid.params]
+      gain <- gain[gain$sample %in% shared.params,]
+      diploid <- diploid[diploid$sample %in% shared.params,]
+      
+      # compare paired results
+      if ("GROWTH" %in% colnames(gain)) {
+        gain <- gain[order(gain$sample),]$GROWTH
+        diploid <- diploid[order(diploid$sample),]$GROWTH
       } else {
-        drug.p <- t.test(gain, diploid, alternative="greater", paired=paired)$p.value 
-        if (paired) {
-          title <- paste0("Chr8q gain is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+        gain <- gain[order(gain$sample),]$dose_response_value
+        diploid <- diploid[order(diploid$sample),]$dose_response_value
+      }
+      if (length(gain) == length(diploid)) {
+        paired <- TRUE
+      } else {paired <- FALSE}
+      if (grepl("Death",unit, ignore.case=TRUE)) {
+        if (median(gain) < median(diploid)) {
+          drug.p <- t.test(diploid, gain, alternative="greater", paired=paired)$p.value 
+          if (paired) {
+            titles[[f]] <- paste0(f," diploid is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+          } else {
+            titles[[f]] <- paste0(f," diploid is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+          }
         } else {
-          title <- paste0("Chr8q gain is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+          drug.p <- t.test(gain, diploid, alternative="greater", paired=paired)$p.value 
+          if (paired) {
+            titles[[f]] <- paste0(f," gain is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+          } else {
+            titles[[f]] <- paste0(f, " gain is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+          }
+        } 
+      } else {
+        if (median(gain) > median(diploid)) {
+          drug.p <- t.test(gain, diploid, alternative="greater", paired=paired)$p.value 
+          if (paired) {
+            titles[[f]] <- paste0(f," diploid is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+          } else {
+            titles[[f]] <- paste0(f," diploid is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+          }
+        } else {
+          drug.p <- t.test(diploid, gain, alternative="greater", paired=paired)$p.value 
+          if (paired) {
+            titles[[f]] <- paste0(f," gain is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
+          } else {
+            titles[[f]] <- paste0(f," gain is more sensitive to ",d," (p=", signif(drug.p,2),")") 
+          }
         }
       } 
     } else {
-      if (median(gain) > median(diploid)) {
-        drug.p <- t.test(gain, diploid, alternative="greater", paired=paired)$p.value 
-        if (paired) {
-          title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
-        } else {
-          title <- paste0("JH-2-055d (diploid) is more sensitive to ",d," (p=", signif(drug.p,2),")") 
-        }
-      } else {
-        drug.p <- t.test(diploid, gain, alternative="greater", paired=paired)$p.value 
-        if (paired) {
-          title <- paste0("Chr8q gain is more sensitive to ",d," (paired p=", signif(drug.p,2),")")
-        } else {
-          title <- paste0("Chr8q gain is more sensitive to ",d," (p=", signif(drug.p,2),")") 
-        }
-      }
+      titles[[f]] <- ""
     } 
-  } else {
-    title <- ""
   }
-  return(title)
+  return(titles)
 }
 
 # get data
@@ -879,6 +883,7 @@ jh.rel.conf <- read.table("JH/chr8_normConfluence_max10um.tsv", sep="\t", header
 rel.conf <- rbind(rel.conf, jh.rel.conf)
 
 # calculate mean and sd for each drug, dose, mpnst, time combo; also preserve sample and chr8q columns
+library(plyr);library(dplyr)
 mean.conf <- plyr::ddply(rel.conf, .(improve_sample_id, time, Drug, DOSE), summarize,
                          meanGROWTH = mean(GROWTH, na.rm=TRUE),
                          sdGROWTH = sd(GROWTH, na.rm=TRUE))
@@ -897,6 +902,8 @@ mean.conf[mean.conf$improve_sample_id == 'JH-2-055d',]$MYC <- "Diploid"
 rel.conf$chr8q <- "Not yet known"
 rel.conf[rel.conf$improve_sample_id %in% known.amp,]$chr8q <- "Gain"
 rel.conf[rel.conf$improve_sample_id %in% known.dip,]$chr8q <- "Diploid"
+rel.conf$MYC <- "Gain"
+rel.conf[rel.conf$improve_sample_id == 'JH-2-055d',]$MYC <- "Diploid"
 mean.conf$knownChr8q <- FALSE
 mean.conf[mean.conf$improve_sample_id %in% c(known.dip,known.amp),]$knownChr8q <- TRUE
 rel.conf$knownChr8q <- FALSE
@@ -914,11 +921,12 @@ rel.conf$sample <- paste0(rel.conf$Drug,
 times <- c(24,48,72,96,120)
 all.mpnst <- unique(mean.conf$improve_sample_id)
 all.mpnst <- c(known.dip,known.amp, all.mpnst[!(all.mpnst %in% c(known.dip,known.amp))])
-dir.create("singleTimePlots_20250710")
-setwd("singleTimePlots_20250710")
+dir.create("singleTimePlots_20250711")
+setwd("singleTimePlots_20250711")
 library(drc) # curve source: answer by greenjune: https://stackoverflow.com/questions/36780357/plotting-dose-response-curves-with-ggplot2-and-drc
 # Sara shared these 2 links: https://stackoverflow.com/questions/68209998/plot-drc-using-ggplot; https://forum.posit.co/t/extract-out-points-in-dose-response-curve-produced-by-drc/159433
 Metric <- c("% Relative Viability")
+library(ggplot2)
 all.p.df <- data.frame()
 for (t in times) {
   rel.conf.96 <- rel.conf[rel.conf$time==t,]
@@ -937,40 +945,60 @@ for (t in times) {
     #conc.max <- conc.max[conc.max %in% drug.conf$DOSE]
     conc.max <- max(drug.conf$DOSE)
     for (c in conc.max) {
-      p.df <- data.frame(Metric, moreSensitive = NA, p = NA, Drug=d, Time=t, maxConcUM=c, minValue=NA)
+      p.df <- data.frame(Metric, chr8_moreSensitive = NA, MYC_moreSensitive = NA,
+                         chr8_p = NA, MYC_p=NA, Drug=d, Time=t, maxConcUM=c, minValue=NA)
       # run t-tests between WU-356 (chr8q-gain) and JH-2-055d (chr8q-diploid)
-      conf.title <- chr8_tTest(drug.conf[drug.conf$DOSE <= c,], "% Relative Viability")
-      conf.more.sens <- strsplit(conf.title, " ")[[1]][1]
-      conf.p <- strsplit(conf.title, "p=")[[1]][2]
+      titles <- chr8_tTest(na.omit(drug.conf[drug.conf$DOSE <= c,]), "% Relative Viability")
+      conf.more.sens <- strsplit(titles$chr8, " ")[[1]][2]
+      conf.p <- strsplit(titles$chr8, "p=")[[1]][2]
       conf.p <- as.numeric(substr(conf.p,1,nchar(conf.p)-1))
-      p.df[p.df$Metric=="% Relative Viability",]$moreSensitive <- conf.more.sens
-      p.df[p.df$Metric=="% Relative Viability",]$p <- conf.p
+      
+      conf.myc <- strsplit(titles$MYC, " ")[[1]][2]
+      conf.p.myc <- strsplit(titles$MYC, "p=")[[1]][2]
+      conf.p.myc <- as.numeric(substr(conf.p.myc,1,nchar(conf.p.myc)-1))
+      
+      p.df[p.df$Metric=="% Relative Viability",]$chr8_moreSensitive <- conf.more.sens
+      p.df[p.df$Metric=="% Relative Viability",]$MYC_moreSensitive <- conf.myc
+      p.df[p.df$Metric=="% Relative Viability",]$chr8_p <- conf.p
+      p.df[p.df$Metric=="% Relative Viability",]$MYC_p <- conf.p.myc
       p.df[p.df$Metric=="% Relative Viability",]$minValue <- min(drug.conf[drug.conf$DOSE <= c,]$GROWTH, na.rm=TRUE)
       all.p.df <- rbind(all.p.df, p.df)
       
       # generate plots
-      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c & mean.drug.conf$chr8q != "Not yet known",], 
-                          aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
-        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) + 
-        scale_x_continuous(transform="log10") + geom_point() + 
-        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
-        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability", 
-                                           shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
-      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10.pdf"),conf.plot,width=5,height=4)
-      
-      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
-                          aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id)) +
-        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
-        scale_color_manual(values=c(scales::hue_pal()(2),"lightgrey")) + 
-        scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
-        scale_x_continuous(transform="log10") + geom_point() +
-        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
-        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
-                                           color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
-      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_alpha.pdf"),conf.plot,width=5,height=4)
-      
+      # conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c & mean.drug.conf$chr8q != "Not yet known",], 
+      #                     aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+      #   geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) + 
+      #   scale_x_continuous(transform="log10") + geom_point() + 
+      #   geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+      #   ggtitle(conf.title) +
+      #   theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability", 
+      #                                      shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+      # ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10.pdf"),conf.plot,width=5,height=4)
+      # 
+      # conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
+      #                     aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id)) +
+      #   geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+      #   scale_color_manual(values=c(scales::hue_pal()(2),"lightgrey")) + 
+      #   scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+      #   scale_x_continuous(transform="log10") + geom_point() +
+      #   geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+      #   ggtitle(conf.title) +
+      #   theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+      #                                      color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+      # ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_alpha.pdf"),conf.plot,width=5,height=4)
+      # 
+      # conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
+      #                     aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id)) +
+      #   geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+      #   scale_color_manual(values=c("black","grey"), breaks=c("Diploid","Gain")) + 
+      #   scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+      #   scale_x_continuous(transform="log10") + geom_point() +
+      #   geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+      #   ggtitle(conf.title) +
+      #   theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+      #                                      color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+      # ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_v2.pdf"),conf.plot,width=4,height=2.5)
+      # 
       conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
                           aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id)) +
         geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
@@ -978,19 +1006,7 @@ for (t in times) {
         scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
         scale_x_continuous(transform="log10") + geom_point() +
         geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
-        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
-                                           color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
-      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_v2.pdf"),conf.plot,width=4,height=2.5)
-      
-      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
-                          aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id)) +
-        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
-        scale_color_manual(values=c("black","grey"), breaks=c("Diploid","Gain")) + 
-        scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
-        scale_x_continuous(transform="log10") + geom_point() +
-        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
+        ggtitle(titles$chr8) +
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + 
         theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
@@ -1003,7 +1019,7 @@ for (t in times) {
         scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
         scale_x_continuous(transform="log10") + geom_point() +
         geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
+        ggtitle(titles$chr8) +
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + 
         theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
@@ -1016,7 +1032,7 @@ for (t in times) {
         scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
         scale_x_continuous(transform="log10") + geom_point() +
         geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
+        ggtitle(titles$chr8) +
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + 
         theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
@@ -1029,7 +1045,7 @@ for (t in times) {
         scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
         scale_x_continuous(transform="log10") + geom_point() +
         geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
+        ggtitle(titles$chr8) +
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
       ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8qMYC_log10_v2.pdf"),conf.plot,width=4,height=2.5)
@@ -1041,7 +1057,7 @@ for (t in times) {
         scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
         scale_x_continuous(transform="log10") + geom_point() +
         geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
+        ggtitle(titles$MYC) +
         theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + 
         theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
@@ -1057,20 +1073,115 @@ for (t in times) {
       #                                      shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
       # ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_alpha_v2.pdf"),conf.plot,width=5,height=4)
       # 
-      
-      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,], 
-                          aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
-        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) + 
-        scale_x_continuous(transform="log10") + geom_point() + 
-        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
-        ggtitle(conf.title) +
-        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability", 
-                                           shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
-      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_v2_log10.pdf"),conf.plot,width=5,height=4)
+      # 
+      # conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,], 
+      #                     aes(x=DOSE, y=meanGROWTH, shape=chr8q, color=improve_sample_id)) +
+      #   geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) + 
+      #   scale_x_continuous(transform="log10") + geom_point() + 
+      #   geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+      #   ggtitle(conf.title) +
+      #   theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability", 
+      #                                      shape = "Chr8q Status", color = "MPNST Cell Line") + theme(plot.title=element_text(face="bold",hjust=0.5))
+      # ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_v2_log10.pdf"),conf.plot,width=5,height=4)
     }
   }
 }
 write.csv(all.p.df, "p_values_relPercViability_JHandWU.csv", row.names=FALSE)
+all.p.long <- reshape2::melt(all.p.df[all.p.df$Time==120,])
+all.p.longer <- reshape2::melt(all.p.long, id.var=c("Metric","Drug","variable","value"))
+colnames(all.p.longer) <- c("Metric", "Drug", "Test", "p", "whichSens", "moreSensitive")
+all.p.longer <- all.p.longer[,c("Drug","Test","p","moreSensitive")]
+all.p.longer$Test <- sub("_p","",all.p.longer$Test)
+all.p.longer <- dplyr::distinct(na.omit(all.p.longer[all.p.longer$Test %in% c("chr8","MYC"),]))
+ggplot(all.p.longer, aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+                                                  axis.title.x=element_blank(), legend.position="top") + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_v2.pdf", width=3.5, height=3) # was width 5
+
+ggplot(all.p.longer[all.p.longer$Drug != "AT7519",], aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        axis.title.x=element_blank(), legend.position="top") + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_noAT7519_v2.pdf", width=3, height=3) # was width 4
+
+ggplot(all.p.longer[!(all.p.longer$Drug %in% c("AT7519","BI-2536")),], aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        axis.title.x=element_blank()) + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_noAT7519-BI2536.pdf", width=3.5, height=3)
+
+ggplot(all.p.longer[!(all.p.longer$Drug %in% c("AT7519","BI-2536")),], aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        axis.title.x=element_blank(), legend.position="top") + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_noAT7519-BI2536_v2.pdf", width=3, height=3)
+
+ggplot(all.p.longer[!(all.p.longer$Drug %in% c("AT7519","Mirdametinib")),], aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        axis.title.x=element_blank()) + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_noAT7519-Mirdametinib.pdf", width=3.5, height=3)
+
+ggplot(all.p.longer[!(all.p.longer$Drug %in% c("AT7519","Mirdametinib")),], aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        axis.title.x=element_blank(), legend.position="top") + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_noAT7519-Mirdametinib_v2.pdf", width=3, height=3)
+
+ggplot(all.p.longer[!(all.p.longer$Drug %in% c("AT7519","BI-2536","Mirdametinib")),], aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        axis.title.x=element_blank(), legend.position="top") + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_EGFR-PLKonly.pdf", width=2, height=3)
+
+ggplot(all.p.longer[all.p.longer$Drug %in% c("Erlotinib","Volasertib"),], aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        axis.title.x=element_blank()) + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_erlotinibVolasertibOnly.pdf", width=3, height=3)
+
+ggplot(all.p.longer[all.p.longer$Drug %in% c("Erlotinib","Volasertib"),], aes(x=reorder(Drug,log10(p)), y=-log10(p), fill=moreSensitive)) + 
+  geom_bar(stat="identity", position="dodge") + facet_wrap(.~Test) + theme_classic() + 
+  scale_fill_manual(values=c("blue","red"), breaks=c("gain","diploid"), labels=c("Gain","Diploid")) +
+  geom_hline(yintercept=-log10(0.05), linetype="dashed", color="gray") + 
+  theme(axis.text.x=element_text(angle=45, vjust=1, hjust=1),
+        axis.title.x=element_blank(), legend.position="top") + 
+  labs(fill="More Sensitive",y="-log(P-value)")
+ggsave("pValues_erlotinibVolasertibOnly_v2.pdf", width=1.5, height=3)
+
+
+#### compare auc to FISH copy numbers ####
+auc <- read.table("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/drugScreens/JH/chr8_normConfluenceCurves_max1um.0", 
+                  fill=TRUE, header=TRUE)
+auc2 <- auc[auc$improve_drug_id %in% c("Erlotinib","Volasertib"),]
+
+
+
 all.p.df[all.p.df$Drug == "Volas",]$Drug <- "Volasertib"
 all.p.df$DrugTime <- paste0(all.p.df$Drug, " (", as.numeric(all.p.df$Time)/24,"d)")
 
