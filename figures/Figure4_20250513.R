@@ -249,7 +249,7 @@ for (i in omics) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
 gsea.dot.plots2
-ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder.pdf", gsea.dot.plots, width=7, height=2)
+ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder.pdf", gsea.dot.plots, width=7, height=4)
 
 #### compile target ranks across all analyses - manual network ####
 # get correlated genes (including from phospho)
