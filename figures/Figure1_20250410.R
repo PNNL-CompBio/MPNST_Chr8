@@ -126,7 +126,7 @@ all.degs$Omics <- factor(all.degs$Omics, levels=c("Phospho", "Protein", "RNA"))
 all.degs$Direction <- factor(all.degs$Direction, levels=c("Positive", "Negative"))
 write.csv(all.degs, "Differential_expression_results.csv", row.names = FALSE)
 synapser::synStore(synapser::File("Differential_expression_results.csv", parent="syn65988130"))
-
+all.degs <- read.csv("Differential_expression_results.csv")
 all.degs$Omics <- factor(all.degs$Omics, levels=c("RNA", "Protein", "Phospho"))
 plot_df <- plyr::ddply(all.degs[all.degs$Significant,] , .(Direction, Omics), dplyr::summarize,
                        nCorr = dplyr::n())
@@ -283,7 +283,7 @@ for (i in omics) {
                             all.degs$Omics == i,] %>% slice_max(abs(Spearman.est), n = 50)
   topGenes <- temp.dot.df$Feature
   nTopGenes <- length(topGenes)
-  geneOrder <- temp.dot.df[order(temp.dot.df$Spearman.est),]$Feature
+  geneOrder <- temp.dot.df[order(-temp.dot.df$Spearman.est),]$Feature
   plot.annot <- paste0(i, "\n(", nCorrGenes, " / ", nGenes, " correlated)")
   
   # geneFace <- rep("plain", length(geneOrder))
@@ -295,13 +295,13 @@ for (i in omics) {
   
   dot.plot <- ggplot2::ggplot(temp.dot.df,
                               ggplot2::aes(
-                                y = Feature, x = Spearman.est, fill = N
+                                y = Feature, x = N, fill = Spearman.est
                               )
   ) + #scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
     ggplot2::geom_col() + 
     ggplot2::scale_y_discrete(limits = geneOrder) +
-    scale_fill_gradient2(#low="blue",high="red", 
-      limits=c(6, maxN)) +
+    scale_fill_gradient2(low="blue",high="red", mid="gray",
+      limits=c(-1,1)) +
     #viridis::scale_color_viridis() +
     theme_classic() +
     ggplot2::labs(
@@ -326,7 +326,8 @@ for (i in omics) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/guides_build_mod.R")
 gsea.dot.plots <- gsea.dot.plots + plot_layout(guides = 'collect')
 gsea.dot.plots
-ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_colorN.pdf", gsea.dot.plots, width=14, height=7)
+#ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_colorN.pdf", gsea.dot.plots, width=14, height=7)
+ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yN.pdf", gsea.dot.plots, width=14, height=7)
 
 # any overlapping genes?
 temp.dot.df <- all.degs[all.degs$Significant & all.degs$N >= 6 &
