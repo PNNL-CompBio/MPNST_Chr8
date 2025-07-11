@@ -9,7 +9,8 @@ synapser::synLogin()
 
 #### 1. Chr8 median copy number bar plot ####
 # load data & format
-med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
+#med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
+med.chr8q <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
 colnames(med.chr8q)[2] <- "Median Chr8q Copy Number"
 
 # order lowest to highest
@@ -21,8 +22,10 @@ med.chr8q$Omics <- "RNA-Seq"
 prot.samples <- c("JH-2-002", "JH-2-055", "JH-2-079c", "MN-2", "WU-225", "WU-487")
 med.chr8q[med.chr8q$Sample %in% prot.samples,]$Omics <- "RNA-Seq &\n Proteomics"
 ggplot2::ggplot(med.chr8q, aes(x=Sample, y=`Median Chr8q Copy Number`, fill = Omics)) + 
-  ggplot2::geom_bar(stat="identity", position="dodge", alpha = 0.5) + 
+  ggplot2::geom_bar(stat="identity", position="dodge", #alpha = 0.5
+                    ) + 
   scale_x_discrete(limits = sample.order) + ggplot2::theme_classic(base_size=12) +
+  scale_fill_manual(values=c("#C2A5CF","#FEE391"), breaks=c("RNA-Seq","RNA-Seq &\n Proteomics")) +
   theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) + #, size = 16), 
         #axis.text.y = element_text(size = 16), axis.title=element_text(size=24),
         #legend.title=element_text(size=16),legend.text=element_text(size=12)) +
@@ -203,7 +206,7 @@ plt <- plt +
     expand = c(0, 0),
     #breaks = c(0, 10, 100, 1000)#, trans = 'log10'
   ) + #scale_fill_manual(values=c("red", "blue")) +
-  scale_fill_manual(values=c("#F8766D", "#00BFC4", "#7CAE00")) + # first version
+  scale_fill_manual(values=c("#C2A5CF", "#FEE391", "#B2DF8A")) + # first version; colors were: "#C2A5CF", "#FEE391", "#B2DF8A"
   scale_alpha_discrete(range=c(0.5,1)) + 
   theme(
     # Remove axis ticks and text
@@ -223,17 +226,17 @@ ggplot2::ggsave("Chr8_numberOfFeatures_circularBarPlot.pdf", plt, width = 7, hei
 
 #### 4. venn diagram of diffexp Features ####
 venn.list <- list()
-for (i in 1:length(sig.deg.list)) {
-  temp.name <- names(sig.deg.list)[i]
-  if (unique(sig.deg.list[[i]]$Feature_type) == "SUB_SITE") {
-    venn.list[[temp.name]] <- unique(sub("-.*", "", sig.deg.list[[i]]$Feature))
-  } else if (unique(sig.deg.list[[i]]$Feature_type) == "Gene") {
-    venn.list[[temp.name]] <- unique(sig.deg.list[[i]]$Feature)
+for (i in 1:length(unique(all.degs$Omics))) {
+  temp.name <- as.character(unique(all.degs$Omics))[i]
+  if (unique(all.degs[all.degs$Omics==temp.name,]$Feature_type) == "SUB_SITE") {
+    venn.list[[temp.name]] <- unique(sub("-.*", "", all.degs[all.degs$Omics==temp.name & all.degs$Significant,]$Feature))
+  } else if (unique(all.degs[all.degs$Omics==temp.name,]$Feature_type) == "Gene") {
+    venn.list[[temp.name]] <- unique(all.degs[all.degs$Omics==temp.name & all.degs$Significant,]$Feature)
   } else {
     warning("No Gene or SUB_SITE column found")
   }
 }
-ggvenn::ggvenn(venn.list, show_percentage = FALSE, fill_color = c("#F8766D", "#00BFC4", "#7CAE00"), 
+ggvenn::ggvenn(venn.list, show_percentage = FALSE, fill_color = c("#C2A5CF", "#FEE391", "#B2DF8A"), 
                fill_alpha = 0.5, text_size = 10, set_name_size = 8)
 ggplot2::ggsave(paste0("Chr8_diffExp_vennDiagram_noPercentages_matchingColors_", Sys.Date(), ".pdf"), width=7, height=7)
 
