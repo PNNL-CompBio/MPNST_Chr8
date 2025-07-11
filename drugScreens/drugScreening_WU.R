@@ -914,8 +914,8 @@ rel.conf$sample <- paste0(rel.conf$Drug,
 times <- c(24,48,72,96,120)
 all.mpnst <- unique(mean.conf$improve_sample_id)
 all.mpnst <- c(known.dip,known.amp, all.mpnst[!(all.mpnst %in% c(known.dip,known.amp))])
-dir.create("singleTimePlots_20250517")
-setwd("singleTimePlots_20250517")
+dir.create("singleTimePlots_20250710")
+setwd("singleTimePlots_20250710")
 library(drc) # curve source: answer by greenjune: https://stackoverflow.com/questions/36780357/plotting-dose-response-curves-with-ggplot2-and-drc
 # Sara shared these 2 links: https://stackoverflow.com/questions/68209998/plot-drc-using-ggplot; https://forum.posit.co/t/extract-out-points-in-dose-response-curve-produced-by-drc/159433
 Metric <- c("% Relative Viability")
@@ -995,6 +995,32 @@ for (t in times) {
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + 
         theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
       ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_v2_angled.pdf"),conf.plot,width=4,height=2.5)
+      
+      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c & mean.drug.conf$improve_sample_id %in% c("JH-2-055d","JH-2-002"),],
+                          aes(x=DOSE, y=meanGROWTH, color=chr8q, shape=improve_sample_id)) +
+        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+        scale_color_manual(values=c("blue","red"), breaks=c("Diploid","Gain")) + 
+        scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+        scale_x_continuous(transform="log10") + geom_point() +
+        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+        ggtitle(conf.title) +
+        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                           color = "Chr8q Status", shape = "MPNST Cell Line") + 
+        theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_v2_angled_JH5donly.pdf"),conf.plot,width=4,height=2.5)
+      
+      conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c & mean.drug.conf$improve_sample_id %in% c("JH-2-055d","JH-2-002","ST8814","NF10.1"),],
+                          aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
+        geom_smooth(linetype="dashed", se=FALSE, method=drc::drm, method.args=list(fct=L.4(), se=FALSE)) +
+        scale_color_manual(values=c("blue","black","red"), breaks=c("Diploid","Diploid with MYC gain","Gain")) + 
+        scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst)+
+        scale_x_continuous(transform="log10") + geom_point() +
+        geom_errorbar(aes(ymin=meanGROWTH-sdGROWTH, ymax=meanGROWTH+sdGROWTH), width=0.2) +
+        ggtitle(conf.title) +
+        theme_classic(base_size=12) + labs(x="Concentration (uM)", y = "% Relative Viability",
+                                           color = "Chr8q Status", shape = "MPNST Cell Line") + 
+        theme(plot.title=element_text(face="bold",hjust=0.5), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8q_log10_v2_angled_JH5donlyMYC.pdf"),conf.plot,width=4,height=2.5)
       
       conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
                           aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
