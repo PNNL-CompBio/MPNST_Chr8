@@ -26,13 +26,13 @@ ggplot2::ggplot(med.chr8q, aes(x=Sample, y=`Median Chr8q Copy Number`, fill = Om
                     ) + 
   scale_x_discrete(limits = sample.order) + ggplot2::theme_classic(base_size=12) +
   scale_fill_manual(values=c("#C2A5CF","#FEE391"), breaks=c("RNA-Seq","RNA-Seq &\n Proteomics")) +
-  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) + #, size = 16), 
+  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1), legend.position=c(0.3,0.8)) + #, size = 16), 
         #axis.text.y = element_text(size = 16), axis.title=element_text(size=24),
         #legend.title=element_text(size=16),legend.text=element_text(size=12)) +
   geom_errorbar(aes(ymin=`Median Chr8q Copy Number` - sd_med_copy_number, 
                     ymax = `Median Chr8q Copy Number` + sd_med_copy_number), width=0.2,
                 position=position_dodge(0.9)) + xlab("MPNST PDX")
-ggplot2::ggsave(paste0("PDX Copy Number_Chr8q_median_", Sys.Date(), ".pdf"), width = 5, height = 3)
+ggplot2::ggsave(paste0("PDX Copy Number_Chr8q_median_", Sys.Date(), ".pdf"), width = 3.5, height = 3) # was width 5
 
 #### 2. Chr8 enrichment along chromosome ####
 # load enrichment results
