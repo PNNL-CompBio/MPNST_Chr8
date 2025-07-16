@@ -305,11 +305,12 @@ for (i in omics) {
     ggplot2::scale_y_discrete(limits = geneOrder) +
     scale_fill_gradient2(low="blue",high="red", mid="gray",
       limits=c(-1,1)) +
+    scale_x_continuous(breaks=c(0,3,6,9,12))+
     #viridis::scale_color_viridis() +
     theme_classic() +
     ggplot2::labs(
-      x = "Spearman rho",
-      color = "Spearman rho"
+      x = "N",
+      fill = "Spearman rho"
     ) + 
     #theme(axis.text.y=element_text(face=geneFace)) +
     theme(axis.title.x=element_blank()) +
@@ -327,10 +328,12 @@ for (i in omics) {
   } 
 }
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4/guides_build_mod.R")
-gsea.dot.plots <- gsea.dot.plots + plot_layout(guides = 'collect')
-gsea.dot.plots
+gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
+gsea.dot.plots2
 #ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_colorN.pdf", gsea.dot.plots, width=14, height=7)
 ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yN.pdf", gsea.dot.plots, width=14, height=7)
+
+ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yNv2.pdf", gsea.dot.plots2, width=14, height=7)
 
 # any overlapping genes?
 temp.dot.df <- all.degs[all.degs$Significant & all.degs$N >= 6 &
