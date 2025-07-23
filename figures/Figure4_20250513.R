@@ -249,7 +249,56 @@ for (i in omics) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
 gsea.dot.plots2
-ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder.pdf", gsea.dot.plots, width=7, height=4)
+ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_height3.pdf", gsea.dot.plots, width=7, height=3) # was height 4
+
+gsea.dot.plots <- NULL
+for (i in rev(omics)) {
+  nGenes <- length(unique(na.omit(drug.corr[drug.corr$type == i,])$Drug))
+  
+  temp.dot.df <- drug.corr.wInfo[drug.corr.wInfo$sig & drug.corr.wInfo$type == i,]
+  topGenes <- temp.dot.df$name
+  nTopGenes <- length(topGenes)
+  temp.dot.df <- temp.dot.df %>% slice_max(abs(Pearson.est), n = 5)
+  geneOrder <- temp.dot.df[order(-temp.dot.df$Pearson.est),]$name
+  
+  #plot.annot <- paste0(i, "\n(", nTopGenes, " / ", nGenes, " drugs correlated)")
+  
+  dot.plot <- ggplot2::ggplot(temp.dot.df,
+                              ggplot2::aes(
+                                x = name, y = Pearson.est, fill = Mechanism
+                              )
+  ) + scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
+    ggplot2::geom_col() +
+    ggplot2::scale_x_discrete(limits = geneOrder) +
+    scale_y_continuous(limits=c(-maxAbsEst, maxAbsEst)) +
+    theme_classic() + scale_fill_manual(breaks=moaOrder3, values = myColorPal) +
+    ggplot2::labs(
+      #x = i,
+      y = "Pearson r",
+      fill = "Drug Mechanism"
+    ) + theme(axis.title.x = element_blank()) +
+    theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1)) + coord_flip()#,
+  #legend.direction = "horizontal", legend.position = "bottom")
+  
+  cat(plot.annot, "\n")
+  cat(i, "with", nTopGenes, "top Drugs\n")
+  dot.plot <- dot.plot + ggtitle(i) + theme(plot.title = element_text(hjust = 0.5, face="bold", size=16), axis.title.y=element_blank()) + xlab("Pearson r")
+  dot.plot
+  #customWidth <- ifelse(nrow(temp.dot.df) > 14, 14, nrow(temp.dot.df))
+  #ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=2, height=2.5)
+  ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=3.5, height=2)
+  
+  if (is.null(gsea.dot.plots)) {
+    gsea.dot.plots <- dot.plot
+  } else {
+    gsea.dot.plots <- gsea.dot.plots + dot.plot
+  } 
+}
+#source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
+gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
+gsea.dot.plots2
+ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_vertical_oppOrder.pdf", gsea.dot.plots, width=7, height=2) # was height 4
+
 
 #### compile target ranks across all analyses - manual network ####
 # get correlated genes (including from phospho)

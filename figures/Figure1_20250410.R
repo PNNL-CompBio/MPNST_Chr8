@@ -131,9 +131,17 @@ write.csv(all.degs, "Differential_expression_results.csv", row.names = FALSE)
 synapser::synStore(synapser::File("Differential_expression_results.csv", parent="syn65988130"))
 all.degs <- read.csv("Differential_expression_results.csv")
 all.degs$Omics <- factor(all.degs$Omics, levels=c("RNA", "Protein", "Phospho"))
+chr8q.genes <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/chr8qGenes.rds")
+
 plot_df <- plyr::ddply(all.degs[all.degs$Significant,] , .(Direction, Omics), dplyr::summarize,
-                       nCorr = dplyr::n())
+                       nCorr = dplyr::n(),
+                       nChr8q = length(unique(Feature[tolower(sub("-.*", "",Feature)) %in% tolower(chr8q.genes)])))
 plot_df$log10nCorr <- log(plot_df$nCorr, 10)
+
+plot_dfMin6 <- plyr::ddply(all.degs[all.degs$Significant & all.degs$N>=6,] , .(Direction, Omics), dplyr::summarize,
+                       nCorr = dplyr::n(),
+                       nChr8q = length(unique(Feature[tolower(sub("-.*", "",Feature)) %in% tolower(chr8q.genes)])))
+plot_dfMin6$log10nCorr <- log(plot_dfMin6$nCorr, 10)
 
 plt <- ggplot(plot_df) +
   # Make custom panel grid
@@ -224,6 +232,90 @@ plt <- plt +
 plt
 ggplot2::ggsave("Chr8_numberOfFeatures_circularBarPlot.pdf", plt, width = 7, height = 7)
 
+
+plt <- ggplot(plot_dfMin6) +
+  # Make custom panel grid
+  geom_hline(
+    aes(yintercept = y), 
+    data.frame(y = c(1, 2, 3)),
+    color = "lightgrey"
+  ) +
+  # Add bars to represent the cumulative track lengths
+  # str_wrap(region, 5) wraps the text so each line has at most 5 characters
+  # (but it doesn't break long words!)
+  geom_col(
+    aes(
+      x = reorder(Omics, log10nCorr),
+      #x = forcats::fct_infreq(stringr::str_wrap(Collection, 5)),
+      y = log10nCorr,
+      fill = Omics, alpha = Direction # first version
+      #fill = Direction
+    ),
+    position = "dodge", show.legend = TRUE#, alpha=0.5
+  ) +
+  geom_segment(
+    aes(
+      x = reorder(Omics, log10nCorr),
+      y = 0,
+      xend = reorder(Omics, log10nCorr),
+      yend = max(log10nCorr)
+    ),
+    linetype = "dashed",
+    color = "#5A5A5A"
+  ) + 
+  # Make it circular!
+  coord_polar() + theme_classic()
+
+plt
+
+plt <- plt +
+  # Annotate custom scale inside plot
+  annotate(
+    x = 0, 
+    y =0.5, 
+    label = "10", 
+    geom = "text", 
+    color = "gray12"
+  ) +
+  annotate(
+    x = 0, 
+    y = 1.5, 
+    label = "100", 
+    geom = "text", 
+    color = "gray12"
+  ) +
+  annotate(
+    x = 0, 
+    y =2.5, 
+    label = "1000", 
+    geom = "text", 
+    color = "gray12"
+  )+
+  # Scale y axis so bars don't start in the center
+  scale_y_continuous(
+    limits = c(-2, 3),
+    expand = c(0, 0),
+    #breaks = c(0, 10, 100, 1000)#, trans = 'log10'
+  ) + #scale_fill_manual(values=c("red", "blue")) +
+  scale_fill_manual(values=c("#C2A5CF", "#FEE391", "#B2DF8A")) + # first version; colors were: "#C2A5CF", "#FEE391", "#B2DF8A"
+  scale_alpha_discrete(range=c(0.5,1)) + 
+  theme(
+    # Remove axis ticks and text
+    axis.title = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text.y = element_blank(),
+    # Use gray text for the region names
+    axis.text.x = element_text(color = "gray12", size = 16), # was size 12
+    # Move the legend to the bottom
+    legend.position = "bottom",
+  ) + ggtitle("Number of Correlated Features") + 
+  theme(plot.title = element_text(hjust = 0.5, face="bold", size=24), # was size 16
+        axis.line=element_blank())
+
+plt
+ggplot2::ggsave("Chr8_numberOfFeatures_circularBarPlot_minN6.pdf", plt, width = 7, height = 7)
+
+
 #### 4. venn diagram of diffexp Features ####
 venn.list <- list()
 for (i in 1:length(unique(all.degs$Omics))) {
@@ -239,6 +331,46 @@ for (i in 1:length(unique(all.degs$Omics))) {
 ggvenn::ggvenn(venn.list, show_percentage = FALSE, fill_color = c("#C2A5CF", "#FEE391", "#B2DF8A"), 
                fill_alpha = 0.5, text_size = 10, set_name_size = 8)
 ggplot2::ggsave(paste0("Chr8_diffExp_vennDiagram_noPercentages_matchingColors_", Sys.Date(), ".pdf"), width=7, height=7)
+
+# what is shared between RNA & protein?
+venn.list[["RNA"]][venn.list[["RNA"]] %in% venn.list[["Protein"]]] # "ERG28" - down in RNA with N=4, up in protein with N=12
+
+# what is shared between RNA & phospho?
+venn.list[["RNA"]][venn.list[["RNA"]] %in% venn.list[["Phospho"]]] # "GSPT2"  "RBM14"  "RNF169"
+# GSPT2 up in RNA with N=3, GSPT2-S191s down in phospho with N=12, not significant in protein
+# RBM14 up in RNA with N=14, RBM14-S663s up in phospho with N=12
+# RNF169 up in RNA with N=3, RNF169-S292s down in phospho with N=12
+
+# what is shared between protein & phospho?
+venn.list[["Protein"]][venn.list[["Protein"]] %in% venn.list[["Phospho"]]] 
+# "ARHGEF2" "CALD1"   "FLNB"    "H2AFY"   "MICAL3"  "MON1B"   "PDE4DIP" "PRG4"    "SPTAN1" "SPTBN1"  "WWTR1"  
+
+## what if we require 6+ samples
+venn.list <- list()
+for (i in 1:length(unique(all.degs$Omics))) {
+  temp.name <- as.character(unique(all.degs$Omics))[i]
+  if (unique(all.degs[all.degs$Omics==temp.name,]$Feature_type) == "SUB_SITE") {
+    venn.list[[temp.name]] <- unique(sub("-.*", "", all.degs[all.degs$Omics==temp.name & all.degs$Significant & all.degs$N>=6,]$Feature))
+  } else if (unique(all.degs[all.degs$Omics==temp.name,]$Feature_type) == "Gene") {
+    venn.list[[temp.name]] <- unique(all.degs[all.degs$Omics==temp.name & all.degs$Significant & all.degs$N>=6,]$Feature)
+  } else {
+    warning("No Gene or SUB_SITE column found")
+  }
+}
+ggvenn::ggvenn(venn.list, show_percentage = FALSE, fill_color = c("#C2A5CF", "#FEE391", "#B2DF8A"), 
+               fill_alpha = 0.5, text_size = 10, set_name_size = 8)
+ggplot2::ggsave(paste0("Chr8_diffExp_vennDiagram_noPercentages_matchingColors_minN6_", Sys.Date(), ".pdf"), width=7, height=7)
+
+# what is shared between RNA & protein?
+venn.list[["RNA"]][venn.list[["RNA"]] %in% venn.list[["Protein"]]] # no overlap
+
+# what is shared between RNA & phospho?
+venn.list[["RNA"]][venn.list[["RNA"]] %in% venn.list[["Phospho"]]] # "RBM14"
+
+# what is shared between protein & phospho?
+venn.list[["Protein"]][venn.list[["Protein"]] %in% venn.list[["Phospho"]]] 
+# "ARHGEF2" "CALD1"   "FLNB"    "H2AFY"   "MICAL3"  "MON1B"   "PDE4DIP" "PRG4"    "SPTAN1" "SPTBN1"  "WWTR1"  
+
 
 #### 5. top up/dn diffexp Features ####
 # try making dot plot of Features sig in 2+ omics types
@@ -258,7 +390,7 @@ if (length(unique(mean.DEG.df$Fisher_p)) > 1) {
 }
 write.csv(mean.DEG.df, "Compiled_differential_expression_results.csv", row.names=FALSE)
 synapser::synStore(synapser::File("Compiled_differential_expression_results.csv", parent="syn65988130"))
-mean.dot.df <- read.csv(synapser::synGet("syn66227736")$path)
+mean.DEG.df <- read.csv(synapser::synGet("syn66227736")$path)
 
 #### do bar plots instead and make sure each omics has the same number of features ####
 omics <- c("RNA", "Protein", "Phospho")
@@ -273,8 +405,30 @@ all.degs$minusLogFDR <- -log(all.degs[,"Spearman.q"], base = 10)
 maxN <- max(all.degs[all.degs$Significant & 
                         all.degs$Omics %in% omics,]$N) # 15
 library(patchwork); library(ggplot2)
+chr8q.genes <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/chr8qGenes.rds")
 gsea.dot.plots <- NULL
 for (i in omics) {
+  nGenes <- length(unique(na.omit(all.degs[all.degs$Omics == i & 
+                                             all.degs$N>=6,])$Feature))
+  nCorrGenes <- length(unique(na.omit(all.degs[all.degs$Significant & 
+                                                 all.degs$Omics == i & 
+                                                 all.degs$N>=6,])$Feature))
+  
+  nChr8qGenes <- length(unique(na.omit(all.degs[all.degs$Omics == i & 
+                                                  all.degs$N>=6 & 
+                                                  tolower(sub("-.*", "",all.degs$Feature)) %in% 
+                                                  tolower(chr8q.genes),])$Feature))
+  nChr8qCorrGenes <- length(unique(na.omit(all.degs[all.degs$Significant & 
+                                                 all.degs$Omics == i & 
+                                                   all.degs$N>=6 & 
+                                                   tolower(sub("-.*", "",all.degs$Feature)) %in% 
+                                                   tolower(chr8q.genes),])$Feature))
+  cat("corr chr8q genes:", paste0(unique(na.omit(all.degs[all.degs$Significant & 
+                                                            all.degs$N>=6 & 
+                                                     all.degs$Omics == i & 
+                                                     tolower(sub("-.*", "",all.degs$Feature)) %in% 
+                                                     tolower(chr8q.genes),])$Feature)), collapse=", ","\n")
+  
   nGenes <- length(unique(na.omit(all.degs[all.degs$Omics == i,])$Feature))
   nCorrGenes <- length(unique(na.omit(all.degs[all.degs$Significant & 
                                                  all.degs$Omics == i,])$Feature))
@@ -287,7 +441,10 @@ for (i in omics) {
   topGenes <- temp.dot.df$Feature
   nTopGenes <- length(topGenes)
   geneOrder <- temp.dot.df[order(-temp.dot.df$Spearman.est),]$Feature
+  # plot.annot <- paste0(i, "\n(", nCorrGenes, " / ", nGenes, " correlated in 6+ samples, ",
+  #                      nChr8qCorrGenes," of which belong to chr8q out of ", nChr8qGenes," quantified)")
   plot.annot <- paste0(i, "\n(", nCorrGenes, " / ", nGenes, " correlated)")
+  
   
   # geneFace <- rep("plain", length(geneOrder))
   # names(geneFace) <- geneOrder
@@ -295,6 +452,22 @@ for (i in omics) {
   # SHH.pathways <- geneOrder[grepl("SHH", geneOrder) | grepl("HEDGEHOG", geneOrder)]
   # poi <- c(MYC.pathways, SHH.pathways)
   # geneFace[poi] <- "bold"
+  
+  geneFace <- rep("plain", length(geneOrder))
+  names(geneFace) <- geneOrder
+  if (i == "Phospho") {
+    poi <- geneOrder[tolower(sub("-.*","",geneOrder)) %in% tolower(chr8q.genes)]
+    if (length(poi) > 0) {
+     cat("bolding chr8q genes: ", paste0(geneOrder[tolower(sub("-.*","",geneOrder)) %in% tolower(chr8q.genes)],collapse=", "))
+    }
+  } else {
+    poi <- geneOrder[tolower(geneOrder) %in% tolower(chr8q.genes)]
+    if (length(poi) > 0) {
+      cat("bolding chr8q genes: ", paste0(geneOrder[tolower(geneOrder) %in% tolower(chr8q.genes)],collapse=", "))
+    }
+  }
+
+  geneFace[poi] <- "bold"
   
   dot.plot <- ggplot2::ggplot(temp.dot.df,
                               ggplot2::aes(
@@ -312,7 +485,7 @@ for (i in omics) {
       x = "N",
       fill = "Spearman rho"
     ) + 
-    #theme(axis.text.y=element_text(face=geneFace)) +
+    theme(axis.text.y=element_text(face=geneFace)) +
     theme(axis.title.x=element_blank()) +
     theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1))
   
@@ -331,9 +504,18 @@ for (i in omics) {
 gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
 gsea.dot.plots2
 #ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_colorN.pdf", gsea.dot.plots, width=14, height=7)
-ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yN.pdf", gsea.dot.plots, width=14, height=7)
+#ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yN_chr8q_minN6.pdf", gsea.dot.plots, width=14, height=7)
+#ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yNv2_chr8q_minN6.pdf", gsea.dot.plots2, width=14, height=7)
+ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yN_chr8qBold.pdf", gsea.dot.plots, width=14, height=7)
+ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yNv2_chr8qBold.pdf", gsea.dot.plots2, width=14, height=7)
 
-ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yNv2.pdf", gsea.dot.plots2, width=14, height=7)
+# "EXT1" and "UBE2V2" are chr8q genes in protein - not sure why not bolded
+
+# what % of up- or down-regulated genes are on chr8q? chr8p?
+# chr8q corr in RNA: DSTNP3 GPR20 LRRC24 SCX TMEM276-ZFTRAF1 VCPIP1 ZHX1-C8orf76 - none have 6+ samples; 1 was down, 6 were up; DSTNP3 was down but N=3
+# ZHX1 not quantified alone, TMEM276 not significant alone 
+# chr8q corr in prot: DSCC1 ENY2 EXT1 LYPLA1 MRPL13 NUDCD1 PLEKHF2 RB1CC1 RNF19A UBE2V2 - all have 6+ samples, all up with chr8q
+# chr8q corr in phospho: MTFR1-S119s NBN-S604s RIMS2-Y317y SHARPIN-S165s - all have 6+ samples; 3 down, 1 up: MTFR1-S119s is up with chr8q
 
 # any overlapping genes?
 temp.dot.df <- all.degs[all.degs$Significant & all.degs$N >= 6 &
