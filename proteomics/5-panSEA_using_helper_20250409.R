@@ -522,3 +522,49 @@ for (dir in directions) {
   }
 }
 ggsave("WP_PCSF_Cytoscape_Enrichment_networkOnly.pdf", wp.plot, width=6, height=4)
+
+saveRDS(cn, "cn.rds")
+saveRDS(pdxRNA, "pdxRNA.rds")
+#### redo copy number, RNA with 6+ samples
+# per proteomics:
+# filter for features in at least half of samples
+cnHighCov <- cn[rowSums(is.na(cn)) < (ncol(cn)-1)/2, ] # 28210 / 28210 rows kept so no need to redo
+rnaHighCov <- pdxRNA[rowSums(is.na(pdxRNA)) < (ncol(pdxRNA)-1)/2, ] # 6279 / 28879 rows kept
+rnaMin6 <- pdxRNA[rowSums(!is.na(pdxRNA)) >= 6, ] # 20352 / 28879 rows kept - matches min number of prot samples
+
+# actually, "WU-505" "WU-561" don't have copy number so they will get removed in the analysis
+# should remove them first before filtering
+rnaMin6 <- pdxRNA[,c("Gene", colnames(pdxRNA)[colnames(pdxRNA) %in% pdx.info2$Sample])]
+rnaMin6 <- rnaMin6[rowSums(!is.na(rnaMin6)) >= 6, ] # 17717 / 28879 rows kept - matches min number of prot samples
+hist(rowSums(!is.na(rnaMin6)))
+
+# # first, check positional enrichment on copy number
+# omics <- list("Copy_number_minN6" = cn)
+# meta.list <- list("Copy_number_minN6" = pdx.info2[pdx.info2$Sample!="JH-2-009",])
+# expr.list <- list("Copy_number_minN6" = "adherent CCLE")
+# feature.list <- list("Copy_number_minN6" = "Gene")
+# gmt1.cn <- list("Positional" = gmt1$Positional)
+# panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
+#              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.cn, gmt2=gmt2,
+#              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
+
+# next, proteomics and RNA
+setwd(base.path)
+setwd("Chr8_quant_20250409")
+omics <- list("RNA-Seq_minN6" = rnaMin6)
+meta.list <- list("RNA-Seq_minN6" = pdx.info2[pdx.info2$Sample %in% colnames(rnaMin6)[2:ncol(rnaMin6)],])
+colnames(rnaMin6)[!(colnames(rnaMin6) %in% meta.list$`RNA-Seq_minN6`$Sample)]
+# "Gene"   "WU-505" "WU-561"
+# "Gene" after going back and removing samples without copy number first
+expr.list <- list("RNA-Seq_minN6" = "adherent CCLE")
+feature.list <- list("RNA-Seq_minN6" = "Gene")
+gmt1.rest <- list("Hallmark" = gmt1$Hallmark,
+                  "KEGG" = gmt1$KEGG,
+                  "Oncogenic" = gmt1$Oncogenic,
+                  "PID" = gmt1$PID,
+                  "TFT_GTRD" = gmt1$TFT_GTRD,
+                  "WikiPathways" = gmt1$WikiPathways)
+panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
+             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest, gmt2=gmt2,
+             temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
+
