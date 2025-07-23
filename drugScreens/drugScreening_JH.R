@@ -159,7 +159,7 @@ for (m in maxConc) {
   
   # run curve fitting
   library(reticulate)
-  setwd("~/")
+  #setwd("~/")
   system2("python3", paste0("fit_curve.py --input chr8_normConfluence_max",m,
                             "um.tsv --output chr8_normConfluenceCurves_max",m,"um"))
   # if you get an error "No module named 'pandas'":
@@ -220,3 +220,68 @@ for (m in maxConc) {
       axis.text.x=element_text(angle=45, vjust=1, hjust=1))
   ggsave(paste0("fit_auc_confluence_barPlot_max",m,"um.pdf"), width=10, height=3)
 }
+
+#### association between AUC and chr8/chr8q/MYC ####
+med.chr8q <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
+
+auc.chr8q <- merge(auc, med.chr8q, by.x="improve_sample_id",by.y="Sample") # only 2 samples: JH-2-002 and JH-2-079c
+# does AUC correlate with chr8q copy number? MYC copy number? - will have to skip due to lack of copy number data; plus the copy number is PDX vs. cell lines screened with drugs
+
+# is PLKi AUC lower with MYC gain? is EGFRi AUC lower with MYC diploid? Likewise with chr8
+auc$chr8 <- "Gain"
+auc[auc$improve_sample_id %in% c("JH-2-055d","ST8814","NF10.1"),]$chr8 <- "Diploid"
+auc$chr8q <- "Gain"
+auc[auc$improve_sample_id %in% c("JH-2-055d","ST8814","NF10.1"),]$chr8q <- "Diploid"
+auc$MYC <- "Gain"
+auc[auc$improve_sample_id == "JH-2-055d",]$MYC <- "Diploid"
+Drug <- unique(auc$improve_drug_id) # 5
+t.df <- data.frame(Drug=rep(Drug,2), p=NA, mean_gain = NA, median_gain=NA, sd_gain=NA, N_gain=NA,
+                   mean_diploid = NA, median_diploid=NA, sd_diploid=NA, N_diploid=NA, test=rep(c("MYC","chr8"),length(Drug)),
+                   gain_moreSensitive=FALSE)
+
+for (d in Drug) {
+  for (t in c("chr8","MYC")) {
+    gain <- na.omit(auc[auc[,t]=="Gain" & auc$improve_drug_id==d,]$dose_response_value)
+    diploid <- na.omit(auc[auc[,t]=="Diploid" & auc$improve_drug_id==d,]$dose_response_value)
+    if (length(diploid) > 1) {
+      if (mean(gain) > mean(diploid)) {
+        temp.test <- t.test(gain, diploid, "greater")
+      } else {
+        temp.test <- t.test(gain, diploid, "less")
+        t.df[t.df$Drug == d & t.df$test==t,]$gain_moreSensitive <- TRUE
+      }
+      t.df[t.df$Drug == d & t.df$test==t,]$p <- temp.test$p.value
+      t.df[t.df$Drug == d & t.df$test==t,]$mean_gain <- mean(gain) 
+      t.df[t.df$Drug == d & t.df$test==t,]$median_gain <- median(gain)
+      t.df[t.df$Drug == d & t.df$test==t,]$sd_gain <- sd(gain)
+      t.df[t.df$Drug == d & t.df$test==t,]$N_gain <- length(gain)
+      
+      t.df[t.df$Drug == d & t.df$test==t,]$mean_diploid <- mean(diploid) 
+      t.df[t.df$Drug == d & t.df$test==t,]$median_diploid <- median(diploid)
+      t.df[t.df$Drug == d & t.df$test==t,]$sd_diploid <- sd(diploid)
+      t.df[t.df$Drug == d & t.df$test==t,]$N_diploid <- length(diploid)
+    }
+  }
+}
+write.csv(t.df, "tTests_AUC_chr8_MYC.csv", row.names=FALSE)
+# lowest p-value is 0.0874 (all for chr8; can't do MYC because only 1 MYC diploid)
+
+#### manually checking for significant correlations between MYC copy number and PLK1 or EGFR RNAi ####
+setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure4_viability/depmap")
+##### PLK1 #####
+soft <- read.csv("MYC Copy Number log2(relative to ploidy + 1) vs PLK1 Gene Effect (DEMETER2) filtered by Soft Tissue.csv")
+soft.corr <- cor.test(soft$MYC.Copy.Number.log2.relative.to.ploidy...1..Copy.Number.Public.25Q2..Log2.transformed.,
+                      soft$PLK1.Gene.Effect..DEMETER2..RNAi..Achilles.DRIVE.Marcotte..DEMETER2., method="spearman")
+# p = 0.2912 spearman, 0.6095 pearson
+
+#all <- read.csv("MYC Copy Number log2(relative to ploidy + 1) vs PLK1 Gene Effect (DEMETER2).csv")
+
+
+##### EGFR #####
+soft <- read.csv("MYC Copy Number log2(relative to ploidy + 1) vs EGFR Gene Effect (DEMETER2) filtered by Soft Tissue.csv")
+soft.corr <- cor.test(soft$MYC.Copy.Number.log2.relative.to.ploidy...1..Copy.Number.Public.25Q2..Log2.transformed.,
+                      soft$EGFR.Gene.Effect..DEMETER2..RNAi..Achilles.DRIVE.Marcotte..DEMETER2.
+                      #, method="spearman"
+                      )
+soft.corr
+# p = 0.4366 spearman, 0.8074709 pearson
