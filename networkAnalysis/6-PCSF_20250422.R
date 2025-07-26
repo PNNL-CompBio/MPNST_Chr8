@@ -218,7 +218,7 @@ pos.vert[pos.vert$pos.genes %in% global.result[global.result$Spearman.est>0,]$Ge
 pos.vert[pos.vert$pos.genes %in% tf.result[tf.result$NES>0,]$Gene,]$Omics <- "TF"
 pos.vert[pos.vert$pos.genes == dup.pos,]$Omics <- "Protein & TF"
 pos.vert$chr8q <- FALSE
-pos.vert[pos.vert$from %in% chr8q.genes,]$chr8q <- TRUE
+pos.vert[pos.vert$pos.genes %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(pos.vert, "positive_vertices.csv", row.names=FALSE)
 write.csv(pos.edges, "positive_edges.csv", row.names=FALSE)
 topGraph <- igraph::graph_from_data_frame(pos.edges, directed=FALSE, vertices=pos.vert) 
@@ -244,7 +244,7 @@ neg.vert[neg.vert$neg.genes %in% global.result[global.result$Spearman.est<0,]$Ge
 neg.vert[neg.vert$neg.genes %in% tf.result[tf.result$NES<0,]$Gene,]$Omics <- "TF"
 neg.vert[neg.vert$neg.genes %in% kin.result[kin.result$NES<0,]$Feature_set,]$Omics <- "Kinase"
 neg.vert$chr8q <- FALSE
-neg.vert[neg.vert$from %in% chr8q.genes,]$chr8q <- TRUE
+neg.vert[neg.vert$neg.genes %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(neg.vert, "negative_vertices.csv", row.names=FALSE)
 write.csv(neg.edges, "negative_edges.csv", row.names=FALSE)
 topGraph <- igraph::graph_from_data_frame(neg.edges, directed=FALSE, vertices=neg.vert) 
@@ -372,10 +372,11 @@ ggplot2::ggplot(bar.df2, aes(x=eigen_centrality, y=name, fill=Direction)) +
 ggsave("chr8qGeneCentralityTFKinNetworks_barPlotStacked.pdf",width=3.5,height=3)
   
 # look for connections between chr8q genes and altered TFs/kinases
+colnames(neg.vert)[1] <- "from"
 neg.tf.con <- neg.edges[(neg.edges$from %in% c(tf.result$Gene, kin.result$Feature_set) | 
                          neg.edges$to %in% c(tf.result$Gene, kin.result$Feature_set)) &
-                        (neg.edges$from %in% chr8q.genes | neg.edges$to %in% chr8q.genes),] # 5050
-neg.tf.con.vert <- neg.vert[neg.vert$from %in% c(neg.tf.con$from, neg.tf.con$to),] # 815
+                        (neg.edges$from %in% chr8q.genes | neg.edges$to %in% chr8q.genes),] # 40
+neg.tf.con.vert <- neg.vert[neg.vert$from %in% c(neg.tf.con$from, neg.tf.con$to),] # 23
 topGraph <- igraph::graph_from_data_frame(neg.tf.con, directed=FALSE, vertices=neg.tf.con.vert) 
 #plot(topGraph)
 tempTitle <- paste0("negative", "_", nrow(neg.tf.con.vert),"_TFChr8Nodes_manual_",Sys.Date())
@@ -391,10 +392,11 @@ neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     authority_score = igraph::authority_score(topGraph)$vector)
 write.csv(neg.tf.con.centrality, "negative_TFChr8_centrality.csv", row.names=FALSE)
 
+colnames(pos.vert)[1] <- "from"
 pos.tf.con <- pos.edges[(pos.edges$from %in% c(tf.result$Gene, kin.result$Feature_set) | 
                            pos.edges$to %in% c(tf.result$Gene, kin.result$Feature_set)) &
-                          (pos.edges$from %in% chr8q.genes | pos.edges$to %in% chr8q.genes),] # 5050
-pos.tf.con.vert <- pos.vert[pos.vert$from %in% c(pos.tf.con$from, pos.tf.con$to),] # 815
+                          (pos.edges$from %in% chr8q.genes | pos.edges$to %in% chr8q.genes),] # 2310
+pos.tf.con.vert <- pos.vert[pos.vert$from %in% c(pos.tf.con$from, pos.tf.con$to),] # 908
 topGraph <- igraph::graph_from_data_frame(pos.tf.con, directed=FALSE, vertices=pos.tf.con.vert) 
 #plot(topGraph)
 tempTitle <- paste0("positive", "_", nrow(pos.tf.con.vert),"_TFChr8Nodes_manual_",Sys.Date())
