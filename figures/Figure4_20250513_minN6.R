@@ -11,7 +11,8 @@ synapser::synLogin()
 source("~/OneDrive - PNNL/Documents/GitHub/Chr8/panSEA_helper_20240913.R")
 
 # load data
-rna.corr <- read.csv(synapser::synGet("syn66226866")$path)
+#rna.corr <- read.csv(synapser::synGet("syn66226866")$path)
+rna.corr <- read.csv(synapser::synGet("syn68742308")$path) # with min N 6
 prot.corr <- read.csv(synapser::synGet("syn66224803")$path)
 inputs <- list("RNA" = na.omit(rna.corr[rna.corr$Spearman.q <= 0.05,]), # 655 genes or 50 with min N6 / 17717
                "Protein" = na.omit(prot.corr[prot.corr$Spearman.q <= 0.05,])) # 208 genes / 9013
@@ -51,9 +52,12 @@ for (i in 1:length(inputs)) {
                      "DMEA_unannotated_drugs.csv" = temp.results$unannotated.drugs)
   adh.DMEA.files[[names(inputs)[i]]] <- temp.files
 }
-dir.create("DMEA")
-setwd("DMEA")
-save_to_synapse(adh.DMEA.files, "syn66295230")
+#dir.create("DMEA")
+#setwd("DMEA")
+dir.create("DMEA_minN6")
+setwd("DMEA_minN6")
+#save_to_synapse(adh.DMEA.files, "syn66295230")
+save_to_synapse(adh.DMEA.files, "syn68747734")
 saveRDS(adh.DMEA, "DMEA.rds")
 
 source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/helperScripts/compile_mCorr.R")
@@ -67,10 +71,11 @@ compiled.files <- list("DMEA_correlation_results.csv" = compiled.drugCorr$result
                        "DMEA_correlation_correlation_matrix.pdf" = compiled.drugCorr$corr.matrix)
 
 setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4")
-setwd("DMEA")
+setwd("DMEA_minN6")
 dir.create("correlations")
 setwd("correlations")
-save_to_synapse(compiled.files, "syn66295272")
+#save_to_synapse(compiled.files, "syn66295272")
+save_to_synapse(compiled.files, "syn68747769")
 
 # sarcoma DMEA?
 soft.sarc.RNA <- adh.RNA2[adh.RNA2$CCLE_ID %in% soft.sarc.info$CCLE_Name,] # 7 cell lines
@@ -153,7 +158,7 @@ dot.plot <- ggplot2::ggplot(
     axis.text.x=element_text(angle=45, vjust=1, hjust=1))
 dot.plot
 # most are only in prot and not in RNA
-ggplot2::ggsave("Enriched_drugSets_dotPlot_v2.pdf", dot.plot, width=6, height=6)
+ggplot2::ggsave("Enriched_drugSets_dotPlot_v2_minN6.pdf", dot.plot, width=6, height=6)
 
 #### 2. waterfall plot of drug corr ####
 drug.info <- read.csv("https://raw.githubusercontent.com/BelindaBGarana/DMEA/refs/heads/shiny-app/Inputs/PRISM_secondary-screen-replicate-treatment-info.csv")
@@ -243,7 +248,7 @@ for (i in omics) {
   dot.plot
   #customWidth <- ifelse(nrow(temp.dot.df) > 14, 14, nrow(temp.dot.df))
   #ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=2, height=2.5)
-  ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=3.5, height=2)
+  ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill_minN6.pdf"), dot.plot, width=3.5, height=2)
   
   if (is.null(gsea.dot.plots)) {
     gsea.dot.plots <- dot.plot
@@ -254,7 +259,7 @@ for (i in omics) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
 gsea.dot.plots2
-ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_height3.pdf", gsea.dot.plots, width=7, height=3) # was height 4
+ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_height3_minN6.pdf", gsea.dot.plots, width=7, height=3) # was height 4
 
 gsea.dot.plots <- NULL
 for (i in rev(omics)) {
@@ -302,7 +307,7 @@ for (i in rev(omics)) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
 gsea.dot.plots2
-ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_vertical_oppOrder.pdf", gsea.dot.plots, width=7, height=2) # was height 4
+ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_vertical_oppOrder_minN6.pdf", gsea.dot.plots, width=7, height=2) # was height 4
 
 
 #### compile target ranks across all analyses - manual network ####
