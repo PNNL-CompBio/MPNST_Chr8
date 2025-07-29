@@ -223,9 +223,134 @@ for (m in maxConc) {
 
 #### association between AUC and chr8/chr8q/MYC ####
 med.chr8q <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
-
+auc[auc$improve_sample_id=="JH-2-079",]$improve_sample_id <- "JH-2-079c" # confirm with Ava - discrepancy is with BI-2536
 auc.chr8q <- merge(auc, med.chr8q, by.x="improve_sample_id",by.y="Sample") # only 2 samples: JH-2-002 and JH-2-079c
 # does AUC correlate with chr8q copy number? MYC copy number? - will have to skip due to lack of copy number data; plus the copy number is PDX vs. cell lines screened with drugs
+# actually, have copy number from FISH analysis
+fish <- read.csv("FISH_results.csv")
+colnames(fish)[1] <- "improve_sample_id"
+auc.fish <- merge(auc, fish, by="improve_sample_id")
+Drug <- unique(auc$improve_drug_id) # 5
+t.df <- data.frame(Drug=rep(Drug,2), Pearson.est=NA, Pearson.p=NA, 
+                   Spearman.est=NA, Spearman.p=NA, 
+                   test=rep(c("MYC","chr8"),length(Drug)))
+
+for (d in Drug) {
+  temp.auc.fish <- auc.fish[auc.fish$improve_drug_id==d,]
+  for (t in c("chr8","MYC")) {
+    temp.auc.fish$rank <- as.numeric(temp.auc.fish[,t])
+    temp.auc.fish <- na.omit(temp.auc.fish) # remove NF11.1 because not sure exact copy number or rank
+    temp.test <- cor.test(temp.auc.fish$rank,temp.auc.fish$dose_response_value)
+    temp.test.sp <- cor.test(temp.auc.fish$rank,temp.auc.fish$dose_response_value, method="spearman")
+    
+    t.df[t.df$Drug == d & t.df$test==t,]$Pearson.est <- temp.test$estimate
+    t.df[t.df$Drug == d & t.df$test==t,]$Pearson.p <- temp.test$p.value
+    t.df[t.df$Drug == d & t.df$test==t,]$Spearman.est <- temp.test.sp$estimate
+    t.df[t.df$Drug == d & t.df$test==t,]$Spearman.p <- temp.test.sp$p.value
+    
+    if (is.numeric(temp.test$p.value) | is.numeric(temp.test.sp$p.value)) { # was checking for p < 0.05 but now want plots either way
+      stats_pearson <- substitute(
+        r == est * "," ~ ~"p" ~ "=" ~ p,
+        list(
+          est = format(as.numeric(temp.test$estimate), digits = 3),
+          p = format(temp.test$p.value, digits = 3)
+        )
+      )
+      ggplot(temp.auc.fish, aes(x=rank, y=dose_response_value)) + geom_point() + theme_minimal() + 
+        labs(x=paste(t,"Copy Number"), y = paste(d,"Sensitivity (AUC)")) +
+        geom_smooth(se=FALSE, linetype="dashed", method="lm") + 
+        ggrepel::geom_label_repel(aes(label=improve_sample_id)) + 
+        ggplot2::geom_text(
+          x = Inf, y = -Inf, vjust = "inward", hjust = "inward",
+          colour = "blue", parse = TRUE,
+          label = as.character(as.expression(stats_pearson)), size = 5
+        ) 
+      ggsave(paste0(d,"_",t,"_scatterPlot_PearsonCorrelation.pdf"), width=5, height=5)
+      
+      stats_spearman <- substitute(
+        rho == est * "," ~ ~"p" ~ "=" ~ p,
+        list(
+          est = format(as.numeric(temp.test.sp$estimate), digits = 3),
+          p = format(temp.test.sp$p.value, digits = 3)
+        )
+      )
+      ggplot(temp.auc.fish, aes(x=rank, y=dose_response_value)) + geom_point() + theme_minimal() + 
+        labs(x=paste(t,"Copy Number"), y = paste(d,"Sensitivity (AUC)")) +
+        geom_smooth(se=FALSE, linetype="dashed", method="lm") + 
+        ggrepel::geom_label_repel(aes(label=improve_sample_id)) + 
+        ggplot2::geom_text(
+          x = Inf, y = -Inf, vjust = "inward", hjust = "inward",
+          colour = "blue", parse = TRUE,
+          label = as.character(as.expression(stats_spearman)), size = 5
+        ) 
+      ggsave(paste0(d,"_",t,"_scatterPlot_SpearmanCorrelation.pdf"), width=5, height=5)
+    }
+  }
+}
+write.csv(t.df, "correlations_AUC_chr8_MYC_2025-07-28.csv", row.names=FALSE) # none significant
+
+# try plotting PLKi and EGFRi together and facet by chr8/MYC copy number
+auc.fish$moa <- NA
+auc.fish[auc.fish$improve_drug_id %in% c("BI-2536","Volasertib"),]$moa <- "PLK Inhibitor"
+auc.fish[auc.fish$improve_drug_id %in% c("Erlotinib","Osimertib"),]$moa <- "EGFR Inhibitor"
+auc.fish[auc.fish$improve_drug_id %in% c("Mirdametinib"),]$moa <- "MEK Inhibitor"
+moa <- na.omit(unique(auc.fish$moa)) # 5
+t.df <- data.frame(moa=rep(moa,2), Pearson.est=NA, Pearson.p=NA, 
+                   Spearman.est=NA, Spearman.p=NA, 
+                   test=rep(c("MYC","chr8"),length(moa)))
+for (m in moa) {
+  temp.auc.fish <- auc.fish[auc.fish$moa==m,]
+  for (t in c("chr8","MYC")) {
+    temp.auc.fish$rank <- as.numeric(temp.auc.fish[,t])
+    temp.auc.fish <- na.omit(temp.auc.fish) # remove NF11.1 because not sure exact copy number or rank
+    temp.test <- cor.test(temp.auc.fish$rank,temp.auc.fish$dose_response_value)
+    temp.test.sp <- cor.test(temp.auc.fish$rank,temp.auc.fish$dose_response_value, method="spearman")
+    
+    t.df[t.df$moa == m & t.df$test==t,]$Pearson.est <- temp.test$estimate
+    t.df[t.df$moa == m & t.df$test==t,]$Pearson.p <- temp.test$p.value
+    t.df[t.df$moa == m & t.df$test==t,]$Spearman.est <- temp.test.sp$estimate
+    t.df[t.df$moa == m & t.df$test==t,]$Spearman.p <- temp.test.sp$p.value
+    
+    if (is.numeric(temp.test$p.value) | is.numeric(temp.test.sp$p.value)) { # was checking for p < 0.05 but now want plots either way
+      stats_pearson <- substitute(
+        r == est * "," ~ ~"p" ~ "=" ~ p,
+        list(
+          est = format(as.numeric(temp.test$estimate), digits = 3),
+          p = format(temp.test$p.value, digits = 3)
+        )
+      )
+      ggplot(temp.auc.fish, aes(x=rank, y=dose_response_value)) + geom_point() + theme_minimal() + 
+        labs(x=paste(t,"Copy Number"), y = paste(m,"Sensitivity (AUC)")) +
+        geom_smooth(se=FALSE, linetype="dashed", method="lm") + 
+        ggrepel::geom_label_repel(aes(label=improve_sample_id)) + 
+        ggplot2::geom_text(
+          x = Inf, y = -Inf, vjust = "inward", hjust = "inward",
+          colour = "blue", parse = TRUE,
+          label = as.character(as.expression(stats_pearson)), size = 5
+        ) 
+      ggsave(paste0(m,"_",t,"_scatterPlot_PearsonCorrelation.pdf"), width=5, height=5)
+      
+      stats_spearman <- substitute(
+        rho == est * "," ~ ~"p" ~ "=" ~ p,
+        list(
+          est = format(as.numeric(temp.test.sp$estimate), digits = 3),
+          p = format(temp.test.sp$p.value, digits = 3)
+        )
+      )
+      ggplot(temp.auc.fish, aes(x=rank, y=dose_response_value)) + geom_point() + theme_minimal() + 
+        labs(x=paste(t,"Copy Number"), y = paste(m,"Sensitivity (AUC)")) +
+        geom_smooth(se=FALSE, linetype="dashed", method="lm") + 
+        ggrepel::geom_label_repel(aes(label=improve_sample_id)) + 
+        ggplot2::geom_text(
+          x = Inf, y = -Inf, vjust = "inward", hjust = "inward",
+          colour = "blue", parse = TRUE,
+          label = as.character(as.expression(stats_spearman)), size = 5
+        ) 
+      ggsave(paste0(m,"_",t,"_scatterPlot_SpearmanCorrelation.pdf"), width=5, height=5)
+    }
+  }
+}
+write.csv(t.df, "moa_correlations_AUC_chr8_MYC_2025-07-28.csv", row.names=FALSE) # none significant
 
 # is PLKi AUC lower with MYC gain? is EGFRi AUC lower with MYC diploid? Likewise with chr8
 auc$chr8 <- "Gain"
@@ -266,6 +391,86 @@ for (d in Drug) {
 write.csv(t.df, "tTests_AUC_chr8_MYC.csv", row.names=FALSE)
 # lowest p-value is 0.0874 (all for chr8; can't do MYC because only 1 MYC diploid)
 
+# repeat with moa instead of drug
+auc$moa <- NA
+auc[auc$improve_drug_id %in% c("BI-2536","Volasertib"),]$moa <- "PLK Inhibitor"
+auc[auc$improve_drug_id %in% c("Erlotinib","Osimertinib"),]$moa <- "EGFR Inhibitor"
+auc[auc$improve_drug_id %in% c("Mirdametinib"),]$moa <- "MEK Inhibitor"
+moa <- na.omit(unique(auc$moa)) # 5
+t.df <- data.frame(moa=rep(moa,2), p=NA, mean_gain = NA, median_gain=NA, sd_gain=NA, N_gain=NA,
+                   mean_diploid = NA, median_diploid=NA, sd_diploid=NA, N_diploid=NA, test=rep(c("MYC","chr8"),length(moa)),
+                   gain_moreSensitive=FALSE)
+
+for (m in moa) {
+  for (t in c("chr8","MYC")) {
+    gain <- na.omit(auc[auc[,t]=="Gain" & auc$moa==m,]$dose_response_value)
+    diploid <- na.omit(auc[auc[,t]=="Diploid" & auc$moa==m,]$dose_response_value)
+    if (length(diploid) > 1) {
+      if (mean(gain) > mean(diploid)) {
+        temp.test <- t.test(gain, diploid, "greater")
+      } else {
+        temp.test <- t.test(gain, diploid, "less")
+        t.df[t.df$moa==m & t.df$test==t,]$gain_moreSensitive <- TRUE
+      }
+      t.df[t.df$moa==m & t.df$test==t,]$p <- temp.test$p.value
+      t.df[t.df$moa==m & t.df$test==t,]$mean_gain <- mean(gain) 
+      t.df[t.df$moa==m & t.df$test==t,]$median_gain <- median(gain)
+      t.df[t.df$moa==m & t.df$test==t,]$sd_gain <- sd(gain)
+      t.df[t.df$moa==m & t.df$test==t,]$N_gain <- length(gain)
+      
+      t.df[t.df$moa==m & t.df$test==t,]$mean_diploid <- mean(diploid) 
+      t.df[t.df$moa==m & t.df$test==t,]$median_diploid <- median(diploid)
+      t.df[t.df$moa==m & t.df$test==t,]$sd_diploid <- sd(diploid)
+      t.df[t.df$moa==m & t.df$test==t,]$N_diploid <- length(diploid)
+    }
+  }
+}
+write.csv(t.df, "moa_tTests_AUC_chr8_MYC.csv", row.names=FALSE)
+
+temp.df <- reshape2::melt(auc, id.var=c("source", "improve_sample_id", 
+                                        "improve_drug_id", "study", "time",
+                                        "time_unit", "dose_response_metric",
+                                        "dose_response_value","moa"))
+temp.df <- temp.df[temp.df$variable != "chr8q" & temp.df$moa != "MEK Inhibitor",]
+
+all.mpnst <- c("JH-2-055d","ST8814","NF10.1","JH-2-002","JH-2-079c","JH-2-103","JH-2-155b","NF11.1","NF90.8","S462")
+ggplot(temp.df, aes(x=value, y=dose_response_value)) + geom_violin(alpha=0) + 
+  geom_boxplot() + geom_point(aes(color=improve_drug_id, shape=improve_sample_id)) + 
+  facet_grid(moa~variable) + theme_classic() + labs(color="Drug", shape="MPNST Cell Line", y ="Viability Area Under the Curve") +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst) + theme(axis.title.x=element_blank())
+ggsave("AUC_vs_moa_boxPlot.pdf",width=4, height=4.5)
+
+temp.df$moa <- factor(temp.df$moa, levels=c("PLK Inhibitor","EGFR Inhibitor"))
+ggplot(temp.df, aes(x=value, y=dose_response_value)) + geom_violin(alpha=0) + 
+  geom_boxplot() + geom_point(aes(color=improve_drug_id, shape=improve_sample_id)) + 
+  facet_grid(variable~moa, switch="y") + theme_classic() + 
+  labs(color="Drug", shape="MPNST Cell Line", y ="Viability Area Under the Curve") +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst) + 
+  theme(axis.title.y=element_blank(), legend.position="bottom") + coord_flip() + 
+  scale_x_discrete(position="top")
+ggsave("AUC_vs_moa_boxPlot_horizontal.pdf",width=4.5, height=3)
+ggsave("AUC_vs_moa_boxPlot_horizontal_wider.pdf",width=6, height=3)
+
+temp.df$Drug <- factor(temp.df$improve_drug_id, levels=c("Erlotinib","Osimertinib","BI-2536","Volasertib"))
+temp.df$Drug <- factor(temp.df$improve_drug_id, levels=c("BI-2536","Volasertib","Erlotinib","Osimertinib"))
+ggplot(temp.df, aes(x=value, y=dose_response_value)) + geom_violin(alpha=0) + 
+  geom_boxplot() + geom_point(aes(color=moa, shape=improve_sample_id)) + 
+  facet_grid(Drug~variable) + theme_classic() + labs(color="MOA", shape="MPNST Cell Line", y ="Viability Area Under the Curve") +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst) + theme(axis.title.x=element_blank())
+ggsave("AUC_vs_drug_boxPlot_v2.pdf",width=4, height=6)
+ggsave("AUC_vs_drug_boxPlot_v2_shorter.pdf",width=4, height=5)
+
+temp.df$Drug <- factor(temp.df$improve_drug_id, levels=c("BI-2536","Volasertib","Erlotinib","Osimertinib"))
+ggplot(temp.df, aes(x=value, y=dose_response_value)) + geom_violin(alpha=0) + 
+  geom_boxplot() + geom_point(aes(color=moa, shape=improve_sample_id)) + 
+  facet_grid(variable~Drug, switch="y") + theme_classic() + 
+  labs(color="MOA", shape="MPNST Cell Line", y ="Viability Area Under the Curve") +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst) + 
+  theme(axis.title.y=element_blank(), legend.position="bottom") + coord_flip() + 
+  scale_x_discrete(position="top")
+ggsave("AUC_vs_drug_boxPlot_horizontal.pdf",width=6, height=3)
+ggsave("AUC_vs_drug_boxPlot_horizontal_wider.pdf",width=8, height=3)
+write.csv(temp.df,"AUC_vs_drug_or_moa.csv", row.names=FALSE)
 #### manually checking for significant correlations between MYC copy number and PLK1 or EGFR RNAi ####
 setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure4_viability/depmap")
 ##### PLK1 #####
