@@ -229,6 +229,8 @@ pos.centrality <- data.frame(name = V(topGraph)$name,
                              eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
                              hub_score = igraph::hub_score(topGraph)$vector,
                              authority_score = igraph::authority_score(topGraph)$vector)
+pos.centrality$chr8q <- FALSE
+pos.centrality[pos.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(pos.centrality, "positive_centrality.csv", row.names=FALSE)
 pos.vert <- read.csv("positive_vertices.csv")
 pos.edges <- read.csv("positive_edges.csv")
@@ -255,6 +257,8 @@ neg.centrality <- data.frame(name = V(topGraph)$name,
                                     eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
                                     hub_score = igraph::hub_score(topGraph)$vector,
                                     authority_score = igraph::authority_score(topGraph)$vector)
+neg.centrality$chr8q <- FALSE
+neg.centrality[neg.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
 write.csv(neg.centrality, "negative_centrality.csv", row.names=FALSE)
 neg.vert <- read.csv("negative_vertices.csv")
 neg.edges <- read.csv("negative_edges.csv")
