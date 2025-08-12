@@ -807,6 +807,7 @@ for (t in times) {
 write.csv(all.p.df, "p_values_relConfluenceORDeath.csv", row.names=FALSE)
 
 #### also plot with JH data ####
+setwd("~/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/drugScreens")
 chr8_tTest <- function(drug.df, unit, factors=c("chr8q","MYC")) {
   d <- unique(drug.df$Drug)
   if (length(d) > 1) {
@@ -921,8 +922,8 @@ rel.conf$sample <- paste0(rel.conf$Drug,
 times <- c(24,48,72,96,120)
 all.mpnst <- unique(mean.conf$improve_sample_id)
 all.mpnst <- c(known.dip,known.amp, all.mpnst[!(all.mpnst %in% c(known.dip,known.amp))])
-dir.create("singleTimePlots_20250714")
-setwd("singleTimePlots_20250714")
+dir.create("singleTimePlots_20250811")
+setwd("singleTimePlots_20250811")
 library(drc) # curve source: answer by greenjune: https://stackoverflow.com/questions/36780357/plotting-dose-response-curves-with-ggplot2-and-drc
 # Sara shared these 2 links: https://stackoverflow.com/questions/68209998/plot-drc-using-ggplot; https://forum.posit.co/t/extract-out-points-in-dose-response-curve-produced-by-drc/159433
 Metric <- c("% Relative Viability")
@@ -1114,6 +1115,7 @@ for (t in times) {
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + 
         theme(plot.title=element_text(face="bold",hjust=0.5, color="blue"), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
       ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8qMYC_log10_v2_angledBlue.pdf"),conf.plot,width=4,height=2.5)
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8qMYC_log10_v2_angledBlue_height5width5.pdf"),conf.plot,width=5,height=5)
       
       conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
                           aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
@@ -1127,6 +1129,7 @@ for (t in times) {
                                            color = "Chr8q Status", shape = "MPNST Cell Line") + 
         theme(plot.title=element_text(face="bold",hjust=0.5, color="red"), axis.text.x=element_text(angle=45, vjust=1, hjust=1))
       ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8qMYC_log10_v2_angledRed.pdf"),conf.plot,width=4,height=2.5)
+      ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8qMYC_log10_v2_angledRed_height5width5.pdf"),conf.plot,width=5,height=5)
       
       conf.plot <- ggplot(mean.drug.conf[mean.drug.conf$DOSE <= c,],
                           aes(x=DOSE, y=meanGROWTH, color=chr8qv2, shape=improve_sample_id)) +
