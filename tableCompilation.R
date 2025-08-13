@@ -4,7 +4,7 @@ synapser::synLogin()
 de <- list("Copy_number" = read.csv(synapser::synGet("syn66227257")$path),
            "RNA" = read.csv(synapser::synGet("syn66226866")$path),
            "Protein" = read.csv(synapser::synGet("syn66224803")$path),
-           "Phospho" = read.csv(synapser::synGet("syn66279699")$path))
+           "Phospho" = read.csv(synapser::synGet("syn66226338")$path))
 Sheet <- names(de)
 readme <- data.frame(Sheet)
 readme$Description <- c("Correlations between copy number and median chr8q copy number",
