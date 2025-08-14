@@ -6,9 +6,8 @@
 remove(list=ls())
 # overview:
 #### 1. Import metadata & crosstabs
-#### 2. Run panSEA: only MPNST PDX with proteomics
-#### 3. Run panSEA: all MPNST PDX
-#### 4. PCSF network analysis
+#### 2. Determine median chr8q copy number
+#### 3. Run panSEA
 
 library(readxl); library(panSEA); library(synapser)
 library(stringr); library(tidyr); library(plyr)
@@ -323,17 +322,9 @@ for (i in 1:nrow(rna.meta.df)) {
 }
 pdx.rna.meta.df <- rna.meta.df[colnames(pdxRNA)[2:ncol(pdxRNA)],]
 
-# correlate with peptide level phospho
-phospho.pep.forCorr <- as.data.frame(t(phospho.pep.df[,prot.names]))
-phospho.pep.forCorr$SampleName <- rownames(phospho.pep.forCorr)
-reduced.meta <- global.meta.df2[,c("SampleName", "Chr8q_median")]
-phospho.pep.corr.input <- merge(reduced.meta, phospho.pep.forCorr)
-phospho.pep.corr <- DMEA::rank_corr(phospho.pep.corr.input, plots=FALSE)
-colnames(phospho.pep.corr$result)[1] <- "Feature"
-write.csv(phospho.pep.corr$result, "Phospho_peptide_correlations_Chr8q.csv", row.names = FALSE)
-
 # get median Chr8q copy number for metadata
-chr8q.info <- read.csv(file.path(base.path,"Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv"))
+#chr8q.info <- read.csv(file.path(base.path,"Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv"))
+chr8q.info <- read.csv(synapser::synGet("syn66047330")$path)
 
 # get other metadata
 colnames(pdx_data)[1] <- "Sample"
@@ -361,14 +352,14 @@ global.meta.df3$Sample <- global.meta.df3$SampleName
 
 # format wide with common_name ~ gene_symbol
 cn <- reshape2::dcast(pdxCN, Gene ~ sample, mean, value.var = "copy_number")
+saveRDS(cn, "cn.rds")
+saveRDS(pdxRNA, "pdxRNA.rds")
 
 my.syn <- "syn65988130"
 setwd(base.path)
 setwd("Chr8_quant_20250409")
-#gmt1 <- get_gmt1_v2()
-gmt1 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/gmt1_more.rds")
-#gmt2 <- get_gmt2()
-gmt2 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/gmt2.rds")
+gmt1 <- get_gmt1_v2()
+gmt2 <- get_gmt2()
 synapser::synLogin()
 
 # first, check positional enrichment on copy number
@@ -402,54 +393,13 @@ panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Numbe
              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest, gmt2=gmt2,
              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
 
-# in retrospect, also interested in WikiPathways
-# load correlations
-corr.list <- list("Global" = "syn66224803",
-                  "RNA-Seq" = "syn66226866") # where to get correlations (unfiltered correlation results)
-syn.list <- list("Global" = "syn66224809",
-                 "RNA-Seq" = "syn66226872") # where to store GSEA results (GSEA folder)
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
-setwd(base.path)
-gmt1 <- readRDS("gmt1_more.rds")
-#gmt1.wp <- list("WikiPathways" = gmt1$WikiPathways) # 653?
-gmt1.wp <- DMEA::as_gmt(as.data.frame(msigdbr::msigdbr(collection="C2", subcollection = "CP:WIKIPATHWAYS")),
-                        element.names="gene_symbol", set.names="gs_name") # 812
-for (i in names(corr.list)) {
-  if (i == "Global") {
-    setwd(file.path(base.path,"Chr8_quant_20250409/Spearman/Proteomics",i, i))
-  } else {
-    setwd(file.path(base.path,"Chr8_quant_20250409/Spearman",i, i))
-  }
-  
-  # load correlations
-  corr.result <- read.csv(synapser::synGet(corr.list[[i]])$path)
-  gsea.input <- corr.result[,c("Gene","Spearman.est")]
-  
-  # run GSEA
-  gsea.result <- panSEA::ssGSEA(gsea.input, gmt1.wp, ties=TRUE) 
-  
-  # save results
-  gsea.files <- list("GSEA_results.csv" = gsea.result$result,
-                     "GSEA_results_withoutShufflingTies.csv" = gsea.result$result.w.ties,
-                     "GSEA_volcano_plot.pdf" = gsea.result$volcano.plot,
-                     "GSEA_dot_plot.pdf" = gsea.result$dot.plot,
-                     "GSEA_dot_plot_withSD.pdf" = gsea.result$dot.sd,
-                     "GSEA_bar_plot.pdf" = gsea.result$bar.plot,
-                     "mtn_plots" = get_top_mtn_plots(gsea.result))
-  setwd("GSEA")
-  dir.create("GSEA_WikiPathways")
-  setwd("GSEA_WikiPathways")
-  gseaFolder <- synapser::synStore(synapser::Folder("GSEA_WikiPathways", parent = syn.list[[i]]))
-  save_to_synapse_v2(gsea.files, gseaFolder)
-}
-
 # re-do KSEA
 gmt2 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Exp21_NRAS_ASO_treated_patients/proteomics/analysis/gmt2.rds")
 # load correlations
 corr.result <- read.csv(synapser::synGet("syn66226338")$path)
 gsea.input <- corr.result[,c("SUB_SITE","Spearman.est")]
 
-# run GSEA
+# run KSEA
 gsea.result <- panSEA::ssGSEA(gsea.input, gmt2[[1]], ties=TRUE) 
 
 # save results
@@ -465,106 +415,3 @@ dir.create("KSEA")
 setwd("KSEA")
 gseaFolder <- synapser::synStore(synapser::Folder("KSEA", parent = "syn66226336"))
 save_to_synapse_v2(gsea.files, gseaFolder)
-
-# create bar plots for PCSF cytoscape overrepresentation analysis
-library(patchwork)
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
-setwd(file.path(base.path,"Chr8_quant_20250409/PCSF_Protein_2025-04-16"))
-posEnr <- read.csv("positive_323_topCentralNodes2025-04-20_enrichment_noRedundantTerms0.5.csv")
-posEnr$Direction <- "Positive"
-negEnr <- read.csv("negative_275_topCentralNodes2025-04-20_enrichment_noRedundantTerms0.5.csv")
-negEnr$Direction <- "Negative"
-wp <- rbind(posEnr[posEnr$source=="WikiPathways",], negEnr[negEnr$source=="WikiPathways",])
-wp <- wp[wp$chart.color != "" | wp$p.value= 0.05,]
-wp$minusLogP <- -log10(wp$p.value)
-maxLogP <- max(abs(wp$minusLogP))
-wp[wp$chart.color == "",]$chart.color <- "grey"
-directions <- c("Positive", "Negative")
-wp.plot <- NULL
-for (dir in directions) {
-  pos.wp <- wp[wp$Direction == dir,]
-  tempTitle <- ifelse(dir == "Positive", "Chr8q-amplified", "Chr8q-WT")
-  pos.wp.plot <- ggplot2::ggplot(pos.wp, aes(x=minusLogP, y=term.name, 
-                                             fill = chart.color)) +
-    geom_bar(stat="identity") + theme_classic(base_size=12) + 
-    scale_fill_identity() +
-    labs(x="-log(p-value)") + ggtitle(paste(tempTitle,"Network Enrichment")) +
-    scale_x_continuous(limits=c(0,maxLogP)) + geom_vline(xintercept=-log10(0.05), linetype = "dashed") +
-    theme(axis.title.y = element_blank(), legend.position = "none") + 
-    scale_y_discrete(limits=pos.wp[order(pos.wp$minusLogP),]$term.name) 
-  if (is.null(wp.plot)) {
-    wp.plot <- pos.wp.plot
-  } else {
-    wp.plot <- wp.plot + pos.wp.plot + plot_layout(nrow=2)
-  }
-}
-ggsave("WP_PCSF_Cytoscape_Enrichment.pdf", wp.plot, width=6, height=8)
-
-wp2 <- wp[wp$chart.color != "grey",]
-wp2$minusLogP <- -log10(wp2$p.value)
-maxLogP <- max(abs(wp2$minusLogP))
-wp.plot <- NULL
-for (dir in directions) {
-  pos.wp <- wp2[wp2$Direction == dir,]
-  tempTitle <- ifelse(dir == "Positive", "Chr8q-amplified", "Chr8q-WT")
-  pos.wp.plot <- ggplot2::ggplot(pos.wp, aes(x=minusLogP, y=term.name, 
-                                             fill = chart.color)) +
-    geom_bar(stat="identity") + theme_classic(base_size=12) + 
-    scale_fill_identity() +
-    labs(x="-log(p-value)") + ggtitle(paste(tempTitle,"Network Enrichment")) +
-    scale_x_continuous(limits=c(0,maxLogP)) + geom_vline(xintercept=-log10(0.05), linetype = "dashed") +
-    theme(axis.title.y = element_blank(), legend.position = "none") + 
-    scale_y_discrete(limits=pos.wp[order(pos.wp$minusLogP),]$term.name) 
-  if (is.null(wp.plot)) {
-    wp.plot <- pos.wp.plot
-  } else {
-    wp.plot <- wp.plot + pos.wp.plot + plot_layout(nrow=2)
-  }
-}
-ggsave("WP_PCSF_Cytoscape_Enrichment_networkOnly.pdf", wp.plot, width=6, height=4)
-
-saveRDS(cn, "cn.rds")
-saveRDS(pdxRNA, "pdxRNA.rds")
-#### redo copy number, RNA with 6+ samples
-# per proteomics:
-# filter for features in at least half of samples
-cnHighCov <- cn[rowSums(is.na(cn)) < (ncol(cn)-1)/2, ] # 28210 / 28210 rows kept so no need to redo
-rnaHighCov <- pdxRNA[rowSums(is.na(pdxRNA)) < (ncol(pdxRNA)-1)/2, ] # 6279 / 28879 rows kept
-rnaMin6 <- pdxRNA[rowSums(!is.na(pdxRNA)) >= 6, ] # 20352 / 28879 rows kept - matches min number of prot samples
-
-# actually, "WU-505" "WU-561" don't have copy number so they will get removed in the analysis
-# should remove them first before filtering
-rnaMin6 <- pdxRNA[,c("Gene", colnames(pdxRNA)[colnames(pdxRNA) %in% pdx.info2$Sample])]
-rnaMin6 <- rnaMin6[rowSums(!is.na(rnaMin6)) >= 6, ] # 17717 / 28879 rows kept - matches min number of prot samples
-hist(rowSums(!is.na(rnaMin6)))
-
-# # first, check positional enrichment on copy number
-# omics <- list("Copy_number_minN6" = cn)
-# meta.list <- list("Copy_number_minN6" = pdx.info2[pdx.info2$Sample!="JH-2-009",])
-# expr.list <- list("Copy_number_minN6" = "adherent CCLE")
-# feature.list <- list("Copy_number_minN6" = "Gene")
-# gmt1.cn <- list("Positional" = gmt1$Positional)
-# panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-#              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.cn, gmt2=gmt2,
-#              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
-
-# next, proteomics and RNA
-setwd(base.path)
-setwd("Chr8_quant_20250409")
-omics <- list("RNA-Seq_minN6" = rnaMin6)
-meta.list <- list("RNA-Seq_minN6" = pdx.info2[pdx.info2$Sample %in% colnames(rnaMin6)[2:ncol(rnaMin6)],])
-colnames(rnaMin6)[!(colnames(rnaMin6) %in% meta.list$`RNA-Seq_minN6`$Sample)]
-# "Gene"   "WU-505" "WU-561"
-# "Gene" after going back and removing samples without copy number first
-expr.list <- list("RNA-Seq_minN6" = "adherent CCLE")
-feature.list <- list("RNA-Seq_minN6" = "Gene")
-gmt1.rest <- list("Hallmark" = gmt1$Hallmark,
-                  "KEGG" = gmt1$KEGG,
-                  "Oncogenic" = gmt1$Oncogenic,
-                  "PID" = gmt1$PID,
-                  "TFT_GTRD" = gmt1$TFT_GTRD,
-                  "WikiPathways" = gmt1$WikiPathways)
-panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
-             other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
-
