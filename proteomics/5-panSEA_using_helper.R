@@ -16,8 +16,8 @@ library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 #webshot::install_phantomjs()
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
-#source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/panSEA_helper_20240913.R")
-source("~/OneDrive - PNNL/Documents/GitHub/Chr8/panSEA_helper_20240913.R")
+#source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/proteomics/panSEA_helper_20240913.R")
+source("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/panSEA_helper_20240913.R")
 synapser::synLogin()
 
 #### 1. Import metadata & crosstabs ####
