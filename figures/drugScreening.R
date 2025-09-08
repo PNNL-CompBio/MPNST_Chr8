@@ -593,3 +593,20 @@ for (d in drugs) {
   ggsave(paste0(d,"_",t,"h_relConfluence_max",c,"um_no_4-23-25_knownChr8qMYC_log10_v2_angledBlack.pdf"),conf.plot,width=4,height=2.5)
 }
 write.csv(all.p.df, "p_values_relPercViability_JHandWU.csv", row.names=FALSE)
+
+#### combined IC50 pVals calculated in Excel ####
+chr8.IC50.p <- data.frame(Target = c("PLK","PLK","EGFR","EGFR"), 
+                          Drug=c("Volasertib","BI-2536","Erlotinib","Osimertinib"),
+                     p=c(1.52159E-32, 0.013775419, 0.000146753, 4.35539E-05))
+MYC.IC50.p <- data.frame(Target = c("PLK","PLK","EGFR","EGFR"), 
+                          Drug=c("Volasertib","BI-2536","Erlotinib","Osimertinib"),
+                          p=c(0.039410244, 0.050906472, 0.12883391, 0.038412181))
+library(poolr)
+chr8.plk <- poolr::fisher(chr8.IC50.p[chr8.IC50.p$Target=="PLK",]$p)$p
+chr8.plk # 1.646405e-32
+chr8.egfr <- poolr::fisher(chr8.IC50.p[chr8.IC50.p$Target=="EGFR",]$p)$p
+chr8.egfr # 1.269913e-07
+myc.plk <- poolr::fisher(MYC.IC50.p[MYC.IC50.p$Target=="PLK",]$p)$p
+myc.plk # 0.01446796
+myc.egfr <- poolr::fisher(MYC.IC50.p[MYC.IC50.p$Target=="EGFR",]$p)$p
+myc.egfr # 0.03122
