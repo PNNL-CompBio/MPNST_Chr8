@@ -29,6 +29,25 @@ global.df <- read.table(synapser::synGet("syn65986566")$path, sep = "\t")
 phospho.df <- read.table(synapser::synGet("syn65986573")$path, sep = "\t")
 phospho.pep.df <- read.table(synapser::synGet("syn65986575")$path, sep = "\t")
 
+# prep supplementary tables
+global.readme <- data.frame("Sheet" = "global", "Description" = "Normalized abundance for proteins along rows and samples along columns. Protein labels are associated gene symbols. For example, 'WU-225_rep1' refers to replicate 1 of WU-225 PDX.")
+phospho.readme <- data.frame("Sheet" = "phospho", "Description" = "Normalized abundance for phosphosites along rows and samples along columns. Phosphosite labels are formatted as gene symbol-site ID. For example, 'WU-225_rep1' refers to replicate 1 of WU-225 PDX.")
+sample.meta <- meta.df[meta.df$SampleName!="reference",]
+
+# since global and phospho dfs are already in order (ids 1, 2, 3, ..., 12)
+# I can just assign the SampleName column as the new colnames
+global.supp <- global.df
+colnames(global.supp) <- sample.meta$SampleName
+phospho.supp <- phospho.df
+colnames(phospho.supp) <- sample.meta$SampleName
+
+# export xlsx files
+global.supp.list <- list("README" = global.readme, "global" = global.supp)
+openxlsx::write.xlsx(global.supp.list, file=paste0("SupplementaryTable",1,"_","global",".xlsx"), rowNames=FALSE)
+phospho.supp.list <- list("README" = phospho.readme, "phospho" = phospho.supp)
+openxlsx::write.xlsx(phospho.supp.list, file=paste0("SupplementaryTable",2,"_","phospho",".xlsx"), rowNames=FALSE)
+
+
 # add column for feature names and later make it the first column
 global.df$Gene <- rownames(global.df)
 phospho.df$SUB_SITE <- rownames(phospho.df)
