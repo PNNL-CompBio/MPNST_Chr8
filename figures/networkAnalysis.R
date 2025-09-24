@@ -4,7 +4,8 @@
 remove(list=ls())
 library(synapser); library(msigdbr); library(PCSF)
 library(plyr); library(ggplot2)
-setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
+#setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
+setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics")
 
 #### prep inputs ####
 # try using top 50 sig prot, phospho, WES - directional this time
@@ -162,6 +163,8 @@ write.csv(pos.reg.centrality, "positive_TFKin_centrality.csv", row.names=FALSE)
 colnames(pos.reg.vert)[1] <- "name"
 write.csv(pos.reg.vert, "positive_TFKin_vertices.csv", row.names=FALSE)
 write.csv(pos.reg.edges, "positive_TFKin_edges.csv", row.names=FALSE)
+pos.reg.vert <- read.csv("positive_TFKin_vertices.csv")
+pos.reg.edges <- read.csv("positive_TFKin_edges.csv")
 pos.reg.centrality <- read.csv("positive_TFKin_centrality.csv")
 
 neg.reg <- c(tf.result[tf.result$NES<0,]$Gene, kin.result[kin.result$NES<0,]$Feature_set) # 3
@@ -185,6 +188,8 @@ write.csv(neg.reg.centrality, "negative_TFKin_centrality.csv", row.names=FALSE)
 colnames(neg.reg.vert)[1] <- "name"
 write.csv(neg.reg.vert, "negative_TFKin_vertices.csv", row.names=FALSE)
 write.csv(neg.reg.edges, "negative_TFKin_edges.csv", row.names=FALSE)
+neg.reg.vert <- read.csv("negative_TFKin_vertices.csv")
+neg.reg.edges <- read.csv("negative_TFKin_edges.csv")
 neg.reg.centrality <- read.csv("negative_TFKin_centrality.csv")
 
 neg.reg.centrality$Direction <- "negative"
@@ -194,6 +199,7 @@ pos.reg.centrality$Direction <- "positive"
 chr8q.reg.centrality <- rbind(pos.reg.centrality[pos.reg.centrality$chr8q,], 
                               neg.reg.centrality[neg.reg.centrality$chr8q,]) # 173
 write.csv(chr8q.reg.centrality, "chr8q_TFKin_centrality.csv", row.names=FALSE)
+chr8q.reg.centrality <- read.csv("chr8q_TFKin_centrality.csv")
 chr8q.reg.degree <- plyr::ddply(chr8q.reg.centrality, .(name), summarize,
                                 Directions = paste0(sort(unique(Direction)), collapse=", "),
                                 meanDegree = mean(degree),
@@ -213,3 +219,87 @@ ggplot2::ggplot(bar.df2, aes(x=eigen_centrality, y=name, fill=Direction)) +
   theme(legend.position="inside", legend.position.inside = c(0.7,0.5)) +
   scale_y_discrete(limits=bar.df[order(bar.df$meanCentrality),]$name)
 ggsave("chr8qGeneCentralityTFKinNetworks_barPlotStacked.pdf",width=3.5,height=3)
+
+# make graphs of regulatory networks
+neg.reg.vert$chr8qBothDir <- FALSE
+neg.reg.vert[neg.reg.vert$name %in% bar.df$name,]$chr8qBothDir <- TRUE
+neg.reg.vert$centrality <- NA
+for (i in neg.reg.vert[neg.reg.vert$chr8qBothDir,]$name) {
+  neg.reg.vert[neg.reg.vert$name == i,]$centrality <- neg.reg.centrality[neg.reg.centrality$name == i,]$eigen_centrality
+}
+neg.reg.vert$width <- 1000*neg.reg.vert$centrality
+neg.prot.tf.overlap <- tf.result[tf.result$NES<0 & tf.result$Gene %in% global.result[global.result$Spearman.est<0,]$Gene,]$Gene # 0
+neg.reg.vert[neg.reg.vert$name %in% global.result[global.result$Spearman.est<0,]$Gene,]$Omics <- "Protein"
+neg.reg.vert[neg.reg.vert$name %in% 
+               tf.result[tf.result$NES<0,]$Gene,]$Omics <- "TF"
+neg.reg.vert[neg.reg.vert$name %in% 
+               kin.result[kin.result$NES<0,]$Feature_set,]$Omics <- "Kinase"
+neg.reg.vert[neg.reg.vert$chr8qBothDir,]$Omics <- "Inferred in Both Networks"
+neg.reg.vert$label <- ""
+neg.reg.vert[neg.reg.vert$chr8qBothDir,]$label <- neg.reg.vert[neg.reg.vert$chr8qBothDir,]$name
+neg.reg.vert$fontSize <- 200*neg.reg.vert$centrality
+topGraph <- igraph::graph_from_data_frame(neg.reg.edges, directed=FALSE, vertices=neg.reg.vert) 
+tempTitle <- paste0("negative", "_", nrow(neg.reg.vert),"_TFKin_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+
+pos.reg.vert$chr8qBothDir <- FALSE
+pos.reg.vert[pos.reg.vert$name %in% bar.df$name,]$chr8qBothDir <- TRUE
+pos.reg.vert$centrality <- NA
+for (i in pos.reg.vert[pos.reg.vert$chr8qBothDir,]$name) {
+  pos.reg.vert[pos.reg.vert$name == i,]$centrality <- pos.reg.centrality[pos.reg.centrality$name == i,]$eigen_centrality
+}
+pos.reg.vert$width <- 1000*pos.reg.vert$centrality
+pos.prot.tf.overlap <- tf.result[tf.result$NES>0 & tf.result$Gene %in% global.result[global.result$Spearman.est>0,]$Gene,]$Gene # ZNF22
+pos.reg.vert[pos.reg.vert$name %in% global.result[global.result$Spearman.est>0,]$Gene,]$Omics <- "Protein"
+pos.reg.vert[pos.reg.vert$name %in% 
+               tf.result[tf.result$NES>0,]$Gene,]$Omics <- "TF"
+pos.reg.vert[pos.reg.vert$name %in% pos.prot.tf.overlap,]$Omics <- "Protein & TF"
+pos.reg.vert[pos.reg.vert$chr8qBothDir,]$Omics <- "Inferred in Both Networks"
+pos.reg.vert$label <- ""
+pos.reg.vert[pos.reg.vert$chr8qBothDir,]$label <- pos.reg.vert[pos.reg.vert$chr8qBothDir,]$name
+pos.reg.vert$fontSize <- 200*pos.reg.vert$centrality
+topGraph <- igraph::graph_from_data_frame(pos.reg.edges, directed=FALSE, vertices=pos.reg.vert) 
+tempTitle <- paste0("positive", "_", nrow(pos.reg.vert),"_TFKin_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+
+# use mean centrality instead
+neg.reg.vert$chr8qBothDir <- FALSE
+neg.reg.vert[neg.reg.vert$name %in% bar.df$name,]$chr8qBothDir <- TRUE
+neg.reg.vert$meanCentrality <- NA
+for (i in neg.reg.vert[neg.reg.vert$chr8qBothDir,]$name) {
+  neg.reg.vert[neg.reg.vert$name == i,]$meanCentrality <- bar.df[bar.df$name == i,]$meanCentrality
+}
+neg.reg.vert$width <- 1000*neg.reg.vert$meanCentrality
+neg.prot.tf.overlap <- tf.result[tf.result$NES<0 & tf.result$Gene %in% global.result[global.result$Spearman.est<0,]$Gene,]$Gene # 0
+neg.reg.vert[neg.reg.vert$name %in% global.result[global.result$Spearman.est<0,]$Gene,]$Omics <- "Protein"
+neg.reg.vert[neg.reg.vert$name %in% 
+               tf.result[tf.result$NES<0,]$Gene,]$Omics <- "TF"
+neg.reg.vert[neg.reg.vert$name %in% 
+               kin.result[kin.result$NES<0,]$Feature_set,]$Omics <- "Kinase"
+neg.reg.vert[neg.reg.vert$chr8qBothDir,]$Omics <- "Inferred in Both Networks"
+neg.reg.vert$label <- ""
+neg.reg.vert[neg.reg.vert$chr8qBothDir,]$label <- neg.reg.vert[neg.reg.vert$chr8qBothDir,]$name
+neg.reg.vert$fontSize <- 200*neg.reg.vert$meanCentrality
+topGraph <- igraph::graph_from_data_frame(neg.reg.edges, directed=FALSE, vertices=neg.reg.vert) 
+tempTitle <- paste0("negative", "_", nrow(neg.reg.vert),"_TFKin_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
+
+pos.reg.vert$chr8qBothDir <- FALSE
+pos.reg.vert[pos.reg.vert$name %in% bar.df$name,]$chr8qBothDir <- TRUE
+pos.reg.vert$meanCentrality <- NA
+for (i in pos.reg.vert[pos.reg.vert$chr8qBothDir,]$name) {
+  pos.reg.vert[pos.reg.vert$name == i,]$meanCentrality <- bar.df[bar.df$name == i,]$meanCentrality
+}
+pos.reg.vert$width <- 1000*pos.reg.vert$meanCentrality
+pos.prot.tf.overlap <- tf.result[tf.result$NES>0 & tf.result$Gene %in% global.result[global.result$Spearman.est>0,]$Gene,]$Gene # ZNF22
+pos.reg.vert[pos.reg.vert$name %in% global.result[global.result$Spearman.est>0,]$Gene,]$Omics <- "Protein"
+pos.reg.vert[pos.reg.vert$name %in% 
+               tf.result[tf.result$NES>0,]$Gene,]$Omics <- "TF"
+pos.reg.vert[pos.reg.vert$name %in% pos.prot.tf.overlap,]$Omics <- "Protein & TF"
+pos.reg.vert[pos.reg.vert$chr8qBothDir,]$Omics <- "Inferred in Both Networks"
+pos.reg.vert$label <- ""
+pos.reg.vert[pos.reg.vert$chr8qBothDir,]$label <- pos.reg.vert[pos.reg.vert$chr8qBothDir,]$name
+pos.reg.vert$fontSize <- 200*pos.reg.vert$meanCentrality
+topGraph <- igraph::graph_from_data_frame(pos.reg.edges, directed=FALSE, vertices=pos.reg.vert) 
+tempTitle <- paste0("positive", "_", nrow(pos.reg.vert),"_TFKin_",Sys.Date())
+RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
