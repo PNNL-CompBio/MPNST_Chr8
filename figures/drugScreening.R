@@ -643,6 +643,55 @@ for (t in c("PLK1","EGFR")) {
   p.df[p.df$Target==t & p.df$type=="chr8",]$Fisher_p <- poolr::fisher(p.df[p.df$Target==t & p.df$type=="chr8",]$p)$p
   p.df[p.df$Target==t & p.df$type=="MYC",]$Fisher_p <- poolr::fisher(p.df[p.df$Target==t & p.df$type=="MYC",]$p)$p
 }
+write.csv(p.df,"IC50_pVals_w155b.csv", row.names=FALSE)
+
+all.mpnst <- c("JH-2-055d","ST8814","NF10.1","JH-2-002","JH-2-079c","JH-2-103","JH-2-155b","NF11.1","NF90.8","S462")
+ic50.long <- reshape2::melt(ic50, id.vars=c("Target","Drug","MPNST","Replicate", "IC50 (nM)"), 
+                            value.name="Status", variable.name="type")
+ggplot(ic50.long, aes(x=Status, y=`IC50 (nM)`)) + geom_violin(alpha=0) + 
+  geom_boxplot() + geom_point(aes(color=Drug, shape=MPNST)) + scale_y_log10() +
+  facet_grid(Target~type) + theme_classic() + labs(color="Drug", shape="MPNST Cell Line", y ="IC50 (nM)") +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst) + theme(axis.title.x=element_blank())
+ggsave("IC50_vs_moa_boxPlot_w155b.pdf",width=4.5, height=4.5)
+
+ic50.long$Drug <- factor(ic50.long$Drug, levels=c("BI-2536","Volasertib","Erlotinib","Osimertinib"))
+ggplot(ic50.long, aes(x=Status, y=`IC50 (nM)`)) + geom_violin(alpha=0) + 
+  geom_boxplot() + geom_point(aes(color=Target, shape=MPNST)) + scale_y_log10() +
+  facet_grid(Drug~type) + theme_classic() + labs(color="Target", shape="MPNST Cell Line", y ="IC50 (nM)") +
+  scale_shape_manual(values=1:length(all.mpnst), breaks=all.mpnst) + theme(axis.title.x=element_blank())
+ggsave("IC50_vs_drug_boxPlot_w155b.pdf",width=4.5, height=4.5)
+
+ic50 <- ic50[ic50$MPNST!="JH-2-155b",]
+drugs <- unique(ic50$Drug)
+p.df <- data.frame(Drug=drugs, type=c(rep("chr8", length(drugs)), rep("MYC", length(drugs))), p=NA, moreSens=NA)
+for (d in drugs) {
+  chr8.gain <- ic50[ic50$Drug==d & ic50$chr8=="Gain",]$`IC50 (nM)`
+  chr8.diploid <- ic50[ic50$Drug==d & ic50$chr8=="Diploid",]$`IC50 (nM)`
+  if (mean(chr8.gain) > mean(chr8.diploid)) {
+    p.df[p.df$Drug==d & p.df$type=="chr8",]$moreSens <- "Diploid"
+    p.df[p.df$Drug==d & p.df$type=="chr8",]$p <- t.test(chr8.gain, chr8.diploid, "greater")$p.value
+  } else {
+    p.df[p.df$Drug==d & p.df$type=="chr8",]$moreSens <- "Gain"
+    p.df[p.df$Drug==d & p.df$type=="chr8",]$p <- t.test(chr8.gain, chr8.diploid, "less")$p.value
+  }
+  
+  MYC.gain <- ic50[ic50$Drug==d & ic50$MYC=="Gain",]$`IC50 (nM)`
+  MYC.diploid <- ic50[ic50$Drug==d & ic50$MYC=="Diploid",]$`IC50 (nM)`
+  if (mean(MYC.gain) > mean(MYC.diploid)) {
+    p.df[p.df$Drug==d & p.df$type=="MYC",]$moreSens <- "Diploid"
+    p.df[p.df$Drug==d & p.df$type=="MYC",]$p <- t.test(MYC.gain, MYC.diploid, "greater")$p.value
+  } else {
+    p.df[p.df$Drug==d & p.df$type=="MYC",]$moreSens <- "Gain"
+    p.df[p.df$Drug==d & p.df$type=="MYC",]$p <- t.test(MYC.gain, MYC.diploid, "less")$p.value
+  }
+}
+p.df$Target <- "PLK1"
+p.df[p.df$Drug %in% c("Erlotinib","Osimertinib"),]$Target <- "EGFR"
+p.df$Fisher_p <- NA
+for (t in c("PLK1","EGFR")) {
+  p.df[p.df$Target==t & p.df$type=="chr8",]$Fisher_p <- poolr::fisher(p.df[p.df$Target==t & p.df$type=="chr8",]$p)$p
+  p.df[p.df$Target==t & p.df$type=="MYC",]$Fisher_p <- poolr::fisher(p.df[p.df$Target==t & p.df$type=="MYC",]$p)$p
+}
 write.csv(p.df,"IC50_pVals.csv", row.names=FALSE)
 
 all.mpnst <- c("JH-2-055d","ST8814","NF10.1","JH-2-002","JH-2-079c","JH-2-103","JH-2-155b","NF11.1","NF90.8","S462")

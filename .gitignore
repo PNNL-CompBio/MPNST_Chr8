@@ -109,3 +109,4 @@ proteomics/study_design/.DS_Store
 /drugScreens/JH/sklearn-env
 *.tsv
 *.0
+/drugScreens
