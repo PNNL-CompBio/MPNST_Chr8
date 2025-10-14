@@ -54,7 +54,7 @@ FigureS1_20250409.R
 ### Figure 3: drug sensitivity predictions
 Figure3_20250513.R
 
-### drug screen
+### Drug screen
 - drugScreening.R: only used for IC50 t-tests
 - fit_curve.py: calculates area under the curve values; not currently used; 
 adapted from: https://github.com/PNNL-CompBio/coderdata/blob/main/coderbuild/utils/fit_curve.py
