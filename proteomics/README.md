@@ -7,7 +7,7 @@ number in MPNST patient-derived xenografts (PDX) in addition to pathway
 analyses, network analyses, drug sensitivity predictions, fluorescent in situ
 hybridization, and viability studies.
 
-## Initial proteomics processing located in [proteomics](./proteomics).
+## Initial proteomics processing located in [proteomics](./proteomics)
 ### Create study design tables
 0-create_study_design_tables.Rmd
 
@@ -27,7 +27,7 @@ Not currently used but available in case of future need.
 ### Upload crosstabs to Synapse
 4-push_to_synapse.Rmd
 
-## Analysis located in [proteomics](./proteomics).
+## Analysis located in [proteomics](./proteomics)
 ### Differential expression and GSEA
 5-panSEA_using_helper.R
 Uses functions available in panSEA_helper_20240913.R script.
