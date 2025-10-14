@@ -1,38 +1,65 @@
-# The PNNL Proteomics Pipeline: P3
-This project provides the basic analysis and tools for carrying out end-to-end proteomic analysis for data generated at PNNL. This repository will serve as a resource upon which we can build additional tools in a reusable fashion. Ideally we will include scripts and libraries that can be used as building blocks for future analysis.
+# Multi-omics integration of malignant peripheral nerve sheath tumors (MPNST) identifies potential targets based on chromosome 8q (chr8q) status
+Since chr8q gain is associated with high-grade transformation in MPNST and 
+inferior overall survival, we integrate multi-omics data to understand drivers 
+and potential targets based on chr8q status. To do this, we collected new 
+proteomics data and ran correlations between omics expression and chr8q copy
+number in MPNST patient-derived xenografts (PDX) in addition to pathway 
+analyses, network analyses, drug sensitivity predictions, fluorescent in situ
+hybridization, and viability studies.
 
-## Overview
+## Initial proteomics processing located in [proteomics](./proteomics).
+### Create study design tables
+0-create_study_design_tables.Rmd
 
-This section describes what you need to know to get started using this code base.
+### Initial global proteomics processing
+1-process_global_data.Rmd
 
-### To use this pipeline
-This repository is only the basic structure of the tools needed, not the end-to-end analysis. Here are the steps you'll need to use this:
+### Initial phospho proteomics processing
+2-process_phospho_data.Rmd
 
-1- Read up on the tools
-  - GitHub requires some basic protocols such as pull requests and commits, you should try to get a basic understanding. I found this [tutorial](https://medium.com/@jonathanmines/the-ultimate-github-collaboration-guide-df816e98fb67) that can serve as a starting point.
-  - Synapse also has a bit of learning curve. To understand what Synapse is and isn't, check out [this document](https://docs.synapse.org/articles/getting_started.html).
-2- Get [RStudio](http://rstudio.org). Basic R is essential, but RStudio will make your life a lot easier, I promise!
-3- Install the [synapse python client](https://python-docs.synapse.org/build/html/index.html), create a [`.synapseConfig` file](https://python-docs.synapse.org/build/html/Credentials.html) in your home directory.
-4- Click on the `Use this template` button above. This will allow you to create your own repository. Then you can follow the steps below.
-5- Create a [new Synapse Project](https://docs.synapse.org/articles/getting_started.html#making-and-managing-projects-in-synapse) to store data for this project, or request access to an existing one.
+### Prep KSTAR input
+2.5-process_KSTAR_input.Rmd
+Not currently used but available in case of future need.
 
-### To contribute to this pipeline
-Have something that we forgot? Great! Check out the [CONTRIBUTING.md](./CONTRIBUTING.md) document. We welcome all additional tool and methods. Then you can create a pull request and merge your code in.
+### Normalization and batch correction
+3-normalize_and_batch_correction.Rmd
 
-## Pipeline description
-This pipeline links together a series of data and code repositories to ensure that any data is saved for future use. Furthermore we hope to be able to reproduce the analysis for future projects. A brief overview of each tool is described here.
-![arch](./img/arch.jpg)
+### Upload crosstabs to Synapse
+4-push_to_synapse.Rmd
 
-### Proteomics and phosphoproteomics processing
-This processing relies on a series of customized `R` scripts that are in the [quantification/](./quantification) directory (documentation is [here](./quantification/README.md). Once this analysis is complete, the data should be stored on Synapse
+## Analysis located in [proteomics](./proteomics).
+### Differential expression and GSEA
+5-panSEA_using_helper.R
+Uses functions available in panSEA_helper_20240913.R script.
 
-### Synapse processing
-Synapse is used for:
-- data storage: data is backed up for free
-- data processing: UUIDs and permission modifications allow for easy analysis
-- data release: data can be moved to the PDC or shared
+### Simulation study for GSEA adapted to shuffle tied genes/proteins
+GSEA_ties_simulation_20240909_v2.R
+Also generates plots for figure S2
 
-You will need to acquire a [synapse username](http://synapse.org/register) to access synapse, and become a [certified user](https://docs.synapse.org/articles/accounts_certified_users_and_profile_validation.html) to add data, but after that you will be set with future projects. We created a test site at http://synapse.org/p3.
+## Other figure generation located in [figures](./figures)
+### Figure 1: correlations
+Figure1_20250410.R
 
-### Functional analysis
-There are typically a few steps we do for functional analysis. They are described in the [functional analysis](./functional) directory for now.
+### Figure S1: histograms
+FigureS1_20250409.R
+
+### Figure 2: enrichment analyses
+- Figure2_20250429.R
+- networkAnalysis.R
+
+### Figure S3: drivers of enrichment
+- Transcription factor targets: FigureS3_TF_20250418.R
+- Kinase substrates: FigureS3_kinase_20250418.R
+
+### Figure 3: drug sensitivity predictions
+Figure3_20250513.R
+
+### drug screen
+- drugScreening.R: only used for IC50 t-tests
+- fit_curve.py: calculates area under the curve values; not currently used; 
+adapted from: https://github.com/PNNL-CompBio/coderdata/blob/main/coderbuild/utils/fit_curve.py
+
+### CRISPR screen
+Chr8_FAK.R
+Not included in this multi-omics study but rather in a separate chr8 study 
+focused on FAK.
