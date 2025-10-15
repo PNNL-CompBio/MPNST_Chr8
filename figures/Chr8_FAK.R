@@ -2,7 +2,7 @@
 # Author: Belinda B. Garana
 
 # make bar plot of survival p-values
-survival.p <- readxl::read_excel("~/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/chr8_crispr_target_survival.xlsx", sheet=3)
+survival.p <- readxl::read_excel(synapser::synGet("syn70195289")$path, sheet=3)
 survival.p <- survival.p[survival.p$Groups=="Amp vs diploid",]
 survival.p$Significance <- "p > 0.05"
 survival.p[survival.p$p < 0.05,]$Significance <- "p < 0.05"
@@ -17,186 +17,186 @@ ggplot2::ggplot(survival.p, aes(x=Gene, y=-log10(p), fill=Significance)) + geom_
         plot.title=element_text(hjust=0.5))
 ggsave("Association_w_OS_fillSig_2025-04-24.pdf",width=2.7, height=2.1)
 
-# load human kinase-substrate database
-ksdb <- read.csv("~/OneDrive - PNNL/Documents/ksdb_human_20231101.csv")
-
-# identify kinases which phosphorylate PTK2
-kin <- unique(ksdb[ksdb$SUB_GENE == "PTK2",]$GENE)
-
-# identify substrates & sites phosphorylated by PTK2
-sub <- unique(ksdb[ksdb$GENE == "PTK2",]$SUB_GENE)
-sites <- ksdb[ksdb$GENE == "PTK2",]
-sites$site_PNNL <- paste0(sites$SUB_GENE, "-", sites$SUB_MOD_RSD, tolower(substr(sites$SUB_MOD_RSD,1,1)))
-subsites <- unique(sites$site_PNNL)
-
-# load differential expression data
-diffexp <- read.csv("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant/Spearman/Compiled_results/Differential_expression/All_differential_expression_results.csv")
-diffexp$Gene <- diffexp$Feature
-diffexp[diffexp$Omics == "Phospho",]$Gene <- sub("\\-.*", "", diffexp[diffexp$Omics == "Phospho",]$Gene)
-
-# heatmap of kinases which phosphorylate PTK2
-diffexp.kin <- diffexp[diffexp$Gene %in% kin,] # 0; now 117?
-sig.diffexp.kin <- diffexp.kin[diffexp.kin$Spearman.q <= 0.05,] # 7
-
-# heatmap of substrates which are phosphorylated by PTK2
-diffexp.sub <- diffexp[diffexp$Gene %in% sub,] # 127
-sig.diffexp.sub <- diffexp.sub[diffexp.sub$Spearman.q <= 0.05,] # 21
-sig.list <- list()
-temp.omics <- unique(sig.diffexp.sub$Omics)
-temp.omics <- temp.omics[temp.omics != "DNA"] # removing copy number because the only result there was PTK2 itself
-for (i in 1:length(temp.omics)) {
-  sig.list[[temp.omics[i]]] <- sig.diffexp.sub[sig.diffexp.sub$Omics == temp.omics[i],]
-}
-library(plyr);library(dplyr); library(ggplot2)
-sig.compiled <- compile_mCorr(sig.list)
-compiled.DEG.files <- list("Differential_expression_results_PTK2_substrates.csv" = sig.compiled$results,
-                           "Compiled_differential_expression_results_PTK2_substrates.csv" = sig.compiled$mean.results,
-                           "Differential_expression_venn_diagram_PTK2_substrates.pdf" = sig.compiled$venn.diagram,
-                           "Differential_expression_dot_plot_PTK2_substrates.pdf" = sig.compiled$dot.plot,
-                           "Differential_expression_correlations_PTK2_substrates.csv" = sig.compiled$corr,
-                           "Differential_expression_correlation_matrix_PTK2_substrates.pdf" = sig.compiled$corr.matrix)
-dir.create("Chr8_FAK")
-setwd("Chr8_FAK")
-save_to_synapse(compiled.DEG.files, dot.scale=1)
-mean.DEG.df <- plyr::ddply(na.omit(sig.diffexp.sub), .(Feature), summarize,
-                                           mean_rankVal = mean(Spearman.est),
-                                           sd_rankVal = sd(Spearman.est),
-                                           Fisher_p = metap::sumlog(na.omit(Spearman.p))$p,
-                                           types = paste0(Omics, collapse = ", "),
-                                           N_types = length(unique(Omics)),
-                                           N_sig = length(Significant[Significant]),
-                                           sig_types = paste0(Omics[Significant], collapse = ", "))
-if (length(unique(mean.DEG.df$Fisher_p)) > 1) {
-  mean.DEG.df$adj_Fisher_p <- 
-    qvalue::qvalue(mean.DEG.df$Fisher_p, pi0=1)$qvalues
-} else {
-  mean.DEG.df$adj_Fisher_p <- NA
-}
-mean.DEG.df <- dplyr::arrange(mean.DEG.df, desc(mean_rankVal))
-sig.diffexp.sub$qVal <- sig.diffexp.sub$Spearman.q
-if (any(sig.diffexp.sub$qVal == 0)) {
-  sig.diffexp.sub[sig.diffexp.sub$qVal == 0,]$qVal <- 0.0001
-}
-
-bg.theme <- ggplot2::theme(
-  legend.background = element_rect(), legend.position = "top",
-  legend.text = element_text(size = 14),
-  legend.key = element_blank(),
-  legend.title = element_text(size = 16),
-  axis.title.x = element_text(size = 20),
-  axis.text.x = element_text(size = 16, colour = "black"),
-  axis.title.y = element_text(size = 20),
-  axis.text.y = element_text(size = 16, colour = "black"),
-  plot.title = element_text(
-    lineheight = .8, face = "bold", size = 36
-  ),
-  panel.grid.major = element_blank(),
-  panel.grid.minor = element_blank(),
-  panel.border = element_rect(fill = NA),
-  panel.background = element_blank(),
-  axis.line = element_line(colour = "black"),
-  axis.ticks.x = element_line(colour = "black"),
-  axis.ticks.y = element_line(colour = "black")
-)
-
-
-dot.plot <- ggplot2::ggplot(
-  na.omit(sig.diffexp.sub),
-  ggplot2::aes(
-    x = Omics, y = Feature, color = Spearman.est,
-    size = -log10(qVal)
-  )
-) +
-  ggplot2::geom_point() +
-  ggplot2::scale_y_discrete(limits = mean.DEG.df$Feature) +
-  viridis::scale_color_viridis() +
-  bg.theme +
-  ggplot2::labs(
-    x = "Input Data",
-    y = "Feature Set",
-    color = "Correlation Estimate", size = "-log(FDR)"
-  )
-ggsave("PTK2_substrate_dot_plot.pdf", dot.plot, width = 7, height = 7)
-
-# heatmap of substrate sites which are phosphorylated by PTK2
-diffexp.sub <- diffexp[diffexp$Feature %in% subsites,] # 1
-sig.diffexp.sub <- diffexp.sub[diffexp.sub$Spearman.q <= 0.05,] # 0
-sig.list <- list()
-temp.omics <- unique(sig.diffexp.sub$Omics)
-temp.omics <- temp.omics[temp.omics != "DNA"] # removing copy number because the only result there was PTK2 itself
-for (i in 1:length(temp.omics)) {
-  sig.list[[temp.omics[i]]] <- sig.diffexp.sub[sig.diffexp.sub$Omics == temp.omics[i],]
-}
-library(plyr);library(dplyr); library(ggplot2)
-sig.compiled <- compile_mCorr(sig.list)
-compiled.DEG.files <- list("Differential_expression_results_PTK2_substrates.csv" = sig.compiled$results,
-                           "Compiled_differential_expression_results_PTK2_substrates.csv" = sig.compiled$mean.results,
-                           "Differential_expression_venn_diagram_PTK2_substrates.pdf" = sig.compiled$venn.diagram,
-                           "Differential_expression_dot_plot_PTK2_substrates.pdf" = sig.compiled$dot.plot,
-                           "Differential_expression_correlations_PTK2_substrates.csv" = sig.compiled$corr,
-                           "Differential_expression_correlation_matrix_PTK2_substrates.pdf" = sig.compiled$corr.matrix)
-dir.create("Chr8_FAK_sites")
-setwd("Chr8_FAK_sites")
-save_to_synapse(compiled.DEG.files, dot.scale=1)
-mean.DEG.df <- plyr::ddply(na.omit(sig.diffexp.sub), .(Feature), summarize,
-                           mean_rankVal = mean(Spearman.est),
-                           sd_rankVal = sd(Spearman.est),
-                           Fisher_p = metap::sumlog(na.omit(Spearman.p))$p,
-                           types = paste0(Omics, collapse = ", "),
-                           N_types = length(unique(Omics)),
-                           N_sig = length(Significant[Significant]),
-                           sig_types = paste0(Omics[Significant], collapse = ", "))
-if (length(unique(mean.DEG.df$Fisher_p)) > 1) {
-  mean.DEG.df$adj_Fisher_p <- 
-    qvalue::qvalue(mean.DEG.df$Fisher_p, pi0=1)$qvalues
-} else {
-  mean.DEG.df$adj_Fisher_p <- NA
-}
-mean.DEG.df <- dplyr::arrange(mean.DEG.df, desc(mean_rankVal))
-sig.diffexp.sub$qVal <- sig.diffexp.sub$Spearman.q
-if (any(sig.diffexp.sub$qVal == 0)) {
-  sig.diffexp.sub[sig.diffexp.sub$qVal == 0,]$qVal <- 0.0001
-}
-
-bg.theme <- ggplot2::theme(
-  legend.background = element_rect(), legend.position = "top",
-  legend.text = element_text(size = 14),
-  legend.key = element_blank(),
-  legend.title = element_text(size = 16),
-  axis.title.x = element_text(size = 20),
-  axis.text.x = element_text(size = 16, colour = "black"),
-  axis.title.y = element_text(size = 20),
-  axis.text.y = element_text(size = 16, colour = "black"),
-  plot.title = element_text(
-    lineheight = .8, face = "bold", size = 36
-  ),
-  panel.grid.major = element_blank(),
-  panel.grid.minor = element_blank(),
-  panel.border = element_rect(fill = NA),
-  panel.background = element_blank(),
-  axis.line = element_line(colour = "black"),
-  axis.ticks.x = element_line(colour = "black"),
-  axis.ticks.y = element_line(colour = "black")
-)
-
-
-dot.plot <- ggplot2::ggplot(
-  na.omit(sig.diffexp.sub),
-  ggplot2::aes(
-    x = Omics, y = Feature, color = Spearman.est,
-    size = -log10(qVal)
-  )
-) +
-  ggplot2::geom_point() +
-  ggplot2::scale_y_discrete(limits = mean.DEG.df$Feature) +
-  viridis::scale_color_viridis() +
-  bg.theme +
-  ggplot2::labs(
-    x = "Input Data",
-    y = "Feature Set",
-    color = "Correlation Estimate", size = "-log(FDR)"
-  )
-ggsave("PTK2_substrate_site_dot_plot.pdf", dot.plot, width = 7, height = 7)
+# # load human kinase-substrate database
+# ksdb <- read.csv("~/OneDrive - PNNL/Documents/ksdb_human_20231101.csv")
+# 
+# # identify kinases which phosphorylate PTK2
+# kin <- unique(ksdb[ksdb$SUB_GENE == "PTK2",]$GENE)
+# 
+# # identify substrates & sites phosphorylated by PTK2
+# sub <- unique(ksdb[ksdb$GENE == "PTK2",]$SUB_GENE)
+# sites <- ksdb[ksdb$GENE == "PTK2",]
+# sites$site_PNNL <- paste0(sites$SUB_GENE, "-", sites$SUB_MOD_RSD, tolower(substr(sites$SUB_MOD_RSD,1,1)))
+# subsites <- unique(sites$site_PNNL)
+# 
+# # load differential expression data
+# diffexp <- read.csv("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant/Spearman/Compiled_results/Differential_expression/All_differential_expression_results.csv")
+# diffexp$Gene <- diffexp$Feature
+# diffexp[diffexp$Omics == "Phospho",]$Gene <- sub("\\-.*", "", diffexp[diffexp$Omics == "Phospho",]$Gene)
+# 
+# # heatmap of kinases which phosphorylate PTK2
+# diffexp.kin <- diffexp[diffexp$Gene %in% kin,] # 0; now 117?
+# sig.diffexp.kin <- diffexp.kin[diffexp.kin$Spearman.q <= 0.05,] # 7
+# 
+# # heatmap of substrates which are phosphorylated by PTK2
+# diffexp.sub <- diffexp[diffexp$Gene %in% sub,] # 127
+# sig.diffexp.sub <- diffexp.sub[diffexp.sub$Spearman.q <= 0.05,] # 21
+# sig.list <- list()
+# temp.omics <- unique(sig.diffexp.sub$Omics)
+# temp.omics <- temp.omics[temp.omics != "DNA"] # removing copy number because the only result there was PTK2 itself
+# for (i in 1:length(temp.omics)) {
+#   sig.list[[temp.omics[i]]] <- sig.diffexp.sub[sig.diffexp.sub$Omics == temp.omics[i],]
+# }
+# library(plyr);library(dplyr); library(ggplot2)
+# sig.compiled <- compile_mCorr(sig.list)
+# compiled.DEG.files <- list("Differential_expression_results_PTK2_substrates.csv" = sig.compiled$results,
+#                            "Compiled_differential_expression_results_PTK2_substrates.csv" = sig.compiled$mean.results,
+#                            "Differential_expression_venn_diagram_PTK2_substrates.pdf" = sig.compiled$venn.diagram,
+#                            "Differential_expression_dot_plot_PTK2_substrates.pdf" = sig.compiled$dot.plot,
+#                            "Differential_expression_correlations_PTK2_substrates.csv" = sig.compiled$corr,
+#                            "Differential_expression_correlation_matrix_PTK2_substrates.pdf" = sig.compiled$corr.matrix)
+# dir.create("Chr8_FAK")
+# setwd("Chr8_FAK")
+# save_to_synapse(compiled.DEG.files, dot.scale=1)
+# mean.DEG.df <- plyr::ddply(na.omit(sig.diffexp.sub), .(Feature), summarize,
+#                                            mean_rankVal = mean(Spearman.est),
+#                                            sd_rankVal = sd(Spearman.est),
+#                                            Fisher_p = metap::sumlog(na.omit(Spearman.p))$p,
+#                                            types = paste0(Omics, collapse = ", "),
+#                                            N_types = length(unique(Omics)),
+#                                            N_sig = length(Significant[Significant]),
+#                                            sig_types = paste0(Omics[Significant], collapse = ", "))
+# if (length(unique(mean.DEG.df$Fisher_p)) > 1) {
+#   mean.DEG.df$adj_Fisher_p <- 
+#     qvalue::qvalue(mean.DEG.df$Fisher_p, pi0=1)$qvalues
+# } else {
+#   mean.DEG.df$adj_Fisher_p <- NA
+# }
+# mean.DEG.df <- dplyr::arrange(mean.DEG.df, desc(mean_rankVal))
+# sig.diffexp.sub$qVal <- sig.diffexp.sub$Spearman.q
+# if (any(sig.diffexp.sub$qVal == 0)) {
+#   sig.diffexp.sub[sig.diffexp.sub$qVal == 0,]$qVal <- 0.0001
+# }
+# 
+# bg.theme <- ggplot2::theme(
+#   legend.background = element_rect(), legend.position = "top",
+#   legend.text = element_text(size = 14),
+#   legend.key = element_blank(),
+#   legend.title = element_text(size = 16),
+#   axis.title.x = element_text(size = 20),
+#   axis.text.x = element_text(size = 16, colour = "black"),
+#   axis.title.y = element_text(size = 20),
+#   axis.text.y = element_text(size = 16, colour = "black"),
+#   plot.title = element_text(
+#     lineheight = .8, face = "bold", size = 36
+#   ),
+#   panel.grid.major = element_blank(),
+#   panel.grid.minor = element_blank(),
+#   panel.border = element_rect(fill = NA),
+#   panel.background = element_blank(),
+#   axis.line = element_line(colour = "black"),
+#   axis.ticks.x = element_line(colour = "black"),
+#   axis.ticks.y = element_line(colour = "black")
+# )
+# 
+# 
+# dot.plot <- ggplot2::ggplot(
+#   na.omit(sig.diffexp.sub),
+#   ggplot2::aes(
+#     x = Omics, y = Feature, color = Spearman.est,
+#     size = -log10(qVal)
+#   )
+# ) +
+#   ggplot2::geom_point() +
+#   ggplot2::scale_y_discrete(limits = mean.DEG.df$Feature) +
+#   viridis::scale_color_viridis() +
+#   bg.theme +
+#   ggplot2::labs(
+#     x = "Input Data",
+#     y = "Feature Set",
+#     color = "Correlation Estimate", size = "-log(FDR)"
+#   )
+# ggsave("PTK2_substrate_dot_plot.pdf", dot.plot, width = 7, height = 7)
+# 
+# # heatmap of substrate sites which are phosphorylated by PTK2
+# diffexp.sub <- diffexp[diffexp$Feature %in% subsites,] # 1
+# sig.diffexp.sub <- diffexp.sub[diffexp.sub$Spearman.q <= 0.05,] # 0
+# sig.list <- list()
+# temp.omics <- unique(sig.diffexp.sub$Omics)
+# temp.omics <- temp.omics[temp.omics != "DNA"] # removing copy number because the only result there was PTK2 itself
+# for (i in 1:length(temp.omics)) {
+#   sig.list[[temp.omics[i]]] <- sig.diffexp.sub[sig.diffexp.sub$Omics == temp.omics[i],]
+# }
+# library(plyr);library(dplyr); library(ggplot2)
+# sig.compiled <- compile_mCorr(sig.list)
+# compiled.DEG.files <- list("Differential_expression_results_PTK2_substrates.csv" = sig.compiled$results,
+#                            "Compiled_differential_expression_results_PTK2_substrates.csv" = sig.compiled$mean.results,
+#                            "Differential_expression_venn_diagram_PTK2_substrates.pdf" = sig.compiled$venn.diagram,
+#                            "Differential_expression_dot_plot_PTK2_substrates.pdf" = sig.compiled$dot.plot,
+#                            "Differential_expression_correlations_PTK2_substrates.csv" = sig.compiled$corr,
+#                            "Differential_expression_correlation_matrix_PTK2_substrates.pdf" = sig.compiled$corr.matrix)
+# dir.create("Chr8_FAK_sites")
+# setwd("Chr8_FAK_sites")
+# save_to_synapse(compiled.DEG.files, dot.scale=1)
+# mean.DEG.df <- plyr::ddply(na.omit(sig.diffexp.sub), .(Feature), summarize,
+#                            mean_rankVal = mean(Spearman.est),
+#                            sd_rankVal = sd(Spearman.est),
+#                            Fisher_p = metap::sumlog(na.omit(Spearman.p))$p,
+#                            types = paste0(Omics, collapse = ", "),
+#                            N_types = length(unique(Omics)),
+#                            N_sig = length(Significant[Significant]),
+#                            sig_types = paste0(Omics[Significant], collapse = ", "))
+# if (length(unique(mean.DEG.df$Fisher_p)) > 1) {
+#   mean.DEG.df$adj_Fisher_p <- 
+#     qvalue::qvalue(mean.DEG.df$Fisher_p, pi0=1)$qvalues
+# } else {
+#   mean.DEG.df$adj_Fisher_p <- NA
+# }
+# mean.DEG.df <- dplyr::arrange(mean.DEG.df, desc(mean_rankVal))
+# sig.diffexp.sub$qVal <- sig.diffexp.sub$Spearman.q
+# if (any(sig.diffexp.sub$qVal == 0)) {
+#   sig.diffexp.sub[sig.diffexp.sub$qVal == 0,]$qVal <- 0.0001
+# }
+# 
+# bg.theme <- ggplot2::theme(
+#   legend.background = element_rect(), legend.position = "top",
+#   legend.text = element_text(size = 14),
+#   legend.key = element_blank(),
+#   legend.title = element_text(size = 16),
+#   axis.title.x = element_text(size = 20),
+#   axis.text.x = element_text(size = 16, colour = "black"),
+#   axis.title.y = element_text(size = 20),
+#   axis.text.y = element_text(size = 16, colour = "black"),
+#   plot.title = element_text(
+#     lineheight = .8, face = "bold", size = 36
+#   ),
+#   panel.grid.major = element_blank(),
+#   panel.grid.minor = element_blank(),
+#   panel.border = element_rect(fill = NA),
+#   panel.background = element_blank(),
+#   axis.line = element_line(colour = "black"),
+#   axis.ticks.x = element_line(colour = "black"),
+#   axis.ticks.y = element_line(colour = "black")
+# )
+# 
+# 
+# dot.plot <- ggplot2::ggplot(
+#   na.omit(sig.diffexp.sub),
+#   ggplot2::aes(
+#     x = Omics, y = Feature, color = Spearman.est,
+#     size = -log10(qVal)
+#   )
+# ) +
+#   ggplot2::geom_point() +
+#   ggplot2::scale_y_discrete(limits = mean.DEG.df$Feature) +
+#   viridis::scale_color_viridis() +
+#   bg.theme +
+#   ggplot2::labs(
+#     x = "Input Data",
+#     y = "Feature Set",
+#     color = "Correlation Estimate", size = "-log(FDR)"
+#   )
+# ggsave("PTK2_substrate_site_dot_plot.pdf", dot.plot, width = 7, height = 7)
 
 #### Chr8 plot of CRISPR pVals ####
 # BiocManager::install("ggbio")
@@ -214,8 +214,8 @@ ggsave("PTK2_substrate_site_dot_plot.pdf", dot.plot, width = 7, height = 7)
 # }
 
 # prep data
-positions <- readxl::read_xlsx("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/data/58_genes_chr8 locations.xlsx")
-crispr <- read.table("~/OneDrive - PNNL/Documents/MPNST/Chr8/Chr8_fitness.gene_summary.txt", sep="\t", header = TRUE)
+positions <- readxl::read_xlsx(synapser::synGet("syn70195290")$path)
+crispr <- read.table(synapser::synGet("syn58886280")$path, sep="\t", header = TRUE)
 crispr$minusLogP <- as.numeric(-log(crispr$neg.p.value, base=10))
 crispr$Significant <- FALSE
 crispr[crispr$neg.p.value<= 0.05,]$Significant <- TRUE
@@ -289,7 +289,7 @@ karyoploteR::kpBars(kp, data=dd, col="red", border = "red")
 # chr8 heatmap plot for Fig1
 #BiocManager::install("ChromHeatMap")
 library(ChromHeatMap)
-crispr <- read.table("~/OneDrive - PNNL/Documents/MPNST/Chr8/Chr8_fitness.gene_summary.txt", sep="\t", header = TRUE)
+crispr <- read.table(synapser::synGet("syn58886280")$path, sep="\t", header = TRUE)
 crispr$minusLogP <- as.numeric(-log(crispr$neg.p.value, base=10))
 crispr$minusLogFDR <- as.numeric(-log(crispr$neg.fdr, base=10) )
 rownames(crispr) <- crispr$id
