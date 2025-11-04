@@ -31,7 +31,7 @@ Not currently used but available in case of future need.
 ### Dependency installation
 installDependencies.R
 
-### Differential expression and GSEA
+### Multi-omics correlations and GSEA
 5-panSEA_using_helper.R
 Uses functions available in panSEA_helper_20240913.R script.
 
