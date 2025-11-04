@@ -17,7 +17,7 @@ library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
 setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
 #source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/proteomics/panSEA_helper_20240913.R")
-source("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/panSEA_helper_20240913.R")
+source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/main/proteomics/panSEA_helper_20240913.R")
 synapser::synLogin()
 
 #### 1. Import metadata & crosstabs ####
@@ -323,7 +323,8 @@ for (i in 1:length(omics2)) {
 #### 3. run panSEA ####
 setwd(base.path)
 setwd("Chr8_quant_20250409")
-cnv.med.chr8q <- read.csv("positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
+cnv.med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
+#cnv.med.chr8q <- read.csv("positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
 global.meta.df2$Chr8q_median <- NA
 for (i in 1:nrow(global.meta.df2)) {
   temp.sample <- global.meta.df2$Sample[i]
@@ -377,8 +378,9 @@ saveRDS(pdxRNA, "pdxRNA.rds")
 my.syn <- "syn65988130"
 setwd(base.path)
 setwd("Chr8_quant_20250409")
-gmt1 <- get_gmt1_v2()
-gmt2 <- get_gmt2()
+gmt1 <- get_gmt1_v2(gmt.list1=c("msigdb_Homo sapiens_HS_H","msigdb_Homo sapiens_HS_C1","msigdb_Homo sapiens_HS_C3_TFT:GTRD"),
+                    names1=c("Hallmark","Positional", "TFT_GTRD"))
+gmt2 <- get_gmt2(gmt.list2="ksdb_human", phospho=phospho.df)
 synapser::synLogin()
 
 # first, check positional enrichment on copy number
@@ -413,7 +415,7 @@ panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Numbe
              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
 
 # re-do KSEA
-gmt2 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Exp21_NRAS_ASO_treated_patients/proteomics/analysis/gmt2.rds")
+gmt2 <- get_gmt2(gmt.list2="ksdb_human", phospho=phospho.df)
 # load correlations
 corr.result <- read.csv(synapser::synGet("syn66226338")$path)
 gsea.input <- corr.result[,c("SUB_SITE","Spearman.est")]
