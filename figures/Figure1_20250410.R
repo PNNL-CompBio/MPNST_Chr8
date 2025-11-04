@@ -2,15 +2,15 @@
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
 remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
-library(biomaRt);library(RIdeogram);library(viridis)
+library(biomaRt);library(RIdeogram);library(viridis);library(msigdbr)
 setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_1")
 
 synapser::synLogin()
 
 #### 1. Chr8 median copy number bar plot ####
 # load data & format
-#med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
-med.chr8q <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
+med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
+#med.chr8q <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
 colnames(med.chr8q)[2] <- "Median Chr8q Copy Number"
 
 # order lowest to highest
@@ -131,7 +131,10 @@ write.csv(all.degs, "Differential_expression_results.csv", row.names = FALSE)
 synapser::synStore(synapser::File("Differential_expression_results.csv", parent="syn65988130"))
 all.degs <- read.csv("Differential_expression_results.csv")
 all.degs$Omics <- factor(all.degs$Omics, levels=c("RNA", "Protein", "Phospho"))
-chr8q.genes <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/chr8qGenes.rds")
+
+# get chr8q genes
+chr8q.genes <- msigdbr::msigdbr(collection="C1")
+chr8q.genes <- unique(chr8q.genes[startsWith(chr8q.genes$gs_name,"chr8q"),]$gene_symbol)
 
 plot_df <- plyr::ddply(all.degs[all.degs$Significant,] , .(Direction, Omics), dplyr::summarize,
                        nCorr = dplyr::n(),
@@ -405,7 +408,11 @@ all.degs$minusLogFDR <- -log(all.degs[,"Spearman.q"], base = 10)
 maxN <- max(all.degs[all.degs$Significant & 
                         all.degs$Omics %in% omics,]$N) # 15
 library(patchwork); library(ggplot2)
-chr8q.genes <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/chr8qGenes.rds")
+
+# get chr8q genes
+chr8q.genes <- msigdbr::msigdbr(collection="C1")
+chr8q.genes <- unique(chr8q.genes[startsWith(chr8q.genes$gs_name,"chr8q"),]$gene_symbol)
+
 gsea.dot.plots <- NULL
 for (i in omics) {
   nGenes <- length(unique(na.omit(all.degs[all.degs$Omics == i & 
