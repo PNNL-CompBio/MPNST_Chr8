@@ -28,7 +28,7 @@ Not currently used but available in case of future need.
 4-push_to_synapse.Rmd
 
 ## Analysis located in [proteomics](./proteomics)
-### Differential expression and GSEA
+### Multi-omics correlations and GSEA
 5-panSEA_using_helper.R
 Uses functions available in panSEA_helper_20240913.R script.
 
