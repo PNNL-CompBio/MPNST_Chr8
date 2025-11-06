@@ -8,37 +8,15 @@ analyses, network analyses, drug sensitivity predictions, fluorescent in situ
 hybridization, and viability studies.
 
 ## Initial proteomics processing located in [proteomics](./proteomics)
-NOTE: these processing scripts are designed to be run at PNNL, in the internal
-network, so will not be able to be run outside. 
-### Create study design tables
-0-create_study_design_tables.Rmd
+here we have the proteomics processing files. While many of them are designed
+to be run internally at PNNL, they can be used to get a sense of how
+the Mass spectrometry reads were mapped to proteins and phosphosites. 
 
-### Initial global proteomics processing
-1-process_global_data.Rmd
+## Chr8q correlation analysis located in [figures](./figures)
+This directory contains the tools needed to regenerate the figures for the 
+Garana et al. manuscript.
 
-### Initial phospho proteomics processing
-2-process_phospho_data.Rmd
-
-### Prep KSTAR input
-2.5-process_KSTAR_input.Rmd
-Not currently used but available in case of future need.
-
-### Normalization and batch correction
-3-normalize_and_batch_correction.Rmd
-
-### Upload crosstabs to Synapse
-4-push_to_synapse.Rmd
-
-## Analysis located in [proteomics](./proteomics)
-This folder also contains specific analyses that were run for the paper.
-### Dependency installation
-installDependencies.R
-
-### Multi-omics correlations and GSEA
-5-panSEA_using_helper.R
-Uses functions available in panSEA_helper_20240913.R script.
-
-### Simulation study for GSEA adapted to shuffle tied genes/proteins
-GSEA_ties_simulation_20240909_v2.R
-Also generates plots for figure S2
+## FAK Analysis located int [FAK Analysis](./FAK analysis)
+THis directory contains additional analysis studying the role of FAK in
+chromosome 8 mediated activity in MPNST. 
 

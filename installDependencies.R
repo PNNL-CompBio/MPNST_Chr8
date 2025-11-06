@@ -58,3 +58,8 @@ if (!require(DMEA, quietly = TRUE)) {
   # build=FALSE option is for Windows users, not sure if it will cause
   # issues for Mac users
 }
+
+if (!require(RIdeogram, quietly = TRUE)) {
+  install.packages("RIdeogram")
+}
+}
