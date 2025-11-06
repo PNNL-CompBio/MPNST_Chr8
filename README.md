@@ -7,6 +7,10 @@ number in MPNST patient-derived xenografts (PDX) in addition to pathway
 analyses, network analyses, drug sensitivity predictions, fluorescent in situ
 hybridization, and viability studies.
 
+## Install dependencies
+For this analysis there are numerous dependencies, thy are listed in 
+the [installDependences.R](./installDependencies.R) script. 
+
 ## Initial proteomics processing located in [proteomics](./proteomics)
 here we have the proteomics processing files. While many of them are designed
 to be run internally at PNNL, they can be used to get a sense of how

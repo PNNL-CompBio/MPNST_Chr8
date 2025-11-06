@@ -29,7 +29,4 @@ Figure3_20250513.R
 - fit_curve.py: calculates area under the curve values; not currently used; 
 adapted from: https://github.com/PNNL-CompBio/coderdata/blob/main/coderbuild/utils/fit_curve.py
 
-### CRISPR screen
-Chr8_FAK.R
-Not included in this multi-omics study but rather in a separate chr8 study 
-focused on FAK.
+

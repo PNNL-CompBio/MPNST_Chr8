@@ -1,20 +1,29 @@
-Since chr8q gain is associated with high-grade transformation in MPNST and 
-inferior overall survival, we integrate multi-omics data to understand drivers 
-and potential targets based on chr8q status. To do this, we collected new 
-proteomics data and ran correlations between omics expression and chr8q copy
-number in MPNST patient-derived xenografts (PDX) in addition to pathway 
-analyses, network analyses, drug sensitivity predictions, fluorescent in situ
-hybridization, and viability studies
+# Proteomics processing
 
-# Proteomics analysis 
+This folder contains the files needed to process the proteomics from the mass
+spectrometry instrument.
 
-This folder contains the anlaysis for the proteomics analysis for the MPNST
-Chromosome 8 analysis supported by the DOD NFRP.
+### Create study design tables
+0-create_study_design_tables.Rmd
 
-## Proteomics raw data
-The [proteomics])(./proteomics) folder contains the processing of the proteins 
+### Initial global proteomics processing
+1-process_global_data.Rmd
 
+### Initial phospho proteomics processing
+2-process_phospho_data.Rmd
 
-## Chr8 correlation analysis
+### Prep KSTAR input
+2.5-process_KSTAR_input.Rmd Not currently used but available in case of future need.
 
-## FAK analysis
+### Normalization and batch correction
+3-normalize_and_batch_correction.Rmd
+
+### Upload crosstabs to Synapse
+4-push_to_synapse.Rmd
+
+### Multi-omics correlations and GSEA
+5-panSEA_using_helper.R Uses functions available in panSEA_helper_20240913.R script.
+
+### Simulation study for GSEA adapted to shuffle tied genes/proteins
+GSEA_ties_simulation_20240909_v2.R 
+Also generates plots for figure S2
