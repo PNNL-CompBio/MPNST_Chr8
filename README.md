@@ -8,6 +8,8 @@ analyses, network analyses, drug sensitivity predictions, fluorescent in situ
 hybridization, and viability studies.
 
 ## Initial proteomics processing located in [proteomics](./proteomics)
+NOTE: these processing scripts are designed to be run at PNNL, in the internal
+network, so will not be able to be run outside. 
 ### Create study design tables
 0-create_study_design_tables.Rmd
 
@@ -28,6 +30,7 @@ Not currently used but available in case of future need.
 4-push_to_synapse.Rmd
 
 ## Analysis located in [proteomics](./proteomics)
+This folder also contains specific analyses that were run for the paper.
 ### Dependency installation
 installDependencies.R
 
@@ -39,30 +42,3 @@ Uses functions available in panSEA_helper_20240913.R script.
 GSEA_ties_simulation_20240909_v2.R
 Also generates plots for figure S2
 
-## Other figure generation located in [figures](./figures)
-### Figure 1: correlations
-Figure1_20250410.R
-
-### Figure S1: histograms
-FigureS1_20250409.R
-
-### Figure 2: enrichment analyses
-- Figure2_20250429.R
-- networkAnalysis.R
-
-### Figure S3: drivers of enrichment
-- Transcription factor targets: FigureS3_TF_20250418.R
-- Kinase substrates: FigureS3_kinase_20250418.R
-
-### Figure 3: drug sensitivity predictions
-Figure3_20250513.R
-
-### Drug screen
-- drugScreening.R: only used for IC50 t-tests
-- fit_curve.py: calculates area under the curve values; not currently used; 
-adapted from: https://github.com/PNNL-CompBio/coderdata/blob/main/coderbuild/utils/fit_curve.py
-
-### CRISPR screen
-Chr8_FAK.R
-Not included in this multi-omics study but rather in a separate chr8 study 
-focused on FAK.

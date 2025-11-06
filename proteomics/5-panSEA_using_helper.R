@@ -14,15 +14,16 @@ library(stringr); library(tidyr); library(plyr)
 library(htmlwidgets); library(webshot); library(scales); library(msigdbr)
 library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 #webshot::install_phantomjs()
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis"
-setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
+base.path <- "~./"
+#setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
 #source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/proteomics/panSEA_helper_20240913.R")
-source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/main/proteomics/panSEA_helper_20240913.R")
+source("./panSEA_helper_20240913.R")
 synapser::synLogin()
 
 #### 1. Import metadata & crosstabs ####
 ### proteomics
-setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/data/")
+dir.create('data')
+setwd("data/")
 meta.df <- readxl::read_excel(synapser::synGet('syn65986564')$path)
 
 global.df <- read.table(synapser::synGet("syn65986566")$path, sep = "\t")

@@ -10,9 +10,10 @@ if(!require(devtools)){install.packages("dev.tools")}
 if(!require(DMEA)){devtools::install_github('BelindaBGarana/DMEA')}
 library(DMEA);library(dplyr);library(GSA);library(reshape2);library(data.table);library(ggplot2);library(msigdbr)
 
-setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant")
+
 
 ### Step 0: Prep rows, columns, values
+##where does this file come from!!??
 plot.data <- read.csv("Proteomics/Global/Differential_expression/Differential_expression_results.csv")
 plot.data <- na.omit(plot.data[,c("Gene", "Spearman.est")])
 plot.data <- plot.data[plot.data$Spearman.est != 0,]
