@@ -321,13 +321,16 @@ get_gmt1_v2 <- function(gmt.list1 = c("msigdb_Homo sapiens_HS_C2_CP:KEGG_LEGACY"
         if (is.character(gmt.list1[i])) {
           if (grepl("msigdb", gmt.list1[i], ignore.case = TRUE)) {
             gmt.info <- stringr::str_split(gmt.list1[i], "_")[[1]]
+            print(gmt.info)
             if (length(gmt.info) > 1) {
               if (length(gmt.info) == 2) {
                 msigdb.info <- msigdbr::msigdbr(gmt.info[2])
               } else if (length(gmt.info) == 3) {
                 msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3])
-              } else {
-                msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3], gmt.info[4])
+              } else if (length(gmt.info) ==4) {
+                msigdb.info <- msigdbr::msigdbr(gmt.info[3], gmt.info[2], gmt.info[4])
+                }else { #SG: udpated this
+                msigdb.info <- msigdbr::msigdbr(gmt.info[3], gmt.info[2], gmt.info[4], gmt.info[5])
               }
               
               # extract necessary info into data frame

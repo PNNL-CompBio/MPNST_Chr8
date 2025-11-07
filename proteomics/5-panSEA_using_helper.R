@@ -3,6 +3,7 @@
 # Author: Belinda B. Garana
 # Created: 2023-12-06
 # Last edit: 2024-09-10
+# CLean up, replaced bad dir changes and mislabeled sample: 2024-11-07
 remove(list=ls())
 # overview:
 #### 1. Import metadata & crosstabs
@@ -14,7 +15,7 @@ library(stringr); library(tidyr); library(plyr)
 library(htmlwidgets); library(webshot); library(scales); library(msigdbr)
 library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 #webshot::install_phantomjs()
-base.path <- "~./"
+base.path <- getwd()
 #setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
 #source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/proteomics/panSEA_helper_20240913.R")
 source("./panSEA_helper_20240913.R")
@@ -22,7 +23,7 @@ synapser::synLogin()
 
 #### 1. Import metadata & crosstabs ####
 ### proteomics
-dir.create('data')
+dir.create(paste0(base.path,'/data'))
 setwd("data/")
 meta.df <- readxl::read_excel(synapser::synGet('syn65986564')$path)
 
@@ -31,8 +32,10 @@ phospho.df <- read.table(synapser::synGet("syn65986573")$path, sep = "\t")
 phospho.pep.df <- read.table(synapser::synGet("syn65986575")$path, sep = "\t")
 
 # prep supplementary tables
-global.readme <- data.frame("Sheet" = "global", "Description" = "Normalized abundance for proteins along rows and samples along columns. Protein labels are associated gene symbols. For example, 'WU-225_rep1' refers to replicate 1 of WU-225 PDX.")
-phospho.readme <- data.frame("Sheet" = "phospho", "Description" = "Normalized abundance for phosphosites along rows and samples along columns. Phosphosite labels are formatted as gene symbol-site ID. For example, 'WU-225_rep1' refers to replicate 1 of WU-225 PDX.")
+global.readme <- data.frame("Sheet" = "global", 
+                            "Description" = "Normalized abundance for proteins along rows and samples along columns. Protein labels are associated gene symbols. For example, 'WU-225_rep1' refers to replicate 1 of WU-225 PDX.")
+phospho.readme <- data.frame("Sheet" = "phospho", 
+                             "Description" = "Normalized abundance for phosphosites along rows and samples along columns. Phosphosite labels are formatted as gene symbol-site ID. For example, 'WU-225_rep1' refers to replicate 1 of WU-225 PDX.")
 sample.meta <- meta.df[meta.df$SampleName!="reference",]
 
 # since global and phospho dfs are already in order (ids 1, 2, 3, ..., 12)
@@ -79,12 +82,14 @@ loadRNAandCN <- function(pdx_data) {
   enst<-as.data.frame(org.Hs.egENSEMBLTRANS)
   
   joined.df<-entrez%>%full_join(ens)%>%
-    dplyr::rename(entrez_id='gene_id',gene_symbol='alias_symbol',other_id='ensembl_id')%>%
+    dplyr::rename(entrez_id='gene_id',gene_symbol='alias_symbol',
+                  other_id='ensembl_id')%>%
     mutate(other_id_source='ensembl_gene')
   
   tdf<-entrez|>
     full_join(enst)|>
-    dplyr::rename(entrez_id='gene_id',gene_symbol='alias_symbol',other_id='trans_id')|>
+    dplyr::rename(entrez_id='gene_id',gene_symbol='alias_symbol',
+                  other_id='trans_id')|>
     dplyr::mutate(other_id_source='ensembl_transcript')
   
   joined.df<-rbind(joined.df,tdf)|>
@@ -107,7 +112,6 @@ loadRNAandCN <- function(pdx_data) {
   
   cn<-do.call(rbind,lapply(setdiff(pdx_data$CopyNumber,c(NA,"NA")),function(x){
     sample<-subset(pdx_data,CopyNumber==x)
-    print(sample$improve_sample_id)
     res<-data.table::fread(synGet(x)$path)
     
     long_df<- res|>
@@ -131,8 +135,9 @@ pdxRNA <- pdxOmics$rna
 pdxCN <- pdxOmics$cn
 
 #### 2. determine median chr8q copy number ####
-base.path <- "~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/"
 setwd(base.path)
+dir.create('analysis')
+setwd('analysis')
 annotations <- c("Sex")
 
 # make sure meta data has right contrasts
@@ -159,13 +164,14 @@ rownames(rna.meta.df) <- rna.meta.df$Sample
 rownames(global.meta.df2) <- global.meta.df2$SampleName
 
 # look at chr8q amplification
-setwd(base.path)
+
 dir.create("Chr8_quant_20250409")
 setwd("Chr8_quant_20250409")
 dir.create("positional_medians")
 setwd("positional_medians")
 dir.create("20250616")
 setwd("20250616")
+dat.path <- getwd()
 omics2 <- list("Copy Number" = pdxCN,
                "RNA-Seq" = pdxRNA,
                "Proteomics" = global.df)
@@ -173,7 +179,8 @@ omics2 <- list("Copy Number" = pdxCN,
 msigdb.info <- msigdbr::msigdbr(category="C1")
 reduced.msigdb <- dplyr::distinct(msigdb.info[,c("gs_name", "gene_symbol")])
 for (i in 1:length(omics2)) {
-  setwd(file.path(base.path, "Chr8_quant_20250409", "positional_medians","20250616"))
+#  setwd(file.path(base.path, "Chr8_quant_20250409", "positional_medians"))
+  setwd(dat.path)
   dir.create(names(omics2)[i])
   setwd(names(omics2)[i])
   pos.GSEA <- list()
@@ -321,8 +328,17 @@ for (i in 1:length(omics2)) {
   }
 }
 
+##WARNING: the analysis is NEVER uploaded to synapse, so
+#old results are used. 2025-11-07 uploaded files used below
+#copy numger information
+synapser::synStore(File(paste0(base.path,'/analysis/Chr8_quant_20250409/positional_medians/20250616/Copy Number/Copy Number_Chr8q_median.csv'),
+                        parentId='syn65988130'))
+#phospho correlation values
+
+
 #### 3. run panSEA ####
-setwd(base.path)
+setwd(paste0(base.path,'/analysis'))
+#dir.create("Chr8_quant_20250409")
 setwd("Chr8_quant_20250409")
 cnv.med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
 #cnv.med.chr8q <- read.csv("positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
@@ -377,7 +393,8 @@ saveRDS(cn, "cn.rds")
 saveRDS(pdxRNA, "pdxRNA.rds")
 
 my.syn <- "syn65988130"
-setwd(base.path)
+setwd(paste0(base.path,'/analysis'))
+dir.create("Chr8_quant_20250409")
 setwd("Chr8_quant_20250409")
 gmt1 <- get_gmt1_v2(gmt.list1=c("msigdb_Homo sapiens_HS_H","msigdb_Homo sapiens_HS_C1","msigdb_Homo sapiens_HS_C3_TFT:GTRD"),
                     names1=c("Hallmark","Positional", "TFT_GTRD"))
@@ -395,7 +412,7 @@ panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Numbe
              temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
 
 # next, proteomics and RNA
-setwd(base.path)
+setwd(paste0(base.path,'/analysis'))
 setwd("Chr8_quant_20250409")
 omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
               "RNA-Seq" = pdxRNA)

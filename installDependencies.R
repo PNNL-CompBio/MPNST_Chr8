@@ -62,4 +62,7 @@ if (!require(DMEA, quietly = TRUE)) {
 if (!require(RIdeogram, quietly = TRUE)) {
   install.packages("RIdeogram")
 }
+
+if (!require(doSNOW)) {
+  install.packages("doSNOW")
 }
