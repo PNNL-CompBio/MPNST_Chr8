@@ -10,7 +10,6 @@ synapser::synLogin()
 #### 1. Chr8 median copy number bar plot ####
 # load data & format
 med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
-#med.chr8q <- read.csv("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409/positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
 colnames(med.chr8q)[2] <- "Median Chr8q Copy Number"
 
 # order lowest to highest
