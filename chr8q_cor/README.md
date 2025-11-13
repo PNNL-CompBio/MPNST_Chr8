@@ -1,11 +1,7 @@
 # Multi-omics integration of malignant peripheral nerve sheath tumors (MPNST) identifies potential targets based on chromosome 8q (chr8q) status
-Since chr8q gain is associated with high-grade transformation in MPNST and 
-inferior overall survival, we integrate multi-omics data to understand drivers 
-and potential targets based on chr8q status. To do this, we collected new 
-proteomics data and ran correlations between omics expression and chr8q copy
-number in MPNST patient-derived xenografts (PDX) in addition to pathway 
-analyses, network analyses, drug sensitivity predictions, fluorescent in situ
-hybridization, and viability studies.
+
+These scripts are designed to be run after those in the [proteomics](./proteomics) directory, 
+which runs the correlation and enrichment statistics and uploads them to synapse. 
 
 The analysis for this manuscript integrates copy number and RNASeq measurements
 of diverse MPNST together with proteomics measurements. The proteomics analysis

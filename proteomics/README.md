@@ -4,6 +4,9 @@ This folder contains the files needed to process the proteomics from the mass
 spectrometry instrument. It cannot be run from outside the PNNL intranet. 
 
 ## Create study design
+These analysis run at the PNNL site and will then upload the files to synapse. 
+### Create study design tables
+0-create_study_design_tables.Rmd 
 
 To map data across TMT plexes, we must first create a study design file to
 be used by subsequent analysis steps. The study design for this study is
