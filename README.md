@@ -7,7 +7,15 @@ number in MPNST patient-derived xenografts (PDX) in addition to pathway
 analyses, network analyses, drug sensitivity predictions, fluorescent in situ
 hybridization, and viability studies.
 
+## Install dependencies
+For this analysis there are numerous dependencies which are listed in 
+the [installDependences.R](./installDependencies.R) script. 
+
 ## Initial proteomics processing located in [proteomics](./proteomics)
+These proteomics processing files are used to generate dataframes of relative protein abundance. 
+While many of them are designed to be run internally at PNNL, they can be used to get a sense of how
+the mass spectrometry reads were mapped to proteins and phosphosites. 
+
 ### Create study design tables
 0-create_study_design_tables.Rmd
 
@@ -28,8 +36,8 @@ Not currently used but available in case of future need.
 4-push_to_synapse.Rmd
 
 ## Analysis located in [proteomics](./proteomics)
-### Dependency installation
-installDependencies.R
+This directory contains the scripts for multi-omics analysis of chr8q 
+gain in MPNST for the Garana et al. manuscript.
 
 ### Multi-omics correlations and GSEA
 5-panSEA_using_helper.R
@@ -39,7 +47,9 @@ Uses functions available in panSEA_helper_20240913.R script.
 GSEA_ties_simulation_20240909_v2.R
 Also generates plots for figure S2
 
-## Other figure generation located in [figures](./figures)
+## Figure generation located in [figures](./figures)
+This directory contains the tools needed to regenerate the figures for the 
+Garana et al. manuscript.
 ### Figure 1: correlations
 Figure1_20250410.R
 
@@ -62,7 +72,7 @@ Figure3_20250513.R
 - fit_curve.py: calculates area under the curve values; not currently used; 
 adapted from: https://github.com/PNNL-CompBio/coderdata/blob/main/coderbuild/utils/fit_curve.py
 
-### CRISPR screen
-Chr8_FAK.R
-Not included in this multi-omics study but rather in a separate chr8 study 
-focused on FAK.
+## FAK analysis located in [Chr8_FAK.R](./proteomics/Chr8_FAK.R)
+This directory contains additional analysis studying the role of FAK in
+chromosome 8 mediated activity in MPNST. This analysis is not included in the 
+multi-omics study but rather in a separate chr8 study focused on FAK.
