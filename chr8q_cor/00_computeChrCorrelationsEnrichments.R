@@ -15,10 +15,9 @@ library(stringr); library(tidyr); library(plyr)
 library(htmlwidgets); library(webshot); library(scales); library(msigdbr)
 library(plyr); library(dplyr); library(R.utils); library(ggplot2)
 #webshot::install_phantomjs()
+
 base.path <- getwd()
-#setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/")
-#source("https://github.com/PNNL-CompBio/MPNST_Chr8/blob/main/proteomics/panSEA_helper_20240913.R")
-source("./panSEA_helper_20240913.R")
+source("./panSEAFunctions.R")
 synapser::synLogin()
 
 #### 1. Import metadata & crosstabs ####
@@ -70,7 +69,6 @@ if(!require('org.Hs.eg.db')){
   library(org.Hs.eg.db)
 }
 
-library(dplyr)
 ##get entrez ids to symbol
 loadRNAandCN <- function(pdx_data) {
   entrez<-as.data.frame(org.Hs.egALIAS2EG)
@@ -165,13 +163,18 @@ rownames(global.meta.df2) <- global.meta.df2$SampleName
 
 # look at chr8q amplification
 
-dir.create("Chr8_quant_20250409")
-setwd("Chr8_quant_20250409")
+#the directories are really onerous
+#dir.create("Chr8_quant_20250409")
+#setwd("Chr8_quant_20250409")
 dir.create("positional_medians")
 setwd("positional_medians")
-dir.create("20250616")
-setwd("20250616")
+#dir.create("20250616")
+#setwd("20250616")
 dat.path <- getwd()
+
+#TODO: figure out how to get copy number values without doing enrichment analysis
+
+# copy number will correlate with copy number? 
 omics2 <- list("Copy Number" = pdxCN,
                "RNA-Seq" = pdxRNA,
                "Proteomics" = global.df)
@@ -331,7 +334,7 @@ for (i in 1:length(omics2)) {
 ##WARNING: the analysis is NEVER uploaded to synapse, so
 #old results are used. 2025-11-07 uploaded files used below
 #copy numger information
-synapser::synStore(File(paste0(base.path,'/analysis/Chr8_quant_20250409/positional_medians/20250616/Copy Number/Copy Number_Chr8q_median.csv'),
+synapser::synStore(File(paste0(base.path,'/analysis/positional_medians/Copy Number/Copy Number_Chr8q_median.csv'),
                         parentId='syn65988130'))
 #phospho correlation values
 
@@ -339,7 +342,7 @@ synapser::synStore(File(paste0(base.path,'/analysis/Chr8_quant_20250409/position
 #### 3. run panSEA ####
 setwd(paste0(base.path,'/analysis'))
 #dir.create("Chr8_quant_20250409")
-setwd("Chr8_quant_20250409")
+#setwd("Chr8_quant_20250409")
 cnv.med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
 #cnv.med.chr8q <- read.csv("positional_medians/Copy Number/Copy Number_Chr8q_median.csv")
 global.meta.df2$Chr8q_median <- NA
@@ -394,14 +397,15 @@ saveRDS(pdxRNA, "pdxRNA.rds")
 
 my.syn <- "syn65988130"
 setwd(paste0(base.path,'/analysis'))
-dir.create("Chr8_quant_20250409")
-setwd("Chr8_quant_20250409")
+#dir.create("Chr8_quant_20250409")
+#setwd("Chr8_quant_20250409")p
 gmt1 <- get_gmt1_v2(gmt.list1=c("msigdb_Homo sapiens_HS_H","msigdb_Homo sapiens_HS_C1","msigdb_Homo sapiens_HS_C3_TFT:GTRD"),
                     names1=c("Hallmark","Positional", "TFT_GTRD"))
 gmt2 <- get_gmt2(gmt.list2="ksdb_human", phospho=phospho.df)
 synapser::synLogin()
 
 # first, check positional enrichment on copy number
+# SG: this creates weird directories and doesn't feel needed
 omics <- list("Copy_number" = cn)
 meta.list <- list("Copy_number" = pdx.info2[pdx.info2$Sample!="JH-2-009",])
 expr.list <- list("Copy_number" = "adherent CCLE")
@@ -409,11 +413,11 @@ feature.list <- list("Copy_number" = "Gene")
 gmt1.cn <- list("Positional" = gmt1$Positional)
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.cn, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
+             temp.path = file.path(base.path, 'analysis',"Spearman"), syn.id = my.syn)
 
 # next, proteomics and RNA
 setwd(paste0(base.path,'/analysis'))
-setwd("Chr8_quant_20250409")
+#setwd("Chr8_quant_20250409")
 omics <- list("Proteomics" = list("Global" = global.df, "Phospho" = phospho.df),
               "RNA-Seq" = pdxRNA)
 meta.list <- list("Proteomics" = global.meta.df3,
@@ -430,7 +434,7 @@ gmt1.rest <- list("Hallmark" = gmt1$Hallmark,
                   "WikiPathways" = gmt1$WikiPathways)
 panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest, gmt2=gmt2,
-             temp.path = file.path(base.path, "Chr8_quant_20250409", "Spearman"), syn.id = my.syn)
+             temp.path = file.path(base.path, "Spearman"), syn.id = my.syn)
 
 # re-do KSEA
 gmt2 <- get_gmt2(gmt.list2="ksdb_human", phospho=phospho.df)
@@ -449,7 +453,7 @@ gsea.files <- list("KSEA_results.csv" = gsea.result$result,
                    "KSEA_dot_plot_withSD.pdf" = gsea.result$dot.sd,
                    "KSEA_bar_plot.pdf" = gsea.result$bar.plot,
                    "mtn_plots" = get_top_mtn_plots(gsea.result))
-setwd(file.path(base.path,"Chr8_quant_20250409/Spearman/Proteomics","Phospho", "Phospho"))
+setwd(file.path(base.path,"Spearman/Proteomics","Phospho", "Phospho"))
 dir.create("KSEA")
 setwd("KSEA")
 gseaFolder <- synapser::synStore(synapser::Folder("KSEA", parent = "syn66226336"))

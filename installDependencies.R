@@ -23,7 +23,7 @@ if (!require(panSEA, quietly = TRUE)) {
   if (!require("devtools", quietly = TRUE))
     install.packages("devtools")
   
-  devtools::install_github("BelindaBGarana/panSEA", "add-tie-handling")
+  devtools::install_github("pnnl-compbio/panSEA", "add-tie-handling")
 }
 
 if (!require(synapser, quietly = TRUE)) {

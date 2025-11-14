@@ -5,7 +5,8 @@ remove(list=ls())
 library(synapser); library(msigdbr); library(PCSF)
 library(plyr); library(ggplot2)
 #setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Chr8/proteomics")
+base.dir = getwd()
+setwd(file.path(base.dir,"../proteomics"))
 
 #### prep inputs ####
 # try using top 50 sig prot, phospho, WES - directional this time
