@@ -163,7 +163,7 @@ make_heatmaps <- function(expr.df, cc.df, top.pathways = NULL, top.gmt, show_col
     feature.name <- colnames(expr.df)[!(colnames(expr.df) %in% colnames(just.expr))]
     
     # filter for gene set
-    temp.expr <- expr.df[expr.df[,feature.name] %in% top.gmt[[i]], ]
+    temp.expr <- expr.df[expr.df[,feature.name] %in% unlist(top.gmt[[i]]), ]
     rownames(temp.expr) <- temp.expr[,feature.name]
     
     expr.list[[names(top.gmt)[i]]] <- temp.expr
@@ -245,6 +245,20 @@ make_heatmaps <- function(expr.df, cc.df, top.pathways = NULL, top.gmt, show_col
 }
 
 
+####SG: get new phospho db list since the other one seems faulty
+##
+get_leapR_ksdb_gmt <- function(){
+  ##download leapR
+  download.file("https://github.com/pnnl/leapR/raw/refs/heads/main/data/kinasesubstrates.rda","ksub.rda")
+  load("ksub.rda") ##load as kinasesubtratses
+  genelist <- apply(kinasesubstrates$matrix,1,function(x) setdiff(x,c('',NA,NULL)))
+  names(genelist)<- kinasesubstrates$names
+  kgmt <- list(geneset.names = kinasesubstrates$names, geneset.descriptions=kinasesubstrates$desc,
+               genesets = genelist)
+  return(kgmt)
+        
+   
+}
 
 # uses more pathways
 get_gmt1_v2 <- function(gmt.list1 = c("msigdb_Homo sapiens_HS_C2_CP:KEGG_LEGACY",
@@ -265,7 +279,7 @@ get_gmt1_v2 <- function(gmt.list1 = c("msigdb_Homo sapiens_HS_C2_CP:KEGG_LEGACY"
                                   "Oncogenic_signatures", "BioCarta", 
                                   "PID", "Reactome", "WikiPathways"),
                         min.per.set=6) {
-  if (file.exists("gmt1.rds")) {
+  if (file.exists("gmt1_more.rds")) {
     gmt1 <- readRDS("gmt1_more.rds")
   } else {
     if ("chr8" %in% gmt.list1) {
@@ -276,7 +290,7 @@ get_gmt1_v2 <- function(gmt.list1 = c("msigdb_Homo sapiens_HS_C2_CP:KEGG_LEGACY"
         if (is.character(gmt.list1[i])) {
           if (grepl("msigdb", gmt.list1[i], ignore.case = TRUE)) {
             gmt.info <- stringr::str_split(gmt.list1[i], "_")[[1]]
-            print(gmt.info)
+           # print(gmt.info)
             if (length(gmt.info) > 1) {
               if (length(gmt.info) == 2) {
                 msigdb.info <- msigdbr::msigdbr(gmt.info[2])
@@ -352,12 +366,13 @@ get_ksdb <- function(organism="human"){
   if (file.exists(file.path(paste0("gmt_ksdb_", organism, ".rds")))) {
     gmt <- readRDS(file.path(paste0("gmt_ksdb_", organism, ".rds")))
   } else if (organism == "human") {
-    url <- "https://raw.github.com/BelindaBGarana/panSEA/main/data/gmt_ksdb_human.rds"
-    httr::GET(url, httr::write_disk("gmt_ksdb_human.rds")) 
-    gmt <- readRDS("gmt_ksdb_human.rds")
+    gmt <- get_ksdb_v2(organism = organism)
+    #url <- "https://raw.github.com/PNNL-CompBio/panSEA/main/blob/data/gmt_ksdb_human.rds"
+    #httr::GET(url, httr::write_disk("gmt_ksdb_human.rds")) ##THIS DOWNLOAD IS BAD
+    #gmt <- readRDS("gmt_ksdb_human.rds")
   } else {
-    ksdb <- read.csv(paste0("https://raw.githubusercontent.com/BelindaBGarana/",
-                            "panSEA/shiny-app/data/ksdb_20231101.csv"))
+    ksdb <- read.csv(paste0("https://github.com/PNNL-CompBio/",
+                            "panSEA/raw/refs/heads/main/data/ksdb_20231101.csv"))
     if (organism %in% unique(na.omit(ksdb$KIN_ORGANISM)) &
         organism %in% unique(na.omit(ksdb$SUB_ORGANISM))) {
       ksdb <- ksdb[ksdb$KIN_ORGANISM == organism &
@@ -383,8 +398,8 @@ get_ksdb_v2 <- function(organism="human"){
   if (file.exists(file.path(paste0("gmt_ksdb_", organism, "_v2.rds")))) {
     gmt <- readRDS(file.path(paste0("gmt_ksdb_", organism, "_v2.rds")))
   } else {
-    ksdb <- read.csv(paste0("https://raw.githubusercontent.com/BelindaBGarana/",
-                            "panSEA/shiny-app/data/ksdb_20231101.csv"))
+    ksdb <- read.csv(paste0("https://raw.githubusercontent.com/PNNL-CompBio/",
+                            "panSEA/main/data/ksdb_20231101.csv"))
     if (organism %in% unique(na.omit(ksdb$KIN_ORGANISM)) &
         organism %in% unique(na.omit(ksdb$SUB_ORGANISM))) {
       ksdb <- ksdb[ksdb$KIN_ORGANISM == organism &
@@ -394,7 +409,8 @@ get_ksdb_v2 <- function(organism="human"){
                            sep = "-", remove = FALSE)
     gmt <- DMEA::as_gmt(ksdb, "SUB_SITE", "KINASE",
                         descriptions = "KIN_ACC_ID")
-    saveRDS(gmt, file.path(paste0("ksdb_", organism, "_v2.rds")))
+   # saveRDS(gmt, file.path(paste0("ksdb_", organism, "_v2.rds")))
+     saveRDS(gmt, file.path(paste0("ksdb_", organism, ".rds"))) ##not the v2, since original doesn't work
   } 
   return(gmt)
 }
@@ -475,7 +491,7 @@ load_BeatAML_for_DMEA <- function(BeatAML.path = "BeatAML_DMEA_inputs") {
                              "ptrc_ex10_crosstab_global_gene_corrected.txt" = "syn25714248",
                              "ptrc_ex10_crosstab_phospho_siteID_corrected(1).txt" = "syn25714921")
   
-  gmt.drug <- readRDS(gzcon(url("https://raw.github.com/BelindaBGarana/panSEA/main/Examples/Inputs/gmt_BeatAML_drug_MOA.rds")))
+  gmt.drug <- readRDS(gzcon(url("https://raw.github.com/PNNL-CompBio/panSEA/main/Examples/Inputs/gmt_BeatAML_drug_MOA.rds")))
   
   ### download files if any not already downloaded
   if (!dir.exists(BeatAML.path)) {
@@ -584,7 +600,7 @@ load_not_norm_BeatAML_for_DMEA <- function(BeatAML.path = "BeatAML_DMEA_inputs_n
                              "ptrc_ex10_crosstab_global_gene_original.txt" = "syn25714254",
                              "ptrc_ex10_crosstab_phospho_siteID_original.txt" = "syn25714936")
   
-  gmt.drug <- readRDS(gzcon(url("https://raw.github.com/BelindaBGarana/panSEA/main/Examples/Inputs/gmt_BeatAML_drug_MOA.rds")))
+  gmt.drug <- readRDS(gzcon(url("https://raw.github.com/PNNL-CompBio/panSEA/main/Examples/Inputs/gmt_BeatAML_drug_MOA.rds")))
   
   ### download files if any not already downloaded
   if (!file.exists(BeatAML.path)) {
@@ -732,15 +748,17 @@ get_top_mtn_plots <- function(base.result, n.top = 10, EA.type = "GSEA",
 # save folder and nested files/subfolders to Synapse - more efficient
 save_to_synapse_v2 <- function(temp.files, resultsFolder = NULL,
                             width = 7, height = 7, dot.scale = 4) {
-  synapser::synLogin()
   for (i in names(temp.files)) {
+    print(paste(i,resultsFolder))
     # if file, save appropriately
-    if (grepl("[.]", i) & is.list(temp.files[[i]]) & length(temp.files[[i]]) > 0) {
+    #if (grepl("[.]", i) & is.list(temp.files[[i]]) & length(temp.files[[i]]) > 0) {
+    if (grepl("[.]", i) & length(temp.files[[i]]) > 0) {
       # local save
       if (endsWith(tolower(i), ".csv")) {
         write.csv(temp.files[[i]], i, row.names = FALSE)
       } else if (endsWith(tolower(i), ".pdf")) {
-          if (grepl("_bar_plot", i) | grepl("_dot_plot", i)) {
+          if (grepl("_bar_plot", i) | grepl("_dot_plot", i) | 
+              grepl('_volcano_plot',i) | grepl('_scatter_plot',i)) { #SG adding volcano/scatter plot?
             ggplot2::ggsave(i, temp.files[[i]], device = "pdf", 
                             width = dot.scale*width, height = height) 
           } else {
@@ -762,20 +780,26 @@ save_to_synapse_v2 <- function(temp.files, resultsFolder = NULL,
         save_base_plot(temp.files[[i]], temp.name, 
                        width = width, height = height)
         i <- temp.name
+      } else{
+        next
       }
       
       # save to synapse if relevant
       if (!is.null(resultsFolder)) {
         # save to synapse
+        synapser::synLogin()
+        
         mySynFile <- synapser::File(i, parent = resultsFolder)
         synapser::synStore(mySynFile) 
       }
-    } else {
+  } else {
      # else create subfolder
       temp.base <- getwd()
       dir.create(i)
       setwd(i)
       if (!is.null(resultsFolder)) {
+        synapser::synLogin()
+        
         subFolder <- 
           synapser::synStore(synapser::Folder(i, parent = resultsFolder))
       } else {
@@ -786,139 +810,6 @@ save_to_synapse_v2 <- function(temp.files, resultsFolder = NULL,
       save_to_synapse_v2(temp.files[[i]], subFolder, width, height, dot.scale)
       setwd(temp.base)
     }
-  }
-}
-
-# save folder and nested files/subfolders to Synapse
-save_to_synapse <- function(temp.files, resultsFolder = NULL,
-                            width = 7, height = 7, dot.scale = 4) {
-  CSV.files <- names(temp.files)[grepl(".csv", names(temp.files), 
-                                       ignore.case = TRUE)]
-  if (length(CSV.files) > 0) {
-    # save locally
-    for (j in 1:length(CSV.files)) {
-      write.csv(temp.files[[CSV.files[j]]], CSV.files[j], row.names = FALSE)
-    }
-    
-    if (!is.null(resultsFolder)) {
-      # save to synapse
-      CSVs <- lapply(as.list(CSV.files), synapser::File,
-                     parent = resultsFolder)
-      lapply(CSVs, synapser::synStore) 
-    }
-  }
-  
-  PDF.files <- names(temp.files)[grepl(".pdf", names(temp.files), 
-                                       ignore.case = TRUE)]
-  if (length(PDF.files) > 0) {
-    # save locally
-    for (j in 1:length(PDF.files)) {
-      if (is.list(temp.files[[PDF.files[j]]])) {
-        if (endsWith(PDF.files[j], "_bar_plot.pdf") | 
-            endsWith(PDF.files[j], "_dot_plot.pdf") |
-            endsWith(PDF.files[j], "_dot_plot_withSD.pdf")) {
-          ggplot2::ggsave(PDF.files[j], temp.files[[PDF.files[j]]], 
-                          device = "pdf", width = dot.scale*width, height = height) 
-        } else {
-          ggplot2::ggsave(PDF.files[j], temp.files[[PDF.files[j]]], 
-                          device = "pdf", width = width, height = height)
-        }
-      }
-    }
-    
-    if (!is.null(resultsFolder)) {
-      # save to synapse
-      PDF.files <- list.files(pattern = ".*.pdf", full.names = TRUE)
-      PDFs <- lapply(as.list(PDF.files), synapser::File,
-                     parent = resultsFolder)
-      lapply(PDFs, synapser::synStore) 
-    }
-  }
-  
-  SVG.files <- names(temp.files)[grepl(".svg", names(temp.files), 
-                                       ignore.case = TRUE)]
-  if (length(SVG.files) > 0) {
-    # save locally
-    for (j in 1:length(SVG.files)) {
-      ggplot2::ggsave(PDF.files[j], temp.files[[PDF.files[j]]], 
-                      device = "svg", width = width, height = height)
-    }
-    
-    if (!is.null(resultsFolder)) {
-      # save to synapse
-      SVGs <- lapply(as.list(SVG.files), synapser::File,
-                     parent = resultsFolder)
-      lapply(SVGs, synapser::synStore) 
-    }
-  }
-  
-  HTML.files <- names(temp.files)[grepl(".html", names(temp.files), 
-                                        ignore.case = TRUE)]
-  if (length(HTML.files) > 0) {
-    # save locally
-    for (j in 1:length(HTML.files)) {
-      if (is.list(temp.files[[HTML.files[j]]])) {
-        if (length(temp.files[[HTML.files[j]]]) > 0) {
-          visNetwork::visSave(temp.files[[HTML.files[j]]], HTML.files[j]) 
-        }
-      } else {
-        HTML.files <- HTML.files[HTML.files != HTML.files[j]]
-      }
-    }
-    
-    if (!is.null(resultsFolder)) {
-      # save to synapse
-      HTMLs <- lapply(HTML.files, synapser::File,
-                      parent = resultsFolder)
-      lapply(HTMLs, synapser::synStore) 
-    }
-  }
-  
-  base.plot.files <- names(temp.files)[grepl(".bp", names(temp.files), 
-                                             ignore.case = TRUE)]
-  if (length(base.plot.files) > 0) {
-    # save locally
-    for (j in 1:length(base.plot.files)) {
-      if (is.list(temp.files[[base.plot.files[j]]])) {
-        if (length(temp.files[[base.plot.files[j]]]) > 0) {
-          temp.name <- paste0(substr(base.plot.files[j], 1, nchar(base.plot.files[j])-3), ".pdf")
-          save_base_plot(temp.files[[base.plot.files[j]]], temp.name, 
-                         width = width, height = height)
-          base.plot.files[j] <- temp.name
-        }
-      } else {
-        base.plot.files <- base.plot.files[base.plot.files != base.plot.files[j]]
-      }
-    }
-    
-    if (!is.null(resultsFolder)) {
-      # save to synapse
-      base.plots <- lapply(base.plot.files, synapser::File,
-                           parent = resultsFolder)
-      lapply(base.plots, synapser::synStore) 
-    }
-  }
-  
-  # save subfolders if relevant
-  subfolders <- names(temp.files)[!grepl("[.]", names(temp.files))]
-  if (length(subfolders) > 0) {
-    temp.base <- getwd()
-    for (m in 1:length(subfolders)) {
-      # create folder for mtn plots
-      dir.create(subfolders[m])
-      setwd(subfolders[m])
-      if (!is.null(resultsFolder)) {
-        subFolder <- 
-          synapser::synStore(synapser::Folder(subfolders[m],
-                                              parent = resultsFolder))
-      } else {
-        subFolder <- NULL
-      }
-      
-      sub.base <- file.path(temp.base, subfolders[m])
-      save_to_synapse(temp.files[[subfolders[m]]], subFolder)
-      setwd(temp.base)
-    } 
   }
 }
 
@@ -1411,16 +1302,16 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
       
       # GSEA
       if (grepl("phospho", names(omics)[i], ignore.case = TRUE)) {
-        names(gmt2) <- c("phospho_ksdb", "phospho_sub")
-        if (check_coverage(deg$result, gmt2[[1]], temp.features, gene.rank.val) &
-            check_coverage(deg$result, gmt2[[2]], temp.features, gene.rank.val)) {
-        gsea2 <- panSEA::mGSEA(list(deg$result, deg$result), gmt2, 
-                               types = names(gmt2), 
+        #names(gmt2) <- c("phospho_ksdb", "phospho_sub")
+        if (check_coverage(deg$result, gmt2[[1]], temp.features, gene.rank.val)) {# &
+            ##check_coverage(deg$result, gmt2[[2]], temp.features, gene.rank.val)) {
+        gsea2 <- panSEA::mGSEA(list(deg$result), gmt2,#, deg$result), gmt2, 
+                               types = names(gmt2)[1], 
                                feature.names = rep(temp.features,2),
                                rank.var = rep(gene.rank.val,2), ties=ties)
         # store GSEA results
         phospho.gsea.files <- list()
-        for (k in 1:length(gmt2)) {
+        for (k in 1:1){#length(gmt2)) {
           gsea.name <- paste0("GSEA_", names(gmt2)[k])
           phospho.mtn <- get_top_mtn_plots(
             gsea2$all.results[[k]], 
@@ -1486,8 +1377,8 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
         temp.omics.files[["Phospho_enrichment"]] <- phospho.gsea.files
         
         # prep for GSEA
-        gsea1.inputs <- list(gsea2$all.results[[2]]$result)
-        names(gsea1.inputs) <- names(gmt2)[2]
+        gsea1.inputs <- list(gsea2$all.results[[1]]$result)#2]]$result)
+        names(gsea1.inputs) <- names(gmt2)[1]#2]
         features1 <- "Feature_set"
         rank.var <- "NES"
         } else {
@@ -1714,10 +1605,13 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
     }
     if (length(combo.files) > 0) {
       files.for.Synapse[["Compiled_results"]] <- combo.files
-      save_to_synapse_v2(list("Compiled_results" = combo.files), syn.id) 
+      #save_to_synapse_v2(list("Compiled_results" = combo.files), syn.id) 
     }
   }
-  #save_to_synapse(files.for.Synapse, syn.id)
+  setwd(file.path(base.path,'analysis'))
+  save_to_synapse_v2(files.for.Synapse, NULL)#syn.id)
+  return(files.for.Synapse)
+  
 }
 
 
@@ -1726,29 +1620,36 @@ check_coverage <- function(gsea.input, gmt, feature.names = "Gene",
   covered <- FALSE
   n.sets <- 0
   for (i in 1:length(gmt$genesets)) {
-    temp.genes <- gmt$genesets[[i]]
-    temp.gsea.input <- gsea.input[gsea.input[,feature.names] %in% temp.genes, ]
-    if (nrow(temp.gsea.input) >= min.per.set) {
-      n.sets <- n.sets + 1
+    temp.genes <- unlist(gmt$genesets[[i]])
+    #print(temp.genes)
+    if (feature.names%in%colnames(gsea.input)){
+      temp.gsea.input <- gsea.input[gsea.input[,feature.names] %in% temp.genes, ]
+      if (nrow(temp.gsea.input) >= min.per.set) {
+        n.sets <- n.sets + 1
+        if(n.sets >=2)
+          return(TRUE)
+      }
     }
   }
   if (n.sets >= 2) {
     covered <- TRUE
+ 
   }
   return(covered)
 }
+# 
+# get_coverage <- function(gsea.input, gmt, feature.names = "Gene") {
+#   coverage <- data.frame(names(gmt$genesets), Features = NA, Features_covered = NA,
+#                          N_features = NA, N_features_covered = NA)
+#   colnames(coverage)[1] <- "Feature_set"
+#   for (i in 1:length(gmt$genesets)) {
+#     temp.genes <- unlist(gmt$genesets[[i]])
+#     temp.gsea.input <- gsea.input[gsea.input[,feature.names] %in% temp.genes, ]
+#     coverage$Features[i] <- paste0(temp.genes, collapse = ", ")
+#     coverage$Features_covered[i] <- paste0(unique(temp.gsea.input[,feature.names]), collapse = ", ")
+#     coverage$N_features[i] <- length(temp.genes)
+#     coverage$N_features_covered[i] <- length(unique(temp.gsea.input[,feature.names]))
+#   }
+#   return(coverage)
+# }
 
-get_coverage <- function(gsea.input, gmt, feature.names = "Gene") {
-  coverage <- data.frame(names(gmt$genesets), Features = NA, Features_covered = NA,
-                         N_features = NA, N_features_covered = NA)
-  colnames(coverage)[1] <- "Feature_set"
-  for (i in 1:length(gmt$genesets)) {
-    temp.genes <- gmt$genesets[[i]]
-    temp.gsea.input <- gsea.input[gsea.input[,feature.names] %in% temp.genes, ]
-    coverage$Features[i] <- paste0(temp.genes, collapse = ", ")
-    coverage$Features_covered[i] <- paste0(unique(temp.gsea.input[,feature.names]), collapse = ", ")
-    coverage$N_features[i] <- length(temp.genes)
-    coverage$N_features_covered[i] <- length(unique(temp.gsea.input[,feature.names]))
-  }
-  return(coverage)
-}

@@ -1,9 +1,10 @@
-# chr8 MPNST: figure 1
+# chr8 MPNST: figure S1
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
 remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(biomaRt);library(RIdeogram);library(viridis)
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/SuppFig_1")
+
+#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/SuppFig_1")
 
 synapser::synLogin()
 

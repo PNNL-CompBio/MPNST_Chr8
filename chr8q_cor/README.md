@@ -9,29 +9,44 @@ is stores in [the proteomics directory](../proteomics) and stores the files
 on Synapse at http://synapse.org/chr8_mpnst. Once you request access to the
 data files you can reproduce the analysis in the paper below.
 
+# Basic analysis 
+First we carry out the analysis and upload to synapse
+
 ## Compute chr8 copy numbers
 The first step to analyzing the data is to calculate the copy number of chr8
-across the samples. This is currently run by the [5-panSEA_using_helper.R]()
-script. Be mindful of running this script as it creates numerous 
-sub-directories.
+across the samples. This is currently run by the [00_computeChrCorrelations.R](./00_computeChrCorrelations.R)
+script.
 
-The results of this script include:
-- supplemental data tables in the `data` directory.
-- copy number-associated analysis in the 
-`analysis/Chr8_quant_20250409/positional_medians/20250616/Copy\ Number/`
-directory
-- RNA-seq related correlations in the
-- Protein-related correlations in the 
+This script downloads the relevant data to the environment, creates a folder
+with todays date and saves the copy number data. 
 
-## Figure panel generation
+## Copy chromosome enrichments
+We then calculate positional enrichment to ensure that chromosome 8 activity
+is indeed altered in the samples in 
+[01_enrichments_copynumber.R](./01_enrichments_copynumber.R). This will
+save files to the working directory with the current date. 
 
-Figure 1 collects the [chr8 copy number values]() computed by the above step
-and uploaded to synapse and plots 
+## Calculate mRNA-Prot correlations
+The next step is to compute the correlations between copy number
+computed in the previous step and mRNA/protein levels to identify functional pathway
+enrichment and drug response measurements.  This is calculalted by
+[02_enrichments_protRNA.R](./02_enrichments_protRNA.R). 
 
-### Figure 1: correlations
+## Upload to synapse
+
+There are many files that might be used later that are uploaded to synapse using
+the [03_save_to_synapse.R](./03_save_to_synapse.R) script. It is designed to take
+the current working directory and run immediately after the first four scripts.
+
+# Figure panel generation
+
+Now that the calculations have been made we can generate the figure panels in order
+through the following scripts.
+
+## Figure 1: correlations
 Figure1_20250410.R
 
-### Figure S1: histograms
+## Figure S1: histograms
 FigureS1_20250409.R
 
 ### Figure 2: enrichment analyses
