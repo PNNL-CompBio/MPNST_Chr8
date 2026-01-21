@@ -26,7 +26,7 @@ n.kin <- nrow(kin.result) # 184
 global.result <- global.result[global.result$Spearman.q <= 0.05, ] # 208 / 9013 (2.31%); 98.02% of 101 positive, 100% of 107 negative are in the interactome
 tf.result <- tf.result[tf.result$p_value <= 0.05 & tf.result$FDR_q_value <= 0.25, ] # 206 / 408 (50.49%); 96.1% of 205 positive, 100% of 1 negative are in the interactome
 kin.result <- kin.result[kin.result$p_value <= 0.05 & kin.result$FDR_q_value <= 0.25, ] # 6 / 184 (1.09%); 100% of 2 negative are in the interactome
-print(paste('Protein:',nrow(global.result)'\nKinases:',nrow(kin.result),'\nTFs:',nrow(tf.result)))
+print(paste('Protein:',nrow(global.result),'\nKinases:',nrow(kin.result),'\nTFs:',nrow(tf.result)))
 tf.result$Gene <- sub("_.*","",tf.result$Feature_set)
 
 # get chr8q genes
@@ -42,7 +42,7 @@ STRINGv12 <- STRINGv12[STRINGv12$cost<0.9,]
 ##get all positively correlated terms
 pos.terms <- c(global.result[global.result$Spearman.est>0,]$Gene, 
                       unique(tf.result[tf.result$NES>0,]$Gene), 
-               kin.result[kin.result$NES>0]$Feature_set) # 305; no pos kinases
+               kin.result[kin.result$NES>0,]$Feature_set) # 305; no pos kinases
 # are any terms from both protein or TF or kinase?
 any(duplicated(pos.terms)) # yes
   dup.pos <- pos.terms[duplicated(pos.terms)] # ZNF22 up in both protein and TF

@@ -63,8 +63,8 @@ readme$Description <- c("Network analysis including node degree, closeness, betw
                "Information about edges")
 net <- append(list("README" = readme), net)
 
-dmea <- list("DrugCorrelations" = read.csv(file.path(base.dir,'Compiled_results/DMEA/DMEA_correlations.csv')),#synapser::synGet("syn66295273")$path),
-           "DMEA" = read.csv(file.path(base.dir,'Compiled_results/DMEA/Compiled_DMEA_results.csv')))#synapser::synGet("syn66295241")$path))
+dmea <- list("DrugCorrelations" = read.csv(file.path('DMEA','correlations','DMEA_correlation_results.csv')),#synapser::synGet("syn66295273")$path),
+           "DMEA" = read.csv(file.path('DMEA','DMEA_results.csv')))#synapser::synGet("syn66295241")$path))
 colnames(dmea[["DrugCorrelations"]])[1:2] <- c("Omics","Drug")
 dmea[["DrugCorrelations"]]$feature_name <- NULL
 colnames(dmea[["DMEA"]])[1] <- "Omics"
