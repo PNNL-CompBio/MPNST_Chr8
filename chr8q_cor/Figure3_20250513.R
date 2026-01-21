@@ -16,21 +16,22 @@ fig.path <- file.path(base.path,'figures')
 if (dir.exists(fig.path))
   dir.create(fig.path)
 
+analysis.path <- file.path(base.path('2026-01-15'))
 
 synapser::synLogin()
 
 getCCLEprot <- function(){
   # get CCLE proteomics
-    download.file("https://figshare.com/ndownloader/files/41466702", "proteomics.csv.gz")
+    download.file("https://api.figshare.com/v2/file/download/41466702", "proteomics.csv.gz")
     prot.df <- read.csv(gzfile("proteomics.csv.gz"),fileEncoding="UTF-16LE")
     
-    allgenes = readr::read_csv("https://figshare.com/ndownloader/files/40576109")
+    allgenes = readr::read_csv("https://api.figshare.com/v2/file/download/40576109")
     genes = allgenes |>
       dplyr::select(gene_symbol,entrez_id)|>
       dplyr::distinct()
     #genes <- genes[genes$gene_symbol %in% colnames(RNA.df)[2:ncol(RNA.df)], ]
     
-    allsamples = readr::read_csv('https://figshare.com/ndownloader/files/40576103')
+    allsamples = readr::read_csv('https://api.figshare.com/v2/file/download/40576103')
     CCLE.samples <- dplyr::distinct(allsamples[allsamples$id_source == "CCLE",
                                                c("other_id","improve_sample_id")])
     
@@ -57,8 +58,8 @@ source('panSEAFunctions.R')
 #prot.corr <- read.csv(synapser::synGet("syn66224803")$path)
 
 #updated with recalculated values
-rna.corr <- read.csv(synapser::synGet("syn71946527")$path)
-prot.corr <- read.csv(synapser::synGet("syn71946401")$path)
+rna.corr <- read.csv(synapser::synGet("syn72333688")$path)
+prot.corr <- read.csv(synapser::synGet("syn72333447")$path)
 
 inputs <- list("RNA" = na.omit(rna.corr[rna.corr$Spearman.q <= 0.05,]), # 655 genes or 50 with min N6 / 17717
                "Protein" = na.omit(prot.corr[prot.corr$Spearman.q <= 0.05,])) # 208 genes / 9013
@@ -98,9 +99,9 @@ for (i in 1:length(inputs)) {
                      "DMEA_unannotated_drugs.csv" = temp.results$unannotated.drugs)
   adh.DMEA.files[[names(inputs)[i]]] <- temp.files
 }
-#dir.create("DMEA")
-#setwd("DMEA")
-#save_to_synapse(adh.DMEA.files, "syn66295230")
+dir.create("DMEA")
+setwd("DMEA")
+save_to_synapse_v2(adh.DMEA.files, NULL)#"syn66295230")
 #saveRDS(adh.DMEA, "DMEA.rds")
 
 #source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/main/figures/compile_mCorr.R")
@@ -117,10 +118,10 @@ compiled.files <- list("DMEA_correlation_results.csv" = compiled.drugCorr$result
 ##SG getting rid of directories that dont exist
 #setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4")
 #setwd("DMEA")
-#dir.create("correlations")
-#setwd("correlations")
+dir.create("correlations")
+setwd("correlations")
 #this save to synapse was not used previously, only v2
-#save_to_synapse(compiled.files, "syn66295272")
+save_to_synapse_v2(compiled.files, NULL)
 
 # sarcoma DMEA?
 soft.sarc.RNA <- adh.RNA2[adh.RNA2$CCLE_ID %in% soft.sarc.info$CCLE_Name,] # 7 cell lines
@@ -204,7 +205,7 @@ dot.plot <- ggplot2::ggplot(
     axis.text.x=element_text(angle=45, vjust=1, hjust=1))
 dot.plot
 # most are only in prot and not in RNA
-ggplot2::ggsave(file.path(fig.path,"Enriched_drugSets_dotPlot_v2.pdf"), dot.plot, width=6, height=6)
+ggplot2::ggsave(file.path(fig.path,"Enriched_drugSets_dotPlot_v2.pdf"), dot.plot, width=5, height=5)
 
 #### 2. waterfall plot of drug corr ####
 drug.info <- read.csv("https://raw.githubusercontent.com/BelindaBGarana/DMEA/refs/heads/shiny-app/Inputs/PRISM_secondary-screen-replicate-treatment-info.csv")
@@ -254,7 +255,7 @@ moaOrder3 <- c(moaOrder[moaOrder != "Other"], "Other")
 
 myColorPal <- grDevices::colorRampPalette(
   RColorBrewer::brewer.pal(12, "Set3"))(length(moaOrder3))
-show_col(myColorPal)
+#show_col(myColorPal)
 myColorPal <- c(myColorPal[myColorPal != "#D9D9D9"], "#D9D9D9") # move grey to end for "Other" category
 
 library(plyr);library(dplyr)

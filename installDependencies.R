@@ -14,6 +14,11 @@ if (!require("Biostrings", quietly = TRUE)) {
   BiocManager::install("Biostrings")
 }
 
+
+if (!require("RCy3", quietly = TRUE)) {
+  BiocManager::install("RCy3")
+}
+
 # from other sources
 if (!require("amlresistancenetworks", quietly = TRUE)) {
   remotes::install_github("https://github.com/PNNL-CompBio/amlresistancenetworks")

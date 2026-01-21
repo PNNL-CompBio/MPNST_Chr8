@@ -17,7 +17,8 @@ if (dir.exists(fig.path))
 #### 1. Chr8 median copy number bar plot ####
 # load data & format
 
-med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
+#med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
+med.chr8q <- read.csv(synapser::synGet('syn72333432')$path)
 colnames(med.chr8q)[2] <- "Median Chr8q Copy Number"
 
 # order lowest to highest
@@ -45,7 +46,7 @@ ggplot2::ggsave(paste0(fig.path,"/fig1b_PDX Copy Number_Chr8q_median_", Sys.Date
 # load enrichment results
 #chr8.enr <- read.csv(synapser::synGet("syn66227265")$path)
 #chr8.enr <- read.csv(synapser::synGet('syn71772683')$path)
-chr8.enr <- read.csv(synapser::synGet('syn72245797')$path)
+chr8.enr <- read.csv(synapser::synGet('syn72333056')$path)
 # load segment info for gene symbols
 chr8.msigdb <- msigdbr::msigdbr(category = "C1")
 chr8.msigdb <- chr8.msigdb[grepl("chr8", chr8.msigdb$gs_name),]
@@ -102,9 +103,9 @@ path.map <- list("RNA" = "syn66226866",
                  "Phospho" = "syn66226338")
 
 #SG updated diffex
-path.map$RNA <- 'syn72246146'
-path.map$Protein <- 'syn72246014'
-path.map$Phospho <- 'syn72245898'
+path.map$RNA <- 'syn72333688'
+path.map$Protein <- 'syn72333447'
+path.map$Phospho <- 'syn72333253'
 
 all.degs <- data.frame()
 all.deg.list <- list()
@@ -133,6 +134,10 @@ for (i in 1:length(path.map)) {
   if (any(temp.degs$Significant)) {
     temp.degs[temp.degs$Significant,]$Significance <- temp.degs[temp.degs$Significant,]$Direction
   }
+  
+  ##now we add in the 0.75 threshold
+  temp.degs[temp.degs$Significant & abs(temp.degs$Spearman.est),]$Significance <- 'Significant below threshold'
+  
   temp.degs$Feature <- temp.degs[,1]
   temp.degs$Feature_type <- colnames(temp.degs)[1]
   all.degs <- rbind(all.degs, temp.degs[,2:ncol(temp.degs)])
@@ -155,12 +160,12 @@ all.degs$Omics <- factor(all.degs$Omics, levels=c("RNA", "Protein", "Phospho"))
 chr8q.genes <- msigdbr::msigdbr(collection="C1")
 chr8q.genes <- unique(chr8q.genes[startsWith(chr8q.genes$gs_name,"chr8q"),]$gene_symbol)
 
-plot_df <- plyr::ddply(all.degs[all.degs$Significant,] , .(Direction, Omics), dplyr::summarize,
+plot_df <- plyr::ddply(all.degs[all.degs$Significant & abs(all.degs$Spearman.est)>0.75,] , .(Direction, Omics), dplyr::summarize,
                        nCorr = dplyr::n(),
                        nChr8q = length(unique(Feature[tolower(sub("-.*", "",Feature)) %in% tolower(chr8q.genes)])))
 plot_df$log10nCorr <- log(plot_df$nCorr, 10)
 
-plot_dfMin6 <- plyr::ddply(all.degs[all.degs$Significant & all.degs$N>=6,] , .(Direction, Omics), dplyr::summarize,
+plot_dfMin6 <- plyr::ddply(all.degs[all.degs$Significant & abs(all.degs$Spearman.est)>0.75 & all.degs$N>=6,] , .(Direction, Omics), dplyr::summarize,
                        nCorr = dplyr::n(),
                        nChr8q = length(unique(Feature[tolower(sub("-.*", "",Feature)) %in% tolower(chr8q.genes)])))
 plot_dfMin6$log10nCorr <- log(plot_dfMin6$nCorr, 10)
@@ -343,9 +348,9 @@ venn.list <- list()
 for (i in 1:length(unique(all.degs$Omics))) {
   temp.name <- as.character(unique(all.degs$Omics))[i]
   if (unique(all.degs[all.degs$Omics==temp.name,]$Feature_type) == "SUB_SITE") {
-    venn.list[[temp.name]] <- unique(sub("-.*", "", all.degs[all.degs$Omics==temp.name & all.degs$Significant,]$Feature))
+    venn.list[[temp.name]] <- unique(sub("-.*", "", all.degs[all.degs$Omics==temp.name & all.degs$Significant & abs(all.degs$Spearman.est)>0.75,]$Feature))
   } else if (unique(all.degs[all.degs$Omics==temp.name,]$Feature_type) == "Gene") {
-    venn.list[[temp.name]] <- unique(all.degs[all.degs$Omics==temp.name & all.degs$Significant,]$Feature)
+    venn.list[[temp.name]] <- unique(all.degs[all.degs$Omics==temp.name & all.degs$Significant& abs(all.degs$Spearman.est)>0.75,]$Feature)
   } else {
     warning("No Gene or SUB_SITE column found")
   }
@@ -561,3 +566,55 @@ temp.dot.df <- all.degs[all.degs$Significant & all.degs$N >= 6 &
 topGenesPhos <- unique(sub("-.*","",temp.dot.df$Feature)) # 61
 topGenesRNAPhos <- topGenesPhos[topGenesPhos %in% topGenesRNA] # 0
 topGenesProtPhos <- topGenesPhos[topGenesPhos %in% topGenesProt] # 0
+
+
+##SG edits
+#ploting top 15 seem uninformative, let's plot all the correlations in distribution
+#and highlight those that are on chr8 and statistically significant
+
+ndegs <- all.degs |> 
+  tidyr::separate(Feature, into=c('Gene','site'),sep='-', remove=FALSE)|>
+  mutate(chr8q= ifelse(Gene%in%chr8q.genes,'On Chr8q','Other Location')) |>
+  mutate(sig=ifelse(Significant,'q<0.05','Not significant')) |>
+  tidyr::unite(chr8q,sig,col='Feature status',sep=',')
+
+ndegs$`Feature status`=factor(ndegs$`Feature status`,levels=c("On Chr8q,q<0.05","Other Location,q<0.05","On Chr8q,Not significant","Other Location,Not significant"))
+
+p1<-ndegs|>
+  subset(Omics=='RNA') |> 
+  arrange(Spearman.est) |>
+  ggplot(aes(x=reorder(Feature,Spearman.est),y=Spearman.est,fill=`Feature status`))+
+  geom_bar(stat='identity') + theme(axis.text=element_blank()) +
+  geom_hline(yintercept = 0.75, linetype='dotdash')+
+  geom_hline(yintercept = -.75, linetype='dotdash')+
+  scale_fill_manual(values=list("On Chr8q,q<0.05"='#4b2e58',`Other Location,q<0.05`='#C2A5CF',`On Chr8q,Not significant`='grey61',`Other Location,Not significant`='grey91')) + 
+  xlab('Transcripts') + ylab("Chr8q correlation")
+
+
+
+p2<-ndegs|>
+  subset(Omics=='Protein') |> 
+  arrange(Spearman.est) |>
+  ggplot(aes(x=reorder(Feature,Spearman.est),y=Spearman.est,fill=`Feature status`))+
+  geom_bar(stat='identity') + theme(axis.text=element_blank()) +
+  geom_hline(yintercept = 0.75, linetype='dotdash')+
+  geom_hline(yintercept = -.75, linetype='dotdash')+
+  scale_fill_manual(values=list(`Other Location,q<0.05`='#FEE391',`Other Location,Not significant`='grey91',`On Chr8q,Not significant`='grey61',
+                                "On Chr8q,q<0.05"='#876c1a'))+ xlab('Proteins') + ylab("Chr8q correlation")
+
+
+p3<-ndegs|>
+  subset(Omics=='Phospho') |> 
+  arrange(Spearman.est) |>
+  ggplot(aes(x=reorder(Feature,Spearman.est),y=Spearman.est,fill=`Feature status`))+
+  geom_bar(stat='identity') + theme(axis.text=element_blank()) +
+  geom_hline(yintercept = 0.75, linetype='dotdash')+
+  geom_hline(yintercept = -.75, linetype='dotdash')+
+  scale_fill_manual(values=list(`Other Location,q<0.05`='#B2DF8A',`Other Location,Not significant`='grey91',`On Chr8q,Not significant`='grey61',
+                                "On Chr8q,q<0.05"='#3b6813'))+ xlab('Phosphosites') + ylab("Chr8q correlation")
+
+cowplot::plot_grid(p1,p2,p3,ncol=1)
+ggsave('fig1f_featureCorrelations.pdf',height=10,width=12)
+cowplot::plot_grid(p1+coord_flip(), p2+coord_flip(), p3+coord_flip(),nrow=1)
+ggsave("featureCorrelations_tall.pdf",height=5,width=12)
+

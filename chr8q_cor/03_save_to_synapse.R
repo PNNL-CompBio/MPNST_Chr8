@@ -1,6 +1,7 @@
 ##Save all analysis and data results to synapse
 
-
+library(synapser)
+synLogin()
 new_syn_upload <-function(file_list, synId){
   for(i in file_list)
     if(isDirectory(i)){

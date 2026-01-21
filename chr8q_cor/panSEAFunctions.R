@@ -422,16 +422,16 @@ get_CCLE_prot <- function() {
     prot.df.noNA <- read.csv("CCLE_proteomics.csv")
   } else {
     # get CCLE proteomics
-    download.file("https://figshare.com/ndownloader/files/41466702", "proteomics.csv.gz")
+    download.file("https://api.figshare.com/v2/file/download/41466702", "proteomics.csv.gz")
     prot.df <- read.csv(gzfile("proteomics.csv.gz"),fileEncoding="UTF-16LE")
     
-    allgenes = readr::read_csv("https://figshare.com/ndownloader/files/40576109")
+    allgenes = readr::read_csv("https://api.figshare.com/v2/file/download/40576109")
     genes = allgenes|>
       dplyr::select(gene_symbol,entrez_id)|>
       dplyr::distinct()
     #genes <- genes[genes$gene_symbol %in% colnames(RNA.df)[2:ncol(RNA.df)], ]
     
-    allsamples = readr::read_csv('https://figshare.com/ndownloader/files/40576103')
+    allsamples = readr::read_csv('https://api.figshare.com/v2/file/download/40576103')
     CCLE.samples <- dplyr::distinct(allsamples[allsamples$id_source == "CCLE",
                                                c("other_id","improve_sample_id")])
     

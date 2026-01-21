@@ -4,17 +4,18 @@
 remove(list=ls())
 library(synapser); library(msigdbr); library(PCSF)
 library(plyr); library(ggplot2)
+library(RCy3)
 #setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
 base.dir = getwd()
-setwd(file.path(base.dir,"../proteomics"))
+#setwd(file.path(base.dir,"../proteomics"))
 
 #### prep inputs ####
 # try using top 50 sig prot, phospho, WES - directional this time
 # load feature weights
 synapser::synLogin()
-global.result <- na.omit(read.csv(synapser::synGet("syn66224803")$path))
-tf.result <- na.omit(read.csv(synapser::synGet("syn66226952")$path))
-kin.result <- read.csv(synapser::synGet("syn66279699")$path)
+global.result <- na.omit(read.csv(synapser::synGet("syn72333447")$path))
+tf.result <- na.omit(read.csv(synapser::synGet("syn72333793")$path))
+kin.result <- read.csv(synapser::synGet("syn72333393")$path)
 
 # get total N features
 n.prot <- nrow(global.result) # 9013
@@ -24,8 +25,8 @@ n.kin <- nrow(kin.result) # 184
 # filter for significance
 global.result <- global.result[global.result$Spearman.q <= 0.05, ] # 208 / 9013 (2.31%); 98.02% of 101 positive, 100% of 107 negative are in the interactome
 tf.result <- tf.result[tf.result$p_value <= 0.05 & tf.result$FDR_q_value <= 0.25, ] # 206 / 408 (50.49%); 96.1% of 205 positive, 100% of 1 negative are in the interactome
-kin.result <- kin.result[kin.result$p_value <= 0.05 & kin.result$FDR_q_value <= 0.25, ] # 2 / 184 (1.09%); 100% of 2 negative are in the interactome
-
+kin.result <- kin.result[kin.result$p_value <= 0.05 & kin.result$FDR_q_value <= 0.25, ] # 6 / 184 (1.09%); 100% of 2 negative are in the interactome
+print(paste('Protein:',nrow(global.result)'\nKinases:',nrow(kin.result),'\nTFs:',nrow(tf.result)))
 tf.result$Gene <- sub("_.*","",tf.result$Feature_set)
 
 # get chr8q genes
@@ -35,19 +36,25 @@ chr8q.genes <- unique(chr8q.genes[startsWith(chr8q.genes$gs_name,"chr8q"),]$gene
 # get latest STRING data (physical protein interactions)
 library(PCSF)
 data("STRINGv12") # 1477610
-
+STRINGv12 <- STRINGv12[STRINGv12$cost<0.9,]
 #### full networks ####
+
+##get all positively correlated terms
 pos.terms <- c(global.result[global.result$Spearman.est>0,]$Gene, 
-                      tf.result[tf.result$NES>0,]$Gene) # 305; no pos kinases
+                      unique(tf.result[tf.result$NES>0,]$Gene), 
+               kin.result[kin.result$NES>0]$Feature_set) # 305; no pos kinases
 # are any terms from both protein or TF or kinase?
 any(duplicated(pos.terms)) # yes
-dup.pos <- pos.terms[duplicated(pos.terms)] # ZNF22 up in both protein and TF
+  dup.pos <- pos.terms[duplicated(pos.terms)] # ZNF22 up in both protein and TF
 
+##get all negatively correlated features
 neg.terms <- c(global.result[global.result$Spearman.est<0,]$Gene, 
-                      tf.result[tf.result$NES<0,]$Gene, kin.result[kin.result$NES<0,]$Feature_set) # 110
+                      unique(tf.result[tf.result$NES<0,]$Gene), 
+               kin.result[kin.result$NES<0,]$Feature_set) # 110
 # are any terms from both protein or TF or kinase?
 any(duplicated(neg.terms)) # no
 
+#get any edges involving positively correlated terms
 pos.edges <- STRINGv12[STRINGv12$from %in% pos.terms | STRINGv12$to %in% pos.terms,] # 58206
 pos.genes <- unique(c(pos.edges$from, pos.edges$to)) # 9133
 pos.vert <- data.frame(pos.genes, type = "Inferred", Omics = NA)
@@ -55,7 +62,10 @@ pos.vert[pos.vert$pos.genes %in% pos.terms,]$type <- "Terminal"
 nrow(pos.vert[pos.vert$type == "Inferred",]) # 8834
 pos.vert[pos.vert$pos.genes %in% global.result[global.result$Spearman.est>0,]$Gene,]$Omics <- "Protein"
 pos.vert[pos.vert$pos.genes %in% tf.result[tf.result$NES>0,]$Gene,]$Omics <- "TF"
-pos.vert[pos.vert$pos.genes == dup.pos,]$Omics <- "Protein & TF"
+pos.vert[pos.vert$pos.genes %in% kin.result[kin.result$NES>0,]$Feature_set,]$Omics <- "Kinase"
+
+if(any(any(pos.vert$pos.genes%in%dup.pos)))
+  pos.vert[pos.vert$pos.genes %in% dup.pos,]$Omics <- "Protein & TF"
 pos.vert$chr8q <- FALSE
 pos.vert[pos.vert$pos.genes %in% chr8q.genes,]$chr8q <- TRUE
 colnames(pos.vert)[1] <- "name"
@@ -107,10 +117,14 @@ neg.centrality <- read.csv("negative_centrality.csv")
 
 # look for connections between MYC, PLK1/EGFR, and other proteins in full network
 neg.tf.con <- neg.edges[neg.edges$from %in% c("MYC", "EGFR") | neg.edges$to %in% c("MYC", "EGFR"),] # 68
-neg.tf.con.vert <- neg.vert[neg.vert$from %in% c(neg.tf.con$from, neg.tf.con$to),] # 32
+neg.tf.con.vert <- neg.vert[neg.vert$name %in% c(neg.tf.con$from, neg.tf.con$to),] # 32
 topGraph <- igraph::graph_from_data_frame(neg.tf.con, directed=FALSE, vertices=neg.tf.con.vert) 
 #plot(topGraph)
 tempTitle <- paste0("negative", "_", nrow(neg.tf.con.vert),"_MYC_EGFR_manual_",Sys.Date())
+
+##open cytoscape!!
+Sys.setenv(http_proxy="")
+Sys.setenv(no_proxy="localhost,1234,127.0.0.1")
 RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
 write.csv(neg.tf.con.vert, "negative_MYC_EGFR_vertices.csv", row.names=FALSE)
 write.csv(neg.tf.con, "negative_MYC_EGFR_edges.csv", row.names=FALSE)
@@ -125,7 +139,7 @@ write.csv(neg.tf.con.centrality, "negative_MYC_EGFR_centrality.csv", row.names=F
 
 
 pos.tf.con <- pos.edges[pos.edges$from %in% c("MYC", "PLK1") | pos.edges$to %in% c("MYC", "PLK1"),] # 118
-pos.tf.con.vert <- pos.vert[pos.vert$from %in% c(pos.tf.con$from, pos.tf.con$to),] # 58
+pos.tf.con.vert <- pos.vert[pos.vert$name %in% c(pos.tf.con$from, pos.tf.con$to),] # 58
 topGraph <- igraph::graph_from_data_frame(pos.tf.con, directed=FALSE, vertices=pos.tf.con.vert) 
 #plot(topGraph)
 tempTitle <- paste0("positive", "_", nrow(pos.tf.con.vert),"_MYC_PLK1_manual_",Sys.Date())
@@ -254,7 +268,8 @@ pos.prot.tf.overlap <- tf.result[tf.result$NES>0 & tf.result$Gene %in% global.re
 pos.reg.vert[pos.reg.vert$name %in% global.result[global.result$Spearman.est>0,]$Gene,]$Omics <- "Protein"
 pos.reg.vert[pos.reg.vert$name %in% 
                tf.result[tf.result$NES>0,]$Gene,]$Omics <- "TF"
-pos.reg.vert[pos.reg.vert$name %in% pos.prot.tf.overlap,]$Omics <- "Protein & TF"
+if(length(pos.prot.tf.overlap)>0)
+  pos.reg.vert[pos.reg.vert$name %in% pos.prot.tf.overlap,]$Omics <- "Protein & TF"
 pos.reg.vert[pos.reg.vert$chr8qBothDir,]$Omics <- "Inferred in Both Networks"
 pos.reg.vert$label <- ""
 pos.reg.vert[pos.reg.vert$chr8qBothDir,]$label <- pos.reg.vert[pos.reg.vert$chr8qBothDir,]$name
@@ -296,7 +311,8 @@ pos.prot.tf.overlap <- tf.result[tf.result$NES>0 & tf.result$Gene %in% global.re
 pos.reg.vert[pos.reg.vert$name %in% global.result[global.result$Spearman.est>0,]$Gene,]$Omics <- "Protein"
 pos.reg.vert[pos.reg.vert$name %in% 
                tf.result[tf.result$NES>0,]$Gene,]$Omics <- "TF"
-pos.reg.vert[pos.reg.vert$name %in% pos.prot.tf.overlap,]$Omics <- "Protein & TF"
+if(length(pos.prot.tf.overlap)>0)
+  pos.reg.vert[pos.reg.vert$name %in% pos.prot.tf.overlap,]$Omics <- "Protein & TF"
 pos.reg.vert[pos.reg.vert$chr8qBothDir,]$Omics <- "Inferred in Both Networks"
 pos.reg.vert$label <- ""
 pos.reg.vert[pos.reg.vert$chr8qBothDir,]$label <- pos.reg.vert[pos.reg.vert$chr8qBothDir,]$name
