@@ -16,22 +16,22 @@ if (dir.exists(fig.path))
   dir.create(fig.path)
 
 #### 0. compile GSEA ####
-gsea.cn <- read.csv(synapser::synGet("syn72333155")$path)#syn66227265")$path)
+gsea.cn <- read.csv(synapser::synGet("syn72386893")$path)#syn66227265")$path)
 gsea.cn$Omics <- "Copy_number"
 gsea.cn$Collection <- "Positional"
 
-gsea.rna.tf <- read.csv(synapser::synGet("syn72333793")$path)#syn66226952")$path)
+gsea.rna.tf <- read.csv(synapser::synGet("syn72387586")$path)#syn66226952")$path)
 gsea.rna.tf$Omics <- "RNA"
 gsea.rna.tf$Collection <- "TFT_GTRD"
-gsea.rna.hall <- read.csv(synapser::synGet("syn72333712")$path)#syn66226874")$path)
+gsea.rna.hall <- read.csv(synapser::synGet("syn72387494")$path)#syn66226874")$path)
 gsea.rna.hall$Omics <- "RNA"
 gsea.rna.hall$Collection <- "Hallmark"
 
-gsea.prot.hall <- read.csv(synapser::synGet("syn72333473")$path)#syn66224811")$path)
+gsea.prot.hall <- read.csv(synapser::synGet("syn72387232")$path)#syn66224811")$path)
 gsea.prot.hall$Omics <- "Protein"
 gsea.prot.hall$Collection <- "Hallmark"
 
-ksea <- read.csv(synapser::synGet("syn72333393")$path)#syn66279699")$path)
+ksea <- read.csv(synapser::synGet("syn72387128")$path)#syn66279699")$path)
 ksea$Omics <- "Phospho"
 ksea$Collection <- "PhosphoSitePlus"
 all.gsea <- rbind(gsea.cn, gsea.rna.hall,

@@ -1,6 +1,6 @@
 # chr8 MPNST: figure 6
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
-remove(list=ls())
+#remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(patchwork);library(msigdbr)
 
@@ -16,7 +16,7 @@ fig.path <- file.path(base.path,'figures')
 if (dir.exists(fig.path))
   dir.create(fig.path)
 
-analysis.path <- file.path(base.path('2026-01-15'))
+analysis.path <- file.path(base.path,'2026-01-22')
 
 synapser::synLogin()
 
@@ -58,8 +58,8 @@ source('panSEAFunctions.R')
 #prot.corr <- read.csv(synapser::synGet("syn66224803")$path)
 
 #updated with recalculated values
-rna.corr <- read.csv(synapser::synGet("syn72333688")$path)
-prot.corr <- read.csv(synapser::synGet("syn72333447")$path)
+rna.corr <- read.csv(synapser::synGet("syn72387463")$path)
+prot.corr <- read.csv(synapser::synGet("syn72387204")$path)
 
 inputs <- list("RNA" = na.omit(rna.corr[rna.corr$Spearman.q <= 0.05,]), # 655 genes or 50 with min N6 / 17717
                "Protein" = na.omit(prot.corr[prot.corr$Spearman.q <= 0.05,])) # 208 genes / 9013
@@ -75,6 +75,7 @@ soft.sarc.info <- sample.info[sample.info$lineage == "soft_tissue" & grepl("sarc
 
 other.sample.info <- sample.info[!(sample.info$CCLE_Name %in% temp.expr.adherent$CCLE_ID) &
                                    sample.info$CCLE_Name %in% temp.expr$CCLE_ID,]
+set.seed(2562)
 adh.DMEA <- panSEA::mDMEA(expression = list(adh.RNA2, adh.prot2),
                               weights = inputs, types = c("RNA", "Protein"),
                               weight.values = rep("Spearman.est", 2),

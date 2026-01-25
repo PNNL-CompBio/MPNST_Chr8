@@ -1,11 +1,12 @@
 # STRING protein networks
 # full: all correlated proteins in addition to enriched TFs and kinases
 # regulatory: enriched TFs and kinases
-remove(list=ls())
+#remove(list=ls())
 library(synapser); library(msigdbr); library(PCSF)
 library(plyr); library(ggplot2)
 library(RCy3)
 #setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
+setwd(base.path)
 base.dir = getwd()
 #setwd(file.path(base.dir,"../proteomics"))
 
@@ -13,9 +14,9 @@ base.dir = getwd()
 # try using top 50 sig prot, phospho, WES - directional this time
 # load feature weights
 synapser::synLogin()
-global.result <- na.omit(read.csv(synapser::synGet("syn72333447")$path))
-tf.result <- na.omit(read.csv(synapser::synGet("syn72333793")$path))
-kin.result <- read.csv(synapser::synGet("syn72333393")$path)
+global.result <- na.omit(read.csv(synapser::synGet("syn72387204")$path))
+tf.result <- na.omit(read.csv(synapser::synGet("syn72387586")$path))
+kin.result <- read.csv(synapser::synGet("syn72387128")$path)
 
 # get total N features
 n.prot <- nrow(global.result) # 9013

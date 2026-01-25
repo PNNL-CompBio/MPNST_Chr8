@@ -31,6 +31,7 @@ gmt1.rest <- list("Hallmark" = gmt1$Hallmark,
                   "PID" = gmt1$PID,
                   "TFT_GTRD" = gmt1$TFT_GTRD,
                   "WikiPathways" = gmt1$WikiPathways)
+set.seed(12340)
 ofiles <- panSEA_corr3(omics, meta.list, feature.list, 
              rank.col = "Median Chr8q Copy Number",
              other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest, gmt2=gmt2,
@@ -48,6 +49,7 @@ corr.result <- read.csv(file.path(base.path,'analysis','Phospho','Phospho','Diff
 gsea.input <- corr.result[,c("SUB_SITE","Spearman.est")]
 
 # run KSEA
+set.seed(2361)
 gsea.result <- panSEA::ssGSEA(gsea.input, gmt2[[1]], ties=TRUE) 
 
 # save results

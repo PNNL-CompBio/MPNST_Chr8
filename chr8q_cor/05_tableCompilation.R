@@ -2,7 +2,8 @@
 library(purrr); library(data.table); #library(synapser)
 #synapser::synLogin()
 #removing synapse integration since many files were not uploaded to synapse
-base.dir='2026-01-15/analysis' ##update this manually
+base.dir='2026-01-22/analysis' ##update this manually
+net.dir='2026-01-22'
 de <- list("Copy_number" = read.csv(file.path(base.dir,'Copy_number','Differential_expression','Differential_expression_results.csv')),#synapser::synGet("syn66227257")$path),
            "RNA" = read.csv(file.path(base.dir,'RNA-Seq','Differential_expression','Differential_expression_results.csv')),#synapser::synGet("syn66226866")$path),
            "Protein" = read.csv(file.path(base.dir,'Proteomics','Differential_expression','Differential_expression_results.csv')),#synapser::synGet("syn66224803")$path),
@@ -35,23 +36,23 @@ readme <- data.frame(Sheet)
 readme$Description <- c("Kinase-substrate enrichment analysis of relative phospho-protein abundance Spearman correlations with median chr8q copy number")
 ksea <- append(list("README" = readme), ksea)
 
-net.analysis <- list("Full" = data.table::rbindlist(list("Positive" = read.csv('positive_centrality.csv'),#,synapser::synGet("syn68869131")$path), 
-                                                         "Negative" = read.csv('negative_centrality.csv')),#synapser::synGet("syn68869133")$path)), 
+net.analysis <- list("Full" = data.table::rbindlist(list("Positive" = read.csv(file.path(net.dir,'positive_centrality.csv')),#,synapser::synGet("syn68869131")$path), 
+                                                         "Negative" = read.csv(file.path(net.dir,'negative_centrality.csv'))),#synapser::synGet("syn68869133")$path)), 
                                                     use.names=TRUE, idcol="Direction"), 
-                     "Regulatory" = data.table::rbindlist(list("Positive" = read.csv('positive_TFKin_centrality.csv'),#synapser::synGet("syn68869720")$path), 
-                                                               "Negative" = read.csv('negative_TFKin_centrality.csv')),#synapser::synGet("syn68869690")$path)), 
+                     "Regulatory" = data.table::rbindlist(list("Positive" = read.csv(file.path(net.dir,'positive_TFKin_centrality.csv')),#synapser::synGet("syn68869720")$path), 
+                                                               "Negative" = read.csv(file.path(net.dir,'negative_TFKin_centrality.csv'))),#synapser::synGet("syn68869690")$path)), 
                                                           use.names=TRUE, idcol="Direction"))
-net.nodes <- list("Full" = data.table::rbindlist(list("Positive" = read.csv('positive_vertices.csv'),#synapser::synGet("syn68869127")$path), 
-                                                         "Negative" = read.csv('negative_vertices.csv')),#synapser::synGet("syn68869130")$path)), 
+net.nodes <- list("Full" = data.table::rbindlist(list("Positive" = read.csv(file.path(net.dir,'positive_vertices.csv')),#synapser::synGet("syn68869127")$path), 
+                                                         "Negative" = read.csv(file.path(net.dir,'negative_vertices.csv'))),#synapser::synGet("syn68869130")$path)), 
                                                     use.names=TRUE, idcol="Direction"), 
-                     "Regulatory" = data.table::rbindlist(list("Positive" = read.csv('positive_TFKin_vertices.csv'),#synapser::synGet("syn68869697")$path), 
-                                                               "Negative" = read.csv('negative_TFKin_vertices.csv')),#synapser::synGet("syn68869692")$path)), 
+                     "Regulatory" = data.table::rbindlist(list("Positive" = read.csv(file.path(net.dir,'positive_TFKin_vertices.csv')),#synapser::synGet("syn68869697")$path), 
+                                                               "Negative" = read.csv(file.path(net.dir,'negative_TFKin_vertices.csv'))),#synapser::synGet("syn68869692")$path)), 
                                                           use.names=TRUE, idcol="Direction"))
-net.edges <- list("Full" = data.table::rbindlist(list("Positive" = read.csv('positive_edges.csv'),#synapser::synGet("syn68869132")$path), 
-                                                      "Negative" = read.csv('negative_edges.csv')),#synapser::synGet("syn68869128")$path)), 
+net.edges <- list("Full" = data.table::rbindlist(list("Positive" = read.csv(file.path(net.dir,'positive_edges.csv')),#synapser::synGet("syn68869132")$path), 
+                                                      "Negative" = read.csv(file.path(net.dir,'negative_edges.csv'))),#synapser::synGet("syn68869128")$path)), 
                                                  use.names=TRUE, idcol="Direction"), 
-                  "Regulatory" = data.table::rbindlist(list("Positive" = read.csv('positive_TFKin_edges.csv'),#synapser::synGet("syn68869703")$path), 
-                                                             "Negative" = read.csv('negative_TFKin_edges.csv')),#synapser::synGet("syn68869691")$path)), 
+                  "Regulatory" = data.table::rbindlist(list("Positive" = read.csv(file.path(net.dir,'positive_TFKin_edges.csv')),#synapser::synGet("syn68869703")$path), 
+                                                             "Negative" = read.csv(file.path(net.dir,'negative_TFKin_edges.csv'))),#synapser::synGet("syn68869691")$path)), 
                                                        use.names=TRUE, idcol="Direction"))
 net <- list("Analysis" = data.table::rbindlist(net.analysis, use.names=TRUE, idcol="Network"),
             "Nodes" = data.table::rbindlist(net.nodes, use.names=TRUE, idcol="Network"),

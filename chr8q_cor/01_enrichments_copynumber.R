@@ -79,6 +79,7 @@ gmt1 <-readRDS(synapser::synGet('syn72245876')$path)
   expr.list <- list("Copy_number" = "adherent CCLE")
   feature.list <- list("Copy_number" = "Gene")
   gmt1.cn <- list("Positional" = gmt1$Positional)
+  set.seed(2451)
   panSEA_corr3(omics, meta.list, feature.list, rank.col = "Median Chr8q Copy Number",
                other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.cn, gmt2= NULL, #gmt2,
                temp.path = file.path(base.path, 'analysis'), syn.id = NULL)#my.syn)
