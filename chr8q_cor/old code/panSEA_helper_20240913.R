@@ -321,13 +321,16 @@ get_gmt1_v2 <- function(gmt.list1 = c("msigdb_Homo sapiens_HS_C2_CP:KEGG_LEGACY"
         if (is.character(gmt.list1[i])) {
           if (grepl("msigdb", gmt.list1[i], ignore.case = TRUE)) {
             gmt.info <- stringr::str_split(gmt.list1[i], "_")[[1]]
+            print(gmt.info)
             if (length(gmt.info) > 1) {
               if (length(gmt.info) == 2) {
                 msigdb.info <- msigdbr::msigdbr(gmt.info[2])
               } else if (length(gmt.info) == 3) {
                 msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3])
-              } else {
-                msigdb.info <- msigdbr::msigdbr(gmt.info[2], gmt.info[3], gmt.info[4])
+              } else if (length(gmt.info) ==4) {
+                msigdb.info <- msigdbr::msigdbr(gmt.info[3], gmt.info[2], gmt.info[4])
+                }else { #SG: udpated this
+                msigdb.info <- msigdbr::msigdbr(gmt.info[3], gmt.info[2], gmt.info[4], gmt.info[5])
               }
               
               # extract necessary info into data frame
@@ -551,7 +554,7 @@ load_BeatAML_for_DMEA <- function(BeatAML.path = "BeatAML_DMEA_inputs") {
   gmt.drug <- readRDS(gzcon(url("https://raw.github.com/BelindaBGarana/panSEA/main/Examples/Inputs/gmt_BeatAML_drug_MOA.rds")))
   
   ### download files if any not already downloaded
-  if (!file.exists(BeatAML.path)) {
+  if (!dir.exists(BeatAML.path)) {
     lapply(BeatAML_synapse_id, synapser::synGet, downloadLocation = BeatAML.path)
   } else if (!any(FALSE %in% lapply(names(BeatAML_synapse_id), file.exists))) {
     lapply(BeatAML_synapse_id, synapser::synGet, downloadLocation = BeatAML.path)
@@ -805,6 +808,7 @@ get_top_mtn_plots <- function(base.result, n.top = 10, EA.type = "GSEA",
 # save folder and nested files/subfolders to Synapse - more efficient
 save_to_synapse_v2 <- function(temp.files, resultsFolder = NULL,
                             width = 7, height = 7, dot.scale = 4) {
+  synapser::synLogin()
   for (i in names(temp.files)) {
     # if file, save appropriately
     if (grepl("[.]", i) & is.list(temp.files[[i]]) & length(temp.files[[i]]) > 0) {
@@ -2329,7 +2333,9 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
   DMEA.forCompile <- list()
   files.for.Synapse <- list()
   for (i in 1:length(omics)) {
-    setwd(file.path(temp.path))
+    if(!dir.exists(temp.path))
+      dir.create(temp.path)
+    setwd(temp.path)
     dir.create(names(omics)[i])
     setwd(names(omics)[i])
     

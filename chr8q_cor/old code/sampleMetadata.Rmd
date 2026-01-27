@@ -1,0 +1,90 @@
+---
+title: "MPNST PDX Metadata"
+author: "Sara Gosline"
+date: "2025-11-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(synapser)
+library(tidyverse)
+
+if(!require('org.Hs.eg.db')){
+  BiocManager::install('org.Hs.eg.db')
+  library(org.Hs.eg.db)
+}
+
+synapser::synLogin()
+```
+
+## PDX MT Metadata
+
+The data for this project is all pulled from a singel synapse table. here we collect the files and the direct metadata to compare.
+
+```{r get manifest}
+
+manifest <- synapser::synTableQuery("select * from syn53503360")$asDataFrame() |>
+  as.data.frame()|>
+  dplyr::rename(common_name='Sample')
+pdx_data<-manifest|>dplyr::select(common_name,Sex,RNASeq='PDX_RNASeq',
+                                  CopyNumber='PDX_CNV')
+
+
+```
+
+
+
+
+```{r get data}
+##get entrez ids to symbol
+loadRNAandCNMeta <- function(pdx_data) {
+
+  anns <- c('assay','species','dataType','specimenID','individualID')
+  rnaseq<-do.call('rbind',lapply(setdiff(pdx_data$RNASeq,c('NA',NA)),function(x){
+    res <- synapser::synGetAnnotations(x)
+    if('transplantationType'%in%names(res)){
+      res<-res[c(anns,'transplantationType')]
+    }else{
+      res <- res[anns]
+      res$transplantationType<-''
+    }
+    res$synapseId=x
+    return(res)
+  }))
+  
+  cn<-do.call(rbind,lapply(setdiff(pdx_data$CopyNumber,c(NA,"NA")),function(x){
+    res <- synapser::synGetAnnotations(x)
+    if('transplantationType' %in% names(res)){
+      res<-res[c(anns,'transplantationType')]
+    }else{
+      res <- res[anns]
+      res$transplantationType <- ''
+    }
+    res$synapseId=x
+    return(res)
+  }))
+ 
+#  colnames(cn) <- c('assay','species','dataType','specimenID','individualID' 'synapseId')
+  tot <- rbind(rnaseq,cn)
+  #nvals <- which(is.null(tot$transplantationType))
+  #print(nvals)
+  #tot$transplantationType[nvals]<- rep("",nvals)
+  return(tot)
+}
+
+rc_meta <- loadRNAandCNMeta(pdx_data)
+
+write.table(rc_meta,file='chr8_meta.csv',sep=',')
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -3,33 +3,43 @@
 remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(patchwork);library(msigdbr)
-source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/helperScripts/circBar.R")
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_2")
+#source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/helperScripts/circBar.R")
+#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_2")
 synapser::synLogin()
 
+
+if(!exists('base.path'))
+  base.path <- getwd()
+
+fig.path <- file.path(base.path,'figures')
+if (dir.exists(fig.path))
+  dir.create(fig.path)
+
 #### 0. compile GSEA ####
-gsea.cn <- read.csv(synapser::synGet("syn66227265")$path)
+gsea.cn <- read.csv(synapser::synGet("syn72399017")$path)#syn66227265")$path)
 gsea.cn$Omics <- "Copy_number"
 gsea.cn$Collection <- "Positional"
 
-gsea.rna.tf <- read.csv(synapser::synGet("syn66226952")$path)
+gsea.rna.tf <- read.csv(synapser::synGet("syn72399428")$path)#syn66226952")$path)
 gsea.rna.tf$Omics <- "RNA"
 gsea.rna.tf$Collection <- "TFT_GTRD"
-gsea.rna.hall <- read.csv(synapser::synGet("syn66226874")$path)
+gsea.rna.hall <- read.csv(synapser::synGet("syn72399356")$path)#syn66226874")$path)
 gsea.rna.hall$Omics <- "RNA"
 gsea.rna.hall$Collection <- "Hallmark"
 
-gsea.prot.hall <- read.csv(synapser::synGet("syn66224811")$path)
+gsea.prot.hall <- read.csv(synapser::synGet("syn72399241")$path)#syn66224811")$path)
 gsea.prot.hall$Omics <- "Protein"
 gsea.prot.hall$Collection <- "Hallmark"
 
-ksea <- read.csv(synapser::synGet("syn66279699")$path)
+ksea <- read.csv(synapser::synGet("syn72399132")$path)#syn66279699")$path)
 ksea$Omics <- "Phospho"
 ksea$Collection <- "PhosphoSitePlus"
 all.gsea <- rbind(gsea.cn, gsea.rna.hall,
                   gsea.prot.hall, gsea.rna.tf, ksea)
-write.csv(all.gsea, "SupplementaryTable2_GSEA_and_KSEA.csv", row.names=FALSE)
-all.gsea <- read.csv("SupplementaryTable2_GSEA_and_KSEA.csv")
+write.csv(all.gsea, 
+          file.path(fig.path, "SupplementaryTable2_GSEA_and_KSEA.csv"), 
+          row.names = FALSE)
+#all.gsea <- read.csv("SupplementaryTable2_GSEA_and_KSEA.csv")
 all.gsea$Significant <- FALSE
 all.gsea[all.gsea$p_value <= 0.05 & all.gsea$FDR_q_value <= 0.25,]$Significant <- TRUE
 
@@ -96,8 +106,8 @@ for (n in n.cutoff) {
       plot.annot <- paste0("Kinases\n(", nTopGenes, " / ", nGenes, " enriched)")
     }
     dot.plots[[i]] <- dot.plot + ggtitle(plot.annot) + theme(plot.title = element_text(hjust = 0.5, face="bold", size=16))
-    ggplot2::ggsave(paste0(i,"_Enriched_geneSets_dotPlot_patchworkCollection_",25,"maxByNES_2025-04-18.pdf"), dot.plots[[i]], width=2, height=length(geneOrder)/5)
-    ggplot2::ggsave(paste0(i,"_Enriched_geneSets_dotPlot_patchworkCollection_",25,"maxByNES_2025-04-18_wider.pdf"), dot.plots[[i]], width=4.2, height=length(geneOrder)/5)
+    ggplot2::ggsave(paste0(fig.path,'/',i,"_Enriched_geneSets_dotPlot_patchworkCollection_",25,"maxByNES_2025-04-18.pdf"), dot.plots[[i]], width=2, height=1+length(geneOrder)/5)
+    ggplot2::ggsave(paste0(fig.path,'/',i,"_Enriched_geneSets_dotPlot_patchworkCollection_",25,"maxByNES_2025-04-18_wider.pdf"), dot.plots[[i]], width=4.2, height=1+length(geneOrder)/5)
   }
   all.dot.plots[[as.character(n)]] <- dot.plots
 }
@@ -106,4 +116,4 @@ reg.dot.plots <- (all.dot.plots$`25`$TFT_GTRD / all.dot.plots$`25`$PhosphoSitePl
 reg.dot.plots
 gsea.dot.plots <- all.dot.plots$`25`$Hallmark + reg.dot.plots + plot_layout(guides="collect")
 gsea.dot.plots
-ggplot2::ggsave(paste0("Enriched_geneSets_dotPlot_patchworkCollection_",25,"maxByNES_2025-04-18.pdf"), gsea.dot.plots, width=6, height=6)
+ggplot2::ggsave(paste0(fig.path,'/',"Enriched_geneSets_dotPlot_patchworkCollection_",25,"maxByNES_2025-04-18.pdf"), gsea.dot.plots, width=6, height=6)

@@ -1,17 +1,18 @@
-# chr8 MPNST: figure 1
+# chr8 MPNST: figure S1
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
 remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(biomaRt);library(RIdeogram);library(viridis)
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/SuppFig_1")
+
+#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/SuppFig_1")
 
 synapser::synLogin()
 
 #### 1. histogram of feature correlations ####
-path.map <- list("Copy Number" = "syn66227257",
-                 "RNA-Seq" = "syn66226866",
-                 "Protein" = "syn66224803",
-                 "Phospho" = "syn66226338")
+path.map <- list("Copy Number" = "syn72398991",
+                 "RNA-Seq" = "syn72399335",
+                 "Protein" = "syn72399210",
+                 "Phospho" = "syn72399099")
 
 inputs <- list()
 for (i in 1:length(path.map)) {

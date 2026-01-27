@@ -14,6 +14,11 @@ if (!require("Biostrings", quietly = TRUE)) {
   BiocManager::install("Biostrings")
 }
 
+
+if (!require("RCy3", quietly = TRUE)) {
+  BiocManager::install("RCy3")
+}
+
 # from other sources
 if (!require("amlresistancenetworks", quietly = TRUE)) {
   remotes::install_github("https://github.com/PNNL-CompBio/amlresistancenetworks")
@@ -23,7 +28,7 @@ if (!require(panSEA, quietly = TRUE)) {
   if (!require("devtools", quietly = TRUE))
     install.packages("devtools")
   
-  devtools::install_github("BelindaBGarana/panSEA", "add-tie-handling")
+  devtools::install_github("pnnl-compbio/panSEA", "add-tie-handling")
 }
 
 if (!require(synapser, quietly = TRUE)) {
@@ -57,4 +62,12 @@ if (!require(DMEA, quietly = TRUE)) {
   devtools::install_github("BelindaBGarana/DMEA", build=FALSE)
   # build=FALSE option is for Windows users, not sure if it will cause
   # issues for Mac users
+}
+
+if (!require(RIdeogram, quietly = TRUE)) {
+  install.packages("RIdeogram")
+}
+
+if (!require(doSNOW)) {
+  install.packages("doSNOW")
 }

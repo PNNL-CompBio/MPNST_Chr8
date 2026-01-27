@@ -1,24 +1,44 @@
 # chr8 MPNST: figure 6
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
-remove(list=ls())
+#remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(patchwork);library(msigdbr)
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4")
+
+#this wont' work!
+#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4")
+
+
+
+if(!exists('base.path'))
+  base.path <- getwd()
+
+fig.path <- file.path(base.path,'figures')
+if (dir.exists(fig.path))
+  dir.create(fig.path)
+
+analysis.path <- file.path(base.path,'2026-01-25')
 
 synapser::synLogin()
 
+
+##hasn't this analysis been run before? why are we running again?
 getCCLEprot <- function(){
   # get CCLE proteomics
-    download.file("https://figshare.com/ndownloader/files/41466702", "proteomics.csv.gz")
-    prot.df <- read.csv(gzfile("proteomics.csv.gz"),fileEncoding="UTF-16LE")
+    poss.file = file.path(analysis.path,'analysis','Proteomics','proteomics.csv.gz')
+    if(!file.exists(poss.file)){
+      download.file("https://api.figshare.com/v2/file/download/41466702", "proteomics.csv.gz")
+      prot.df <- read.csv(gzfile("proteomics.csv.gz"))#,fileEncoding="UTF-16LE")
+    }else{
+      prot.df <- read.csv(poss.file)#,fileEncoding="UTF-16LE")
+    }
     
-    allgenes = readr::read_csv("https://figshare.com/ndownloader/files/40576109")
-    genes = allgenes|>
+    allgenes = readr::read_csv("https://api.figshare.com/v2/file/download/40576109")
+    genes = allgenes |>
       dplyr::select(gene_symbol,entrez_id)|>
       dplyr::distinct()
     #genes <- genes[genes$gene_symbol %in% colnames(RNA.df)[2:ncol(RNA.df)], ]
     
-    allsamples = readr::read_csv('https://figshare.com/ndownloader/files/40576103')
+    allsamples = readr::read_csv('https://api.figshare.com/v2/file/download/40576103')
     CCLE.samples <- dplyr::distinct(allsamples[allsamples$id_source == "CCLE",
                                                c("other_id","improve_sample_id")])
     
@@ -33,16 +53,21 @@ getCCLEprot <- function(){
                                value.var = "proteomics")
     colnames(prot.df)[1] <- "CCLE_ID"
     prot.df.noNA <- prot.df[, colSums(is.na(prot.df)) == 0] # 23304 gene names 
-  }
+ # }
   return(prot.df.noNA)
 }
 
 ### redo just using significantly corr features
-source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/main/proteomics/panSEA_helper_20240913.R")
-
+#source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/main/proteomics/panSEA_helper_20240913.R")
+source('panSEAFunctions.R')
 # load data
-rna.corr <- read.csv(synapser::synGet("syn66226866")$path)
-prot.corr <- read.csv(synapser::synGet("syn66224803")$path)
+#rna.corr <- read.csv(synapser::synGet("syn66226866")$path)
+#prot.corr <- read.csv(synapser::synGet("syn66224803")$path)
+
+#updated with recalculated values
+rna.corr <- read.csv(synapser::synGet("syn72399335")$path)
+prot.corr <- read.csv(synapser::synGet("syn72399210")$path)
+
 inputs <- list("RNA" = na.omit(rna.corr[rna.corr$Spearman.q <= 0.05,]), # 655 genes or 50 with min N6 / 17717
                "Protein" = na.omit(prot.corr[prot.corr$Spearman.q <= 0.05,])) # 208 genes / 9013
 
@@ -57,6 +82,7 @@ soft.sarc.info <- sample.info[sample.info$lineage == "soft_tissue" & grepl("sarc
 
 other.sample.info <- sample.info[!(sample.info$CCLE_Name %in% temp.expr.adherent$CCLE_ID) &
                                    sample.info$CCLE_Name %in% temp.expr$CCLE_ID,]
+set.seed(2562)
 adh.DMEA <- panSEA::mDMEA(expression = list(adh.RNA2, adh.prot2),
                               weights = inputs, types = c("RNA", "Protein"),
                               weight.values = rep("Spearman.est", 2),
@@ -83,10 +109,11 @@ for (i in 1:length(inputs)) {
 }
 dir.create("DMEA")
 setwd("DMEA")
-save_to_synapse(adh.DMEA.files, "syn66295230")
-saveRDS(adh.DMEA, "DMEA.rds")
+save_to_synapse_v2(adh.DMEA.files, NULL)#"syn66295230")
+#saveRDS(adh.DMEA, "DMEA.rds")
 
-source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/main/figures/compile_mCorr.R")
+#source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/main/figures/compile_mCorr.R")
+source("../compile_mCorr.R")
 compiled.drugCorr <- compile_mCorr(list("RNA" = adh.DMEA$all.results$RNA$corr.result,
                                         "Protein" = adh.DMEA$all.results$Protein$corr.result))
 compiled.files <- list("DMEA_correlation_results.csv" = compiled.drugCorr$results,
@@ -96,27 +123,30 @@ compiled.files <- list("DMEA_correlation_results.csv" = compiled.drugCorr$result
                        "DMEA_correlation_correlation_matrix.csv" = compiled.drugCorr$corr,
                        "DMEA_correlation_correlation_matrix.pdf" = compiled.drugCorr$corr.matrix)
 
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4")
-setwd("DMEA")
+##SG getting rid of directories that dont exist
+#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4")
+#setwd("DMEA")
 dir.create("correlations")
 setwd("correlations")
-save_to_synapse(compiled.files, "syn66295272")
+#this save to synapse was not used previously, only v2
+save_to_synapse_v2(compiled.files, NULL)
 
 # sarcoma DMEA?
 soft.sarc.RNA <- adh.RNA2[adh.RNA2$CCLE_ID %in% soft.sarc.info$CCLE_Name,] # 7 cell lines
 soft.sarc.prot <- adh.prot2[adh.prot2$CCLE_ID %in% soft.sarc.info$CCLE_Name,] # 3 cell lines
 
 #### 1. top up/dn enriched MOA sets ####
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4")
+#SG commented out synapse download, as i believe the tables are created above
+#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_4")
 # drug.corr <- read.csv(synapser::synGet("syn66295273")$path)
 # mean.drugs <- read.csv(synapser::synGet("syn66295274")$path)
 # moa.results <- read.csv(synapser::synGet("syn66295241")$path)
 # mean.moa <- read.csv(synapser::synGet("syn66295242")$path)
 
-drug.corr <- read.csv(synapser::synGet("syn68747773")$path)
-mean.drugs <- read.csv(synapser::synGet("syn68747774")$path)
-moa.results <- read.csv(synapser::synGet("syn68747739")$path)
-mean.moa <- read.csv(synapser::synGet("syn68747740")$path)
+drug.corr <- compiled.drugCorr$results
+mean.drugs <- compiled.drugCorr$mean.results
+moa.results <- adh.DMEA$compiled.results$results
+mean.moa <- adh.DMEA$compiled.results$mean_results
 gsea.rna.prot <- moa.results[moa.results$type %in% c("RNA", "Protein"),]
 gsea.rna.prot$type <- factor(gsea.rna.prot$type, levels=c("RNA", "Protein"))
 gsea.rna.prot$Significant <- FALSE
@@ -183,7 +213,7 @@ dot.plot <- ggplot2::ggplot(
     axis.text.x=element_text(angle=45, vjust=1, hjust=1))
 dot.plot
 # most are only in prot and not in RNA
-ggplot2::ggsave("Enriched_drugSets_dotPlot_v2.pdf", dot.plot, width=6, height=6)
+ggplot2::ggsave(file.path(fig.path,"Enriched_drugSets_dotPlot_v2.pdf"), dot.plot, width=5, height=5)
 
 #### 2. waterfall plot of drug corr ####
 drug.info <- read.csv("https://raw.githubusercontent.com/BelindaBGarana/DMEA/refs/heads/shiny-app/Inputs/PRISM_secondary-screen-replicate-treatment-info.csv")
@@ -221,19 +251,19 @@ drug.corr.wInfo[drug.corr.wInfo$Drug == "danusertib",]$moa <- "Aurora kinase inh
 #drug.corr.wInfo[drug.corr.wInfo$Drug == "evodiamine",]$moa <- "ATPase inhibitor" # also labeled as TRPV agonist
 #drug.corr.wInfo[drug.corr.wInfo$Drug == "fosbretabulin",]$moa <- "tubulin polymerization inhibitor" # also labeled as VE-cadherin antagonist
 #drug.corr.wInfo[drug.corr.wInfo$Drug == "KW.2449",]$moa <- "Aurora kinase inhibitor" # also labeled as Abl kinase inhibitor and FTL3 inhibitor
-drug.corr.wInfo[drug.corr.wInfo$Drug == "valrubicin",]$moa <- "topoisomerase inhibitor" # also labeled as DNA inhibitor
+#drug.corr.wInfo[drug.corr.wInfo$Drug == "valrubicin",]$moa <- "topoisomerase inhibitor" # also labeled as DNA inhibitor
 ## vinblastine is labeled as both microtubule inhibitor and tubulin polymerization inhibitor
-drug.corr.wInfo[drug.corr.wInfo$Drug == "dexrazoxane",]$moa <- "topoisomerase inhibitor" # also labeled as chelating agent
+#drug.corr.wInfo[drug.corr.wInfo$Drug == "dexrazoxane",]$moa <- "topoisomerase inhibitor" # also labeled as chelating agent
 
 drug.corr.wInfo[drug.corr.wInfo$moa %in% sig.moas,]$Mechanism <- drug.corr.wInfo[drug.corr.wInfo$moa %in% sig.moas,]$moa
-drug.corr.wInfo[drug.corr.wInfo$Drug == "vinblastine",]$Mechanism <- drug.corr.wInfo[drug.corr.wInfo$Drug == "vinblastine",]$moa
+#drug.corr.wInfo[drug.corr.wInfo$Drug == "vinblastine",]$Mechanism <- drug.corr.wInfo[drug.corr.wInfo$Drug == "vinblastine",]$moa
 
 moaOrder <- unique(drug.corr.wInfo[order(drug.corr.wInfo$Pearson.est),]$Mechanism)
 moaOrder3 <- c(moaOrder[moaOrder != "Other"], "Other")
 
 myColorPal <- grDevices::colorRampPalette(
   RColorBrewer::brewer.pal(12, "Set3"))(length(moaOrder3))
-show_col(myColorPal)
+#show_col(myColorPal)
 myColorPal <- c(myColorPal[myColorPal != "#D9D9D9"], "#D9D9D9") # move grey to end for "Other" category
 
 library(plyr);library(dplyr)
@@ -273,7 +303,7 @@ for (i in omics) {
   dot.plot
   #customWidth <- ifelse(nrow(temp.dot.df) > 14, 14, nrow(temp.dot.df))
   #ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=2, height=2.5)
-  ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=3.5, height=2)
+  ggplot2::ggsave(paste0(fig.path,'/',i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=3.5, height=2)
   
   if (is.null(gsea.dot.plots)) {
     gsea.dot.plots <- dot.plot
@@ -284,7 +314,9 @@ for (i in omics) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
 gsea.dot.plots2
-ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_height3.pdf", gsea.dot.plots, width=7, height=3) # was height 4
+ggplot2::ggsave(file.path(fig.path,
+                          "CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_height3.pdf"), 
+                gsea.dot.plots, width=7, height=3) # was height 4
 
 gsea.dot.plots <- NULL
 for (i in rev(omics)) {
@@ -321,7 +353,7 @@ for (i in rev(omics)) {
   dot.plot
   #customWidth <- ifelse(nrow(temp.dot.df) > 14, 14, nrow(temp.dot.df))
   #ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=2, height=2.5)
-  ggplot2::ggsave(paste0(i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=3.5, height=2)
+  ggplot2::ggsave(paste0(fig.path,'/',i, "_CorrelatedDrugs_barPlot_moaFill.pdf"), dot.plot, width=3.5, height=2)
   
   if (is.null(gsea.dot.plots)) {
     gsea.dot.plots <- dot.plot
@@ -332,4 +364,6 @@ for (i in rev(omics)) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plots2 <- gsea.dot.plots + plot_layout(guides = 'collect')
 gsea.dot.plots2
-ggplot2::ggsave("CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_vertical_oppOrder.pdf", gsea.dot.plots, width=7, height=2) # was height 4
+ggplot2::ggsave(file.path(fig.path,
+                          "CorrelatedDrugs_barPlot_patchworkOmics_moaFill_sliceMaxAbsPearson5_oppositeMOAorder_vertical_oppOrder.pdf"), 
+                gsea.dot.plots, width=7, height=2) # was height 4

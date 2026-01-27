@@ -1,14 +1,14 @@
 # chr8 MPNST: figure 3
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
-remove(list=ls())
+#remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(patchwork);library(msigdbr)
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_TF")
-
+#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_TF")
+setwd('figures')
 synapser::synLogin()
 
 #### 1. volcano plot of # of GSEA_TFT_GTRD results ####
-plot.data <- read.csv(synapser::synGet("syn66226952")$path)
+plot.data <- read.csv(synapser::synGet("syn72399428")$path)
 FDR <- 0.25
 plot.data$Significance <- paste0("FDR > ", FDR)
 plot.data[plot.data$FDR_q_value < FDR, ]$Significance <- paste0("FDR < ", FDR)
@@ -129,7 +129,7 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name %in% topGenes,]$gene_symbol)
 topGenes <- rev(geneOrder)
 topGeneSets <- rev(dot.df[order(dot.df$NES),]$Feature_set)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn66226866")$path)
+corr.result <- read.csv(synapser::synGet("syn72399335")$path)#syn66226866")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
                                      corr.result$N>=6,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
@@ -184,7 +184,7 @@ for (i in 1:length(topGeneSets)) {
     # } else if (i > 7) {
     #   gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
     # }
-    if (is.list(dot.plot) & length(dot.plot) > 1) {
+  #  if (is.list(dot.plot) & length(dot.plot) > 1) {
       if (is.null(gsea.dot.plots)) {
         gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
       } else if (i == ceiling(length(topGenes)/2)) {
@@ -192,7 +192,7 @@ for (i in 1:length(topGeneSets)) {
       } else {
         gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
       }
-    }
+   # }
   }
 }
 #gsea.dot.plots3 <- gsea.dot.plots/gsea.dot.plots2
@@ -214,7 +214,7 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name %in%
 topGeneSets <- rev(plot.data[order(plot.data$NES),]$Feature_set)
 topGenes <- sub("_TARGET_GENES", "", topGeneSets)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn66226866")$path)
+corr.result <- read.csv(synapser::synGet("syn72399335")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
                                      corr.result$N>=6,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
@@ -269,7 +269,7 @@ for (i in 1:length(topGeneSets)) {
     # } else if (i > 7) {
     #   gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
     # }
-    if (is.list(dot.plot) & length(dot.plot) > 1) {
+    #if (is.list(dot.plot) & length(dot.plot) > 1) {
       if (is.null(gsea.dot.plots)) {
         gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
       } else if (i == ceiling(length(topGenes)/2)) {
@@ -277,20 +277,20 @@ for (i in 1:length(topGeneSets)) {
       } else {
         gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
       }
-    }
+    #}
   }
 }
 
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
-gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 20, guides='collect')
+gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 10, guides='collect')
 gsea.dot.plot2
-ggplot2::ggsave(paste0("All_TFT_correlations_dotPlot_patchworkCollection_minN6_",Sys.Date(),".pdf"), gsea.dot.plot2, width=40, height=32)
+ggplot2::ggsave(paste0("All_TFT_correlations_dotPlot_patchworkCollection_minN6_",Sys.Date(),".pdf"), gsea.dot.plot2, width=5, height=20)
 
 tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene_symbol)
 topGeneSets <- "ZNF22_TARGET_GENES"
 topGenes <- sub("_TARGET_GENES", "", topGeneSets)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn66226866")$path)
+corr.result <- read.csv(synapser::synGet("syn72399335")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
                                      corr.result$N>=6,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
@@ -345,7 +345,7 @@ for (i in 1:length(topGeneSets)) {
     # } else if (i > 7) {
     #   gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
     # }
-    if (is.list(dot.plot) & length(dot.plot) > 1) {
+   # if (is.list(dot.plot) & length(dot.plot) > 1) {
       if (is.null(gsea.dot.plots)) {
         gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
       } else if (i == ceiling(length(topGenes)/2)) {
@@ -353,7 +353,7 @@ for (i in 1:length(topGeneSets)) {
       } else {
         gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
       }
-    }
+  #  }
   }
 }
 
@@ -366,7 +366,7 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene
 topGeneSets <- "ZNF22_TARGET_GENES"
 topGenes <- sub("_TARGET_GENES", "", topGeneSets)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn66226866")$path)
+corr.result <- read.csv(synapser::synGet("syn72399335")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
 if (any(corr.result$Spearman.q == 0)) {

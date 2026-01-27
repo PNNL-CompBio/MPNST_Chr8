@@ -1,14 +1,14 @@
 # chr8 MPNST: figure 3: kinase enrichment
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
-remove(list=ls())
+#remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(patchwork);library(msigdbr)
-setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase")
+#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase")
 
 synapser::synLogin()
 
 #all.gsea <- read.table(synapser::synGet("syn66279670")$path, sep="\t", header=TRUE) # no sig kinases with MIT
-plot.data <- read.csv(synapser::synGet("syn66279699")$path)
+plot.data <- read.csv(synapser::synGet("syn72399132")$path)
 
 #### 3. top up/dn diffexp gene sets ####
 dot.df <- na.omit(plot.data[plot.data$FDR_q_value <= 0.25 & plot.data$p_value <= 0.05,]) # 12
@@ -43,9 +43,9 @@ dot.plot <- ggplot2::ggplot(
   geom_point(data = dot.df, col = "black", stroke = 1.5, shape = 21)
 dot.plot
 # most are only in prot and not in RNA
-ggplot2::ggsave("Enriched_kinases_dotPlot_2025-04-20_sameScaleAsTF.pdf", dot.plot, width=2.2, height=0.75)
+#ggplot2::ggsave("Enriched_kinases_dotPlot_2025-04-20_sameScaleAsTF.pdf", dot.plot, width=2.2, height=0.75)
 dot.plot2 <- dot.plot + theme(legend.position = "bottom", legend.direction = "horizontal", legend.box = "vertical")
-ggplot2::ggsave("Enriched_kinases_dotPlot_horizontalLegend_2025-04-20.pdf", dot.plot2, width=1.2, height=2.1)
+#ggplot2::ggsave("Enriched_kinases_dotPlot_horizontalLegend_2025-04-20.pdf", dot.plot2, width=1.2, height=2.1)
 
 dot.plot <- ggplot2::ggplot(
   dot.df,
@@ -72,10 +72,11 @@ dot.plot2 <- dot.plot + coord_flip() + ggtitle(paste0("Kinases (",nrow(dot.df),"
 ggplot2::ggsave("Enriched_kinases_dotPlot_horizontal_2025-04-20.pdf", dot.plot2, width=0.75, height=2.5)
 
 #### correlated kinase targets for each kinase ####
-gmt2 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Exp21_NRAS_ASO_treated_patients/proteomics/analysis/gmt2.rds")[[1]]
-
+#gmt2 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Exp21_NRAS_ASO_treated_patients/proteomics/analysis/gmt2.rds")[[1]]
+source('panSEAFunctions.R')
+gmt2 <- get_leapR_ksdb_gmt()
 topGenes <- rev(geneOrder)
-corr.result <- read.csv(synapser::synGet("syn66226338")$path)
+corr.result <- read.csv(synapser::synGet("syn72399099")$path)
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
 corr.result$sig <- FALSE
 corr.result[corr.result$Spearman.q <= 0.05,]$sig <- TRUE
@@ -119,40 +120,40 @@ for (i in 1:length(topGenes)) {
     #plot.annot <- paste0(topGenes[i], " (", nTopGenes, " / ", nGenes, " genes correlated)")
     dot.plot <- dot.plot + ggtitle(topGenes[i])
     
-    # if (i == 1) {
-    #   gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
-    # } else if (i < 6) {
-    #   gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
-    # } else if (i == 6) {
-    #   gsea.dot.plots <- gsea.dot.plots + dot.plot
-    # } else if (i == 7) {
-    #   gsea.dot.plots2 <- (dot.plot + theme(legend.position = "none"))
-    # } else if (i > 7) {
-    #   gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
-    # }
-    if (is.list(dot.plot) & length(dot.plot) > 1) {
-      if (is.null(gsea.dot.plots)) {
-        gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
-      } else if (i == ceiling(length(topGenes)/2)) {
-        gsea.dot.plots <- gsea.dot.plots + dot.plot #+ plot_layout(guides = 'collect')
-      } else {
-        gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
-      }  
-    }
+     if (i == 1) {
+       gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
+     } else if (i < 6) {
+       gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
+     } else if (i == 6) {
+       gsea.dot.plots <- gsea.dot.plots + dot.plot
+     } else if (i == 7) {
+       gsea.dot.plots2 <- (dot.plot + theme(legend.position = "none"))
+     } else if (i > 7) {
+       gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
+     }
+     if (is.list(dot.plot) & length(dot.plot) > 1) {
+       if (is.null(gsea.dot.plots)) {
+         gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
+       } else if (i == ceiling(length(topGenes)/2)) {
+         gsea.dot.plots <- gsea.dot.plots + dot.plot #+ plot_layout(guides = 'collect')
+       } else {
+         gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
+       }  
+     }
   }
 }
 #gsea.dot.plots3 <- gsea.dot.plots/gsea.dot.plots2
 #gsea.dot.plots3 <- gsea.dot.plots3 + plot_layout(guides = 'collect')
-#gsea.dot.plots
-#ggplot2::ggsave("Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6_tall_v2.pdf", gsea.dot.plots, width=10, height=16)
-#ggplot2::ggsave("Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6.pdf", gsea.dot.plots, width=10, height=10)
+gsea.dot.plots
+ggplot2::ggsave("figures/Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6_tall_v2.pdf", gsea.dot.plots, width=10, height=8)
+ggplot2::ggsave("figures/Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6.pdf", gsea.dot.plots, width=10, height=5)
 # actual min N is 10 but only 1 has 10, 4 have 11, and rest (171 - 5) have 12
 #source("guides_build_mod.R")
 #gsea.dot.plot2 <- gsea.dot.plots + guide_area() + plot_layout(nrow = 2, guides='collect')
 #ggplot2::ggsave("Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6_wide_v3.pdf", gsea.dot.plot2, width=16, height=10)
 #ggplot2::ggsave(paste0("kinaseSubsite_correlations_dotPlot_patchworkCollection_minN6_v2_",Sys.Date(),".pdf"), gsea.dot.plot2, width=12, height=10)
-gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 1, guides='collect')
-ggplot2::ggsave(paste0("kinaseSubsite_correlations_dotPlot_patchworkCollection_minN6_wide_v3_",Sys.Date(),".pdf"), gsea.dot.plot2, width=3, height=2)
+#gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 1, guides='collect')
+#ggplot2::ggsave(paste0("kinaseSubsite_correlations_dotPlot_patchworkCollection_minN6_wide_v3_",Sys.Date(),".pdf"), gsea.dot.plot2, width=3, height=2)
 #ggplot2::ggsave(paste0("kinaseSubsite_correlations_dotPlot_patchworkCollection_minN6_v3_",Sys.Date(),".pdf"), gsea.dot.plot2, width=12, height=10)
-gsea.dot.plot2 <- (gsea.dot.plots + plot_layout(guides='collect')) + ggplot2::theme(legend.position="bottom", legend.direction = "horizontal")
-ggplot2::ggsave(paste0("kinaseSubsite_correlations_dotPlot_patchworkCollection_minN6_wide_v3_horizontalLegend",Sys.Date(),".pdf"), gsea.dot.plot2, width=5.5, height=2)
+#gsea.dot.plot2 <- (gsea.dot.plots + plot_layout(guides='collect')) + ggplot2::theme(legend.position="bottom", legend.direction = "horizontal")
+#ggplot2::ggsave(paste0("kinaseSubsite_correlations_dotPlot_patchworkCollection_minN6_wide_v3_horizontalLegend",Sys.Date(),".pdf"), gsea.dot.plot2, width=5.5, height=2)
