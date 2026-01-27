@@ -422,7 +422,8 @@ get_CCLE_prot <- function() {
     prot.df.noNA <- read.csv("CCLE_proteomics.csv")
   } else {
     # get CCLE proteomics
-    download.file("https://api.figshare.com/v2/file/download/41466702", "proteomics.csv.gz")
+    if (!file.exists('proteomics.csv.gz'))
+      download.file("https://api.figshare.com/v2/file/download/41466702", "proteomics.csv.gz", timeout = 444)
     prot.df <- read.csv(gzfile("proteomics.csv.gz"),fileEncoding="UTF-16LE")
     
     allgenes = readr::read_csv("https://api.figshare.com/v2/file/download/40576109")
@@ -460,7 +461,7 @@ get_CCLE_RNA <- function() {
         "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin"
       ),
       destfile =
-        "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin"
+        "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_1-200.Rbin",timeout = 444
     )
   }
   
@@ -469,7 +470,7 @@ get_CCLE_RNA <- function() {
       paste0(
         "https://raw.github.com/BelindaBGarana/DMEA/shiny-app/Inputs/",
         "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin"
-      ),
+      ), timeout = 444,
       destfile =
         "Normalized_adherent_CCLE_RNAseq_19Q4_samples_in_PRISM_201-327.Rbin"
     )

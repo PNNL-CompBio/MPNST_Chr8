@@ -16,14 +16,21 @@ fig.path <- file.path(base.path,'figures')
 if (dir.exists(fig.path))
   dir.create(fig.path)
 
-analysis.path <- file.path(base.path,'2026-01-22')
+analysis.path <- file.path(base.path,'2026-01-25')
 
 synapser::synLogin()
 
+
+##hasn't this analysis been run before? why are we running again?
 getCCLEprot <- function(){
   # get CCLE proteomics
-    download.file("https://api.figshare.com/v2/file/download/41466702", "proteomics.csv.gz")
-    prot.df <- read.csv(gzfile("proteomics.csv.gz"),fileEncoding="UTF-16LE")
+    poss.file = file.path(analysis.path,'analysis','Proteomics','proteomics.csv.gz')
+    if(!file.exists(poss.file)){
+      download.file("https://api.figshare.com/v2/file/download/41466702", "proteomics.csv.gz")
+      prot.df <- read.csv(gzfile("proteomics.csv.gz"))#,fileEncoding="UTF-16LE")
+    }else{
+      prot.df <- read.csv(poss.file)#,fileEncoding="UTF-16LE")
+    }
     
     allgenes = readr::read_csv("https://api.figshare.com/v2/file/download/40576109")
     genes = allgenes |>
@@ -58,8 +65,8 @@ source('panSEAFunctions.R')
 #prot.corr <- read.csv(synapser::synGet("syn66224803")$path)
 
 #updated with recalculated values
-rna.corr <- read.csv(synapser::synGet("syn72387463")$path)
-prot.corr <- read.csv(synapser::synGet("syn72387204")$path)
+rna.corr <- read.csv(synapser::synGet("syn72399335")$path)
+prot.corr <- read.csv(synapser::synGet("syn72399210")$path)
 
 inputs <- list("RNA" = na.omit(rna.corr[rna.corr$Spearman.q <= 0.05,]), # 655 genes or 50 with min N6 / 17717
                "Protein" = na.omit(prot.corr[prot.corr$Spearman.q <= 0.05,])) # 208 genes / 9013
@@ -106,7 +113,7 @@ save_to_synapse_v2(adh.DMEA.files, NULL)#"syn66295230")
 #saveRDS(adh.DMEA, "DMEA.rds")
 
 #source("https://raw.githubusercontent.com/PNNL-CompBio/MPNST_Chr8/refs/heads/main/figures/compile_mCorr.R")
-source("compile_mCorr.R")
+source("../compile_mCorr.R")
 compiled.drugCorr <- compile_mCorr(list("RNA" = adh.DMEA$all.results$RNA$corr.result,
                                         "Protein" = adh.DMEA$all.results$Protein$corr.result))
 compiled.files <- list("DMEA_correlation_results.csv" = compiled.drugCorr$results,
@@ -244,12 +251,12 @@ drug.corr.wInfo[drug.corr.wInfo$Drug == "danusertib",]$moa <- "Aurora kinase inh
 #drug.corr.wInfo[drug.corr.wInfo$Drug == "evodiamine",]$moa <- "ATPase inhibitor" # also labeled as TRPV agonist
 #drug.corr.wInfo[drug.corr.wInfo$Drug == "fosbretabulin",]$moa <- "tubulin polymerization inhibitor" # also labeled as VE-cadherin antagonist
 #drug.corr.wInfo[drug.corr.wInfo$Drug == "KW.2449",]$moa <- "Aurora kinase inhibitor" # also labeled as Abl kinase inhibitor and FTL3 inhibitor
-drug.corr.wInfo[drug.corr.wInfo$Drug == "valrubicin",]$moa <- "topoisomerase inhibitor" # also labeled as DNA inhibitor
+#drug.corr.wInfo[drug.corr.wInfo$Drug == "valrubicin",]$moa <- "topoisomerase inhibitor" # also labeled as DNA inhibitor
 ## vinblastine is labeled as both microtubule inhibitor and tubulin polymerization inhibitor
-drug.corr.wInfo[drug.corr.wInfo$Drug == "dexrazoxane",]$moa <- "topoisomerase inhibitor" # also labeled as chelating agent
+#drug.corr.wInfo[drug.corr.wInfo$Drug == "dexrazoxane",]$moa <- "topoisomerase inhibitor" # also labeled as chelating agent
 
 drug.corr.wInfo[drug.corr.wInfo$moa %in% sig.moas,]$Mechanism <- drug.corr.wInfo[drug.corr.wInfo$moa %in% sig.moas,]$moa
-drug.corr.wInfo[drug.corr.wInfo$Drug == "vinblastine",]$Mechanism <- drug.corr.wInfo[drug.corr.wInfo$Drug == "vinblastine",]$moa
+#drug.corr.wInfo[drug.corr.wInfo$Drug == "vinblastine",]$Mechanism <- drug.corr.wInfo[drug.corr.wInfo$Drug == "vinblastine",]$moa
 
 moaOrder <- unique(drug.corr.wInfo[order(drug.corr.wInfo$Pearson.est),]$Mechanism)
 moaOrder3 <- c(moaOrder[moaOrder != "Other"], "Other")

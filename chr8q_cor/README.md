@@ -41,7 +41,7 @@ enrichment.  This is calculated by
 
 There are many files that might be used later that are uploaded to synapse using
 the [03_save_to_synapse.R](./03_save_to_synapse.R) script. It is designed to take
-the current working directory and run immediately after the first four scripts.
+the current working directory and run immediately after the first three scripts.
 NOTE: you will require upload access to this repository. 
 
 ## Network analysis

@@ -9,10 +9,10 @@ library(biomaRt);library(RIdeogram);library(viridis)
 synapser::synLogin()
 
 #### 1. histogram of feature correlations ####
-path.map <- list("Copy Number" = "syn66227257",
-                 "RNA-Seq" = "syn66226866",
-                 "Protein" = "syn66224803",
-                 "Phospho" = "syn66226338")
+path.map <- list("Copy Number" = "syn72398991",
+                 "RNA-Seq" = "syn72399335",
+                 "Protein" = "syn72399210",
+                 "Phospho" = "syn72399099")
 
 inputs <- list()
 for (i in 1:length(path.map)) {

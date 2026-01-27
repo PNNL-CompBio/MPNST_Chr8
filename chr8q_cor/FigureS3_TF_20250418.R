@@ -1,6 +1,6 @@
 # chr8 MPNST: figure 3
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
-remove(list=ls())
+#remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(patchwork);library(msigdbr)
 #setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_TF")
@@ -8,7 +8,7 @@ setwd('figures')
 synapser::synLogin()
 
 #### 1. volcano plot of # of GSEA_TFT_GTRD results ####
-plot.data <- read.csv(synapser::synGet("syn72333793")$path)
+plot.data <- read.csv(synapser::synGet("syn72399428")$path)
 FDR <- 0.25
 plot.data$Significance <- paste0("FDR > ", FDR)
 plot.data[plot.data$FDR_q_value < FDR, ]$Significance <- paste0("FDR < ", FDR)
@@ -129,7 +129,7 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name %in% topGenes,]$gene_symbol)
 topGenes <- rev(geneOrder)
 topGeneSets <- rev(dot.df[order(dot.df$NES),]$Feature_set)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn72333688")$path)#syn66226866")$path)
+corr.result <- read.csv(synapser::synGet("syn72399335")$path)#syn66226866")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
                                      corr.result$N>=6,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
@@ -214,7 +214,7 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name %in%
 topGeneSets <- rev(plot.data[order(plot.data$NES),]$Feature_set)
 topGenes <- sub("_TARGET_GENES", "", topGeneSets)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn72333688")$path)
+corr.result <- read.csv(synapser::synGet("syn72399335")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
                                      corr.result$N>=6,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
@@ -290,7 +290,7 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene
 topGeneSets <- "ZNF22_TARGET_GENES"
 topGenes <- sub("_TARGET_GENES", "", topGeneSets)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn72333688")$path)
+corr.result <- read.csv(synapser::synGet("syn72399335")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
                                      corr.result$N>=6,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
@@ -366,7 +366,7 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene
 topGeneSets <- "ZNF22_TARGET_GENES"
 topGenes <- sub("_TARGET_GENES", "", topGeneSets)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn72333688")$path)
+corr.result <- read.csv(synapser::synGet("syn72399335")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
 if (any(corr.result$Spearman.q == 0)) {

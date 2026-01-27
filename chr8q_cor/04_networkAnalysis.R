@@ -7,16 +7,16 @@ library(plyr); library(ggplot2)
 library(RCy3)
 #setwd("~/OneDrive - PNNL/Documents/GitHub/Chr8/proteomics/analysis/Chr8_quant_20250409")
 setwd(base.path)
-base.dir = getwd()
+#base.dir = getwd()
 #setwd(file.path(base.dir,"../proteomics"))
 
 #### prep inputs ####
 # try using top 50 sig prot, phospho, WES - directional this time
 # load feature weights
 synapser::synLogin()
-global.result <- na.omit(read.csv(synapser::synGet("syn72387204")$path))
-tf.result <- na.omit(read.csv(synapser::synGet("syn72387586")$path))
-kin.result <- read.csv(synapser::synGet("syn72387128")$path)
+global.result <- na.omit(read.csv(synapser::synGet("syn72399210")$path))
+tf.result <- na.omit(read.csv(synapser::synGet("syn72399428")$path))
+kin.result <- read.csv(synapser::synGet("syn72399132")$path)
 
 # get total N features
 n.prot <- nrow(global.result) # 9013

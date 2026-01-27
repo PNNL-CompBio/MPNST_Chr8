@@ -1,6 +1,6 @@
 # chr8 MPNST: figure 1
 # Author: Belinda B. Garana, belinda.garana@pnnl.gov
-remove(list=ls())
+#remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(biomaRt);library(RIdeogram);library(viridis);library(msigdbr)
 #setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_1")
@@ -18,7 +18,7 @@ if (dir.exists(fig.path))
 # load data & format
 
 #med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
-med.chr8q <- read.csv(synapser::synGet('syn72333432')$path)
+med.chr8q <- read.csv(synapser::synGet('syn72399187')$path)
 colnames(med.chr8q)[2] <- "Median Chr8q Copy Number"
 
 # order lowest to highest
@@ -46,7 +46,7 @@ ggplot2::ggsave(paste0(fig.path,"/fig1b_PDX Copy Number_Chr8q_median_", Sys.Date
 # load enrichment results
 #chr8.enr <- read.csv(synapser::synGet("syn66227265")$path)
 #chr8.enr <- read.csv(synapser::synGet('syn71772683')$path)
-chr8.enr <- read.csv(synapser::synGet('syn72333056')$path)
+chr8.enr <- read.csv(synapser::synGet('syn72399017')$path)
 # load segment info for gene symbols
 chr8.msigdb <- msigdbr::msigdbr(category = "C1")
 chr8.msigdb <- chr8.msigdb[grepl("chr8", chr8.msigdb$gs_name),]
@@ -94,7 +94,8 @@ setwd(fig.path)
 
 
 ##this is panel 1C but we can't name it as such
-RIdeogram::ideogram(karyotype = human_karyotype, overlaid = ideo.df, label = label.df, label_type = "marker", colorset1 = c("blue","grey", "red"))
+RIdeogram::ideogram(karyotype = human_karyotype, overlaid = ideo.df, label = label.df, 
+                    label_type = "marker", colorset1 = c("blue","grey", "red"))
 convertSVG(paste0("chromosome.svg"), device="pdf")
 
 #### 3. bar plot of # of diffexp Features ####
@@ -103,9 +104,9 @@ path.map <- list("RNA" = "syn66226866",
                  "Phospho" = "syn66226338")
 
 #SG updated diffex
-path.map$RNA <- 'syn72333688'
-path.map$Protein <- 'syn72333447'
-path.map$Phospho <- 'syn72333253'
+path.map$RNA <- 'syn72399335'
+path.map$Protein <- 'syn72399210'
+path.map$Phospho <- 'syn72399099'
 
 all.degs <- data.frame()
 all.deg.list <- list()
