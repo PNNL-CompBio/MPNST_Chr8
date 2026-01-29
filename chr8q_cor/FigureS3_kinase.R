@@ -5,10 +5,15 @@ library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(patchwork);library(msigdbr)
 #setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase")
 
-synapser::synLogin()
+#synapser::synLogin()
+
+if(!exists('base.path'))
+  base.path <- file.path(getwd(),Sys.Date())
+
+fig.dir <- file.path(base.path,'figures')
 
 #all.gsea <- read.table(synapser::synGet("syn66279670")$path, sep="\t", header=TRUE) # no sig kinases with MIT
-plot.data <- read.csv(synapser::synGet("syn72399132")$path)
+plot.data <- read.csv(file.path(base.path,'analysis','Phospho','Phospho_enrichment','GSEA_ksdb_human','GSEA_results.csv'))#synapser::synGet("syn72399132")$path)
 
 #### 3. top up/dn diffexp gene sets ####
 dot.df <- na.omit(plot.data[plot.data$FDR_q_value <= 0.25 & plot.data$p_value <= 0.05,]) # 12
@@ -69,14 +74,15 @@ dot.plot2 <- dot.plot + coord_flip() + ggtitle(paste0("Kinases (",nrow(dot.df),"
   theme(legend.position = "bottom", legend.direction = "horizontal", 
         axis.title.y = element_blank(), legend.box = "vertical", axis.ticks.y = element_blank(),
         axis.text.x = element_text(angle=45,vjust=1,hjust=1))
-ggplot2::ggsave("Enriched_kinases_dotPlot_horizontal_2025-04-20.pdf", dot.plot2, width=0.75, height=2.5)
+#ggplot2::ggsave(file.path(fig.path,"Enriched_kinases_dotPlot_horizontal_2025-04-20.pdf"), dot.plot2, width=0.75, height=2.5)
 
 #### correlated kinase targets for each kinase ####
 #gmt2 <- readRDS("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/GitHub/Exp21_NRAS_ASO_treated_patients/proteomics/analysis/gmt2.rds")[[1]]
 source('panSEAFunctions.R')
 gmt2 <- get_leapR_ksdb_gmt()
 topGenes <- rev(geneOrder)
-corr.result <- read.csv(synapser::synGet("syn72399099")$path)
+corr.result <-  read.csv(file.path(base.path,'analysis','Phospho','Differential_expression','Differential_expression_results.csv'))
+
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
 corr.result$sig <- FALSE
 corr.result[corr.result$Spearman.q <= 0.05,]$sig <- TRUE
@@ -142,11 +148,11 @@ for (i in 1:length(topGenes)) {
      }
   }
 }
-#gsea.dot.plots3 <- gsea.dot.plots/gsea.dot.plots2
-#gsea.dot.plots3 <- gsea.dot.plots3 + plot_layout(guides = 'collect')
-gsea.dot.plots
-ggplot2::ggsave("figures/Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6_tall_v2.pdf", gsea.dot.plots, width=10, height=8)
-ggplot2::ggsave("figures/Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6.pdf", gsea.dot.plots, width=10, height=5)
+gsea.dot.plots3 <- gsea.dot.plots/gsea.dot.plots2
+gsea.dot.plots3 <- gsea.dot.plots3 + plot_layout(guides = 'collect')
+gsea.dot.plots3
+#ggplot2::ggsave(file.path(fig.path,"Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6_tall_v2.pdf"), gsea.dot.plots, width=10, height=8)
+ggplot2::ggsave(file.path(fig.path,"Fig_S3_Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6.pdf"), gsea.dot.plots3, width=10, height=10)
 # actual min N is 10 but only 1 has 10, 4 have 11, and rest (171 - 5) have 12
 #source("guides_build_mod.R")
 #gsea.dot.plot2 <- gsea.dot.plots + guide_area() + plot_layout(nrow = 2, guides='collect')

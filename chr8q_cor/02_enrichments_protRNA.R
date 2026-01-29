@@ -26,11 +26,11 @@ feature.list <- list( "Phospho" = "SUB_SITE",
                       "Proteomics" = "Gene",# "SUB_SITE"),
                      "RNA-Seq" = "Gene")
 gmt1.rest <- list("Hallmark" = gmt1$Hallmark,
-                  "KEGG" = gmt1$KEGG,
-                  "Oncogenic" = gmt1$Oncogenic,
-                  "PID" = gmt1$PID,
-                  "TFT_GTRD" = gmt1$TFT_GTRD,
-                  "WikiPathways" = gmt1$WikiPathways)
+                  #"KEGG" = gmt1$KEGG,
+                  #"Oncogenic" = gmt1$Oncogenic,
+                  #"PID" = gmt1$PID,
+                  "TFT_GTRD" = gmt1$TFT_GTRD)#,
+                  #"WikiPathways" = gmt1$WikiPathways)
 set.seed(12340)
 ofiles <- panSEA_corr3(omics, meta.list, feature.list, 
              rank.col = "Median Chr8q Copy Number",
@@ -38,31 +38,32 @@ ofiles <- panSEA_corr3(omics, meta.list, feature.list,
              temp.path = file.path(base.path, "analysis"), syn.id = NULL)#my.syn)
 
 graphics.off()
-##SG: let's manually update files of interest to synapse instead of trying to do it all
-setwd(paste0(base.path,'/analysis'))
+##SG: not sure if this is needed:
+setwd(base.path)
+setwd('..')
 
 
 # re-do KSEA
 #gmt2 <- get_gmt2(gmt.list2="ksdb_human", phospho=phospho.df)
 # load correlations
-corr.result <- read.csv(file.path(base.path,'analysis','Phospho','Phospho','Differential_expression','Differential_expression_results.csv'))#read.csv(synapser::synGet("syn66226338")$path)
-gsea.input <- corr.result[,c("SUB_SITE","Spearman.est")]
+#corr.result <- read.csv(file.path(base.path,'analysis','Phospho','Phospho','Differential_expression','Differential_expression_results.csv'))#read.csv(synapser::synGet("syn66226338")$path)
+#gsea.input <- corr.result[,c("SUB_SITE","Spearman.est")]
 
 # run KSEA
-set.seed(2361)
-gsea.result <- panSEA::ssGSEA(gsea.input, gmt2[[1]], ties=TRUE) 
-
-# save results
-gsea.files <- list("KSEA_results.csv" = gsea.result$result,
-                   "KSEA_results_withoutShufflingTies.csv" = gsea.result$result.w.ties,
-                   "KSEA_volcano_plot.pdf" = gsea.result$volcano.plot,
-                   "KSEA_dot_plot.pdf" = gsea.result$dot.plot,
-                   "KSEA_dot_plot_withSD.pdf" = gsea.result$dot.sd,
-                   "KSEA_bar_plot.pdf" = gsea.result$bar.plot,
-                   "mtn_plots" = get_top_mtn_plots(gsea.result))
-
-# setwd(file.path(base.path,"analysis","Spearman","Phospho", "Phospho"))
-# dir.create("KSEA")
-# setwd("KSEA")
-# gseaFolder <- synapser::synStore(synapser::Folder("KSEA", parent = "syn66226336"))
-save_to_synapse_v2(gsea.files, NULL)#gseaFolder)
+#set.seed(2361)
+# gsea.result <- panSEA::ssGSEA(gsea.input, gmt2[[1]], ties=TRUE) 
+# 
+# # save results
+# gsea.files <- list("KSEA_results.csv" = gsea.result$result,
+#                    "KSEA_results_withoutShufflingTies.csv" = gsea.result$result.w.ties,
+#                    "KSEA_volcano_plot.pdf" = gsea.result$volcano.plot,
+#                    "KSEA_dot_plot.pdf" = gsea.result$dot.plot,
+#                    "KSEA_dot_plot_withSD.pdf" = gsea.result$dot.sd,
+#                    "KSEA_bar_plot.pdf" = gsea.result$bar.plot,
+#                    "mtn_plots" = get_top_mtn_plots(gsea.result))
+# 
+# # setwd(file.path(base.path,"analysis","Spearman","Phospho", "Phospho"))
+# # dir.create("KSEA")
+# # setwd("KSEA")
+# # gseaFolder <- synapser::synStore(synapser::Folder("KSEA", parent = "syn66226336"))
+# save_to_synapse_v2(gsea.files, NULL)#gseaFolder)

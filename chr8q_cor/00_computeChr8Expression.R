@@ -192,9 +192,10 @@ dat.path <- getwd()
 #TODO: figure out how to get copy number values without doing enrichment analysis
 
 # copy number will correlate with copy number? 
-omics2 <- list("Copy Number" = pdxCN,
-               "RNA-Seq" = pdxRNA,
-               "Proteomics" = global.df)
+#we dont use the other omes here
+omics2 <- list("Copy Number" = pdxCN)#,
+               #"RNA-Seq" = pdxRNA,
+               #"Proteomics" = global.df)
 
 msigdb.info <- msigdbr::msigdbr(category="C1")
 reduced.msigdb <- dplyr::distinct(msigdb.info[,c("gs_name", "gene_symbol")])
@@ -350,8 +351,4 @@ for (i in 1:length(omics2)) {
 setwd(base.path)
 setwd('..')
 ##WARNING: the analysis is NEVER uploaded to synapse, so
-#old results are used. 2025-11-07 uploaded files used below
-#copy numger information
-#synapser::synStore(File(paste0(base.path,'/analysis/positional_medians/Copy Number/Copy Number_Chr8q_median.csv'),
-#                        parentId='syn65988130'))
 

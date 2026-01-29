@@ -15,6 +15,21 @@ We first calculate the chr8q copy numbers and correlations across molecules.
 NOTE: always return to this directory as a working directory after every script,
 as there are many subdirectories created that can make things very confusing. 
 
+```
+#end to end analysis runs and stores lots of files
+source('00_computeChr8Expression.R')
+source("01_enrichments_copynumber.R")
+source('02_enrichments_protRNA.R')
+source('03_DMEA_correlations.R')
+source('04_networkAnalysis.R')
+source("05_tableCompilation.R")
+
+```
+
+This generates the data and tables needed for the figures. 
+Below is a breakdown of the scripts, scroll down for figure instructions
+
+
 ## Compute chr8 copy numbers
 The first step to analyzing the data is to calculate the copy number of chr8
 across the samples. This is currently run by the 
@@ -37,12 +52,10 @@ computed in the previous step and mRNA/protein levels to identify functional pat
 enrichment.  This is calculated by
 [02_enrichments_protRNA.R](./02_enrichments_protRNA.R). 
 
-## Upload to synapse
-
-There are many files that might be used later that are uploaded to synapse using
-the [03_save_to_synapse.R](./03_save_to_synapse.R) script. It is designed to take
-the current working directory and run immediately after the first three scripts.
-NOTE: you will require upload access to this repository. 
+## DMEA analysis
+The next step is to carry out the drug correlations used for Figure 3, which
+are slightly different than the mechanism enrichment analyses. There's a chance
+that the DMEA is run more than once when we run [03_DMEA_correlations.R]('./03_DMEA_correlations.R')
 
 ## Network analysis
 
@@ -50,6 +63,20 @@ We then used the stored files to build the networks used in Figures 2 and 3.
 This is [04_networkAnalysis.R](./04_networkAnalysis.R). If you want to use
 updated data, then you must update the three synapse IDs that pull the most 
 recent data. 
+
+
+### Compile tables
+This requires that you run figure 3 code first, but will collect the files 
+in the local directory so that they can be supplemental tables
+[05_tableCompilation.R](./05_tableCompilation.R)
+
+## Upload to synapse
+
+There are many files that might be used later that are uploaded to synapse using
+the [06_save_to_synapse.R](./03_save_to_synapse.R) script. It is designed to take
+the current working directory and run immediately after the first three scripts.
+NOTE: you will require upload access to this repository. 
+
 
 # Figure panel generation
 
@@ -69,13 +96,9 @@ To visualize the enrichment analysis run [Figure2_20250429.R](./Figure2_2025_042
 
 
 ### Figure 3: drug sensitivity predictions
-Next run [Figure3_20250513.R](./Figure3_20250513.R) which both runs the DMEA 
-analysis and stores the files and also creates the figures for Figure 3.
+Next run [Figure3_20250513.R](./Figure3_20250513.R) Creates the figures for Figure 3.
 
-### Compile tables
-This requires that you run figure 3 code first, but will collect the files 
-in the local directory so that they can be supplemental tables
-[05_tableCompilation.R](./05_tableCompilation.R)
+
 
 
 # Older code
