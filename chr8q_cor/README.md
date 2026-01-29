@@ -70,12 +70,6 @@ This requires that you run figure 3 code first, but will collect the files
 in the local directory so that they can be supplemental tables
 [05_tableCompilation.R](./05_tableCompilation.R)
 
-## Upload to synapse
-
-There are many files that might be used later that are uploaded to synapse using
-the [06_save_to_synapse.R](./03_save_to_synapse.R) script. It is designed to take
-the current working directory and run immediately after the first three scripts.
-NOTE: you will require upload access to this repository. 
 
 
 # Figure panel generation
@@ -87,29 +81,34 @@ to previously run synapse files (currently from the 2026-01-22 run of the code).
 
 ## Figure 1: correlations
 To build the figures in a `figures` directory, first start with 
-[Figure1_20250410.R](./Figure1_20250410.R). This requires 5 files from synapse
+[Figure1_correlations.R](./Figure1_correlations.R). This requires 5 files from synapse
 generated from above, so you will need to update it if you re-ran the analysis
 
 
 ### Figure 2: enrichment analyses
-To visualize the enrichment analysis run [Figure2_20250429.R](./Figure2_2025_0429.R)
+To visualize the enrichment analysis run [Figure2_enrichment_centrality.R](./Figure2_enrichment_centrality.R)
 
 
 ### Figure 3: drug sensitivity predictions
-Next run [Figure3_20250513.R](./Figure3_20250513.R) Creates the figures for Figure 3.
+Next run [Figure3_drugCors.R](./Figure3_drugCors.R) Creates the figures for Figure 3.
 
+## Figure S1: histograms
+FigureS1_histograms.R
 
+### Figure S3, S4: drivers of enrichment
+Kinase substrates are plotted here: FigureS3_kinase.R
 
+Transcription factor targets are plotted here but we don't refernece in paper: FigureS4_TF.R
+
+## Upload to synapse
+
+There are many files that might be used later that are uploaded to synapse using
+the [06_save_to_synapse.R](./03_save_to_synapse.R) script. It is designed to take
+the current working directory and run immediately after the first three scripts.
+NOTE: you will require upload access to this repository. 
 
 # Older code
 The following files were not validated but also run parts of the analysis. 
-
-## Figure S1: histograms
-FigureS1_20250409.R
-
-### Figure S3: drivers of enrichment
-- Transcription factor targets: FigureS3_TF_20250418.R
-- Kinase substrates: FigureS3_kinase_20250418.R
 
 ### Drug screen
 - drugScreening.R: only used for IC50 t-tests
