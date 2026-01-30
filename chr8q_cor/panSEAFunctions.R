@@ -1545,7 +1545,7 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
       files.for.Synapse[[names(omics)[i]]] <- temp.omics.files
       temp.files <- list(temp.omics.files)
       names(temp.files) <- names(omics)[i]
-      save_to_synapse_v2(temp.files, syn.id)
+      #save_to_synapse_v2(temp.files, syn.id)
     } else {
       temp.meta <- list()
       for (j in 1:length(temp.omics)) {

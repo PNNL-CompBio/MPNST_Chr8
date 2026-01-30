@@ -3,12 +3,10 @@
 #remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(biomaRt);library(RIdeogram);library(viridis);library(msigdbr)
-#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_1")
 
-synapser::synLogin()
 
 if(!exists('base.path'))
-  base.path <- getwd()
+  base.path <- file.path(getwd(),Sys.Date())
 
 fig.path <- file.path(base.path,'figures')
 if (dir.exists(fig.path))
@@ -17,8 +15,7 @@ if (dir.exists(fig.path))
 #### 1. Chr8 median copy number bar plot ####
 # load data & format
 
-#med.chr8q <- read.csv(synapser::synGet("syn66047330")$path)
-med.chr8q <- read.csv(synapser::synGet('syn72399187')$path)
+med.chr8q <- read.csv(file.path(base.path,'analysis','positional_medians','Copy Number','Copy Number_Chr8q_median.csv'))#synapser::synGet('syn72399187')$path)
 colnames(med.chr8q)[2] <- "Median Chr8q Copy Number"
 
 # order lowest to highest
@@ -40,13 +37,13 @@ ggplot2::ggplot(med.chr8q, aes(x=Sample, y=`Median Chr8q Copy Number`, fill = Om
   geom_errorbar(aes(ymin=`Median Chr8q Copy Number` - sd_med_copy_number, 
                     ymax = `Median Chr8q Copy Number` + sd_med_copy_number), width=0.2,
                 position=position_dodge(0.9)) + xlab("MPNST PDX")
-ggplot2::ggsave(paste0(fig.path,"/fig1b_PDX Copy Number_Chr8q_median_", Sys.Date(), ".pdf"), width = 3.5, height = 3) # was width 5
+ggplot2::ggsave(paste0(fig.path,"/Fig1B_PDX Copy Number_Chr8q_median_", Sys.Date(), ".pdf"), width = 3.5, height = 3) # was width 5
 
 #### 2. Chr8 enrichment along chromosome ####
 # load enrichment results
 #chr8.enr <- read.csv(synapser::synGet("syn66227265")$path)
 #chr8.enr <- read.csv(synapser::synGet('syn71772683')$path)
-chr8.enr <- read.csv(synapser::synGet('syn72399017')$path)
+chr8.enr <- read.csv(file.path(base.path,'analysis','Copy_number','GSEA','GSEA_positional','GSEA_results.csv'))#synapser::synGet('syn72399017')$path)
 # load segment info for gene symbols
 chr8.msigdb <- msigdbr::msigdbr(category = "C1")
 chr8.msigdb <- chr8.msigdb[grepl("chr8", chr8.msigdb$gs_name),]
@@ -75,7 +72,7 @@ for (i in segments) {
 colnames(chr8.enr)[2] <- "segments"
 segment.pos <- merge(segment.pos, chr8.enr[,c("segments","NES")], by="segments")
 segment.pos$chr <- 8
-write.csv(segment.pos, file.path(fig.path,"Chr8_segment_enrichment.csv"), row.names = FALSE)
+#write.csv(segment.pos, file.path(fig.path,"Chr8_segment_enrichment.csv"), row.names = FALSE)
 #segment.pos <- read.csv("Chr8_segment_enrichment.csv")
 
 # following vignette: https://cran.r-project.org/web/packages/RIdeogram/vignettes/RIdeogram.html
@@ -104,9 +101,9 @@ path.map <- list("RNA" = "syn66226866",
                  "Phospho" = "syn66226338")
 
 #SG updated diffex
-path.map$RNA <- 'syn72399335'
-path.map$Protein <- 'syn72399210'
-path.map$Phospho <- 'syn72399099'
+path.map$RNA <- file.path(base.path,'analysis','RNA-Seq','Differential_expression','Differential_expression_results.csv')#syn72399335'
+path.map$Protein <- file.path(base.path,'analysis','Proteomics','Differential_expression','Differential_expression_results.csv')
+path.map$Phospho <- file.path(base.path,'analysis','Phospho','Differential_expression','Differential_expression_results.csv')
 
 all.degs <- data.frame()
 all.deg.list <- list()
@@ -114,7 +111,7 @@ sig.deg.list <- list()
 up.deg.list <- list()
 dn.deg.list <- list()
 for (i in 1:length(path.map)) {
-  temp.degs <- read.csv(synapser::synGet(path.map[[i]])$path)|>
+  temp.degs <- read.csv(path.map[[i]])|>#synapser::synGet(path.map[[i]])$path)|>
     subset(!is.na(Pearson.est))
   temp.degs$Omics <- names(path.map)[i]
   
@@ -151,7 +148,7 @@ for (i in 1:length(path.map)) {
 }
 all.degs$Omics <- factor(all.degs$Omics, levels=c("Phospho", "Protein", "RNA"))
 all.degs$Direction <- factor(all.degs$Direction, levels=c("Positive", "Negative"))
-write.csv(all.degs, file.path(fig.path,"Differential_expression_results.csv"), row.names = FALSE)
+#write.csv(all.degs, file.path(fig.path,"Differential_expression_results.csv"), row.names = FALSE)
 #we dont need to store just to read in again
 #synapser::synStore(synapser::File("Differential_expression_results.csv", parent="syn65988130"))
 #all.degs <- read.csv("Differential_expression_results.csv")
@@ -258,7 +255,7 @@ plt <- plt +
         axis.line=element_blank())
 
 plt
-ggplot2::ggsave(file.path(fig.path,"fig1D_Chr8_numberOfFeatures_circularBarPlot.pdf"), plt, width = 7, height = 7)
+ggplot2::ggsave(file.path(fig.path,"Fig1D_Chr8_numberOfFeatures_circularBarPlot.pdf"), plt, width = 7, height = 7)
 
 
 plt <- ggplot(plot_dfMin6) +
@@ -341,7 +338,7 @@ plt <- plt +
         axis.line=element_blank())
 
 plt
-ggplot2::ggsave(file.path(fig.path,"fig1d_Chr8_numberOfFeatures_circularBarPlot_minN6.pdf"), plt, width = 7, height = 7)
+#ggplot2::ggsave(file.path(fig.path,"fig1d_Chr8_numberOfFeatures_circularBarPlot_minN6.pdf"), plt, width = 7, height = 7)
 
 
 #### 4. venn diagram of diffexp Features ####
@@ -358,7 +355,7 @@ for (i in 1:length(unique(all.degs$Omics))) {
 }
 ggvenn::ggvenn(venn.list, show_percentage = FALSE, fill_color = c("#C2A5CF", "#FEE391", "#B2DF8A"), 
                fill_alpha = 0.5, text_size = 10, set_name_size = 8)
-ggplot2::ggsave(paste0(fig.path,"/fig1e_Chr8_diffExp_vennDiagram_noPercentages_matchingColors_", Sys.Date(), ".pdf"), width=7, height=7)
+ggplot2::ggsave(paste0(fig.path,"/Fig1E_Chr8_diffExp_vennDiagram_noPercentages_matchingColors_", Sys.Date(), ".pdf"), width=7, height=7)
 
 # what is shared between RNA & protein?
 venn.list[["RNA"]][venn.list[["RNA"]] %in% venn.list[["Protein"]]] # "ERG28" - down in RNA with N=4, up in protein with N=12
@@ -385,9 +382,9 @@ for (i in 1:length(unique(all.degs$Omics))) {
     warning("No Gene or SUB_SITE column found")
   }
 }
-ggvenn::ggvenn(venn.list, show_percentage = FALSE, fill_color = c("#C2A5CF", "#FEE391", "#B2DF8A"), 
-               fill_alpha = 0.5, text_size = 10, set_name_size = 8)
-ggplot2::ggsave(paste0(fig.path,"/fig1e_Chr8_diffExp_vennDiagram_noPercentages_matchingColors_minN6_", Sys.Date(), ".pdf"), width=7, height=7)
+#ggvenn::ggvenn(venn.list, show_percentage = FALSE, fill_color = c("#C2A5CF", "#FEE391", "#B2DF8A"), 
+#               fill_alpha = 0.5, text_size = 10, set_name_size = 8)
+#ggplot2::ggsave(paste0(fig.path,"/fig1e_Chr8_diffExp_vennDiagram_noPercentages_matchingColors_minN6_", Sys.Date(), ".pdf"), width=7, height=7)
 
 # what is shared between RNA & protein?
 venn.list[["RNA"]][venn.list[["RNA"]] %in% venn.list[["Protein"]]] # no overlap
@@ -417,7 +414,7 @@ if (length(unique(mean.DEG.df$Fisher_p)) > 1) {
   mean.DEG.df$adj_Fisher_p <- NA
 }
 
-write.csv(mean.DEG.df, file.path(fig.path,"Compiled_differential_expression_results.csv"), row.names=FALSE)
+#write.csv(mean.DEG.df, file.path(fig.path,"Compiled_differential_expression_results.csv"), row.names=FALSE)
 #do we need to store? 
 #synapser::synStore(synapser::File("Compiled_differential_expression_results.csv", parent="syn65988130"))
 
@@ -542,8 +539,8 @@ gsea.dot.plots2
 #ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_colorN.pdf", gsea.dot.plots, width=14, height=7)
 #ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yN_chr8q_minN6.pdf", gsea.dot.plots, width=14, height=7)
 #ggplot2::ggsave("CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yNv2_chr8q_minN6.pdf", gsea.dot.plots2, width=14, height=7)
-ggplot2::ggsave(file.path(fig.path,"CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yN_chr8qBold.pdf"), gsea.dot.plots, width=14, height=7)
-ggplot2::ggsave(file.path(fig.path,"CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yNv2_chr8qBold.pdf"), gsea.dot.plots2, width=14, height=7)
+#ggplot2::ggsave(file.path(fig.path,"CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yN_chr8qBold.pdf"), gsea.dot.plots, width=14, height=7)
+#ggplot2::ggsave(file.path(fig.path,"CorrelatedFeatures_dotPlot_patchworkOmics_minN6_sliceMaxAbsSpearman50_yNv2_chr8qBold.pdf"), gsea.dot.plots2, width=14, height=7)
 
 # "EXT1" and "UBE2V2" are chr8q genes in protein - not sure why not bolded
 
@@ -615,7 +612,9 @@ p3<-ndegs|>
                                 "On Chr8q,q<0.05"='#3b6813'))+ xlab('Phosphosites') + ylab("Chr8q correlation")
 
 cowplot::plot_grid(p1,p2,p3,ncol=1)
-ggsave('fig1f_featureCorrelations.pdf',height=10,width=12)
+ggsave('Fig1B_featureCorrelations.pdf',height=10,width=12)
 cowplot::plot_grid(p1+coord_flip(), p2+coord_flip(), p3+coord_flip(),nrow=1)
-ggsave("featureCorrelations_tall.pdf",height=5,width=12)
+#ggsave("featureCorrelations_tall.pdf",height=5,width=12)
 
+setwd(base.path)
+setwd('..')

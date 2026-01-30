@@ -6,7 +6,14 @@ library(biomaRt);library(RIdeogram);library(viridis)
 
 #setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/SuppFig_1")
 
-synapser::synLogin()
+#synapser::synLogin()
+if(!exists('base.path'))
+  base.path <- file.path(getwd(),Sys.Date())
+
+fig.path <- file.path(base.path,'figures')
+if (!dir.exists(fig.path))
+  dir.create(fig.path)
+
 
 #### 1. histogram of feature correlations ####
 path.map <- list("Copy Number" = "syn72398991",
@@ -14,9 +21,15 @@ path.map <- list("Copy Number" = "syn72398991",
                  "Protein" = "syn72399210",
                  "Phospho" = "syn72399099")
 
+
+path.map$`RNA-Seq` <- file.path(base.path,'analysis','RNA-Seq','Differential_expression','Differential_expression_results.csv')#syn72399335'
+path.map$Protein <- file.path(base.path,'analysis','Proteomics','Differential_expression','Differential_expression_results.csv')
+path.map$Phospho <- file.path(base.path,'analysis','Phospho','Differential_expression','Differential_expression_results.csv')
+path.map$`Copy Number` <- file.path(base.path,'analysis','Copy_number','Differential_expression','Differential_expression_results.csv')
+
 inputs <- list()
 for (i in 1:length(path.map)) {
-  temp.degs <- read.csv(synapser::synGet(path.map[[i]])$path)
+  temp.degs <- read.csv(path.map[[i]])#synapser::synGet(path.map[[i]])$path)
   temp.degs$Omics <- names(path.map)[i]
   
   # dot plot of top genes
@@ -72,4 +85,4 @@ for (i in 1:length(inputs)) {
 }
 hist.plots2 <- hist.plots + plot_layout(nrow=2, ncol=2, guides = 'collect') & theme(legend.position='bottom')
 hist.plots2 <- hist.plots2 + plot_annotation(tag_levels='A')
-ggplot2::ggsave("FeatureCorrelationHistograms_patchworkOmics.pdf", hist.plots2, width=10, height=10)
+ggplot2::ggsave(file.path(fig.path,"FigS1_FeatureCorrelationHistograms_patchworkOmics.pdf"), hist.plots2, width=10, height=10)

@@ -3,12 +3,17 @@
 #remove(list=ls())
 library(plyr);library(dplyr);library(ggplot2);library(synapser)
 library(patchwork);library(msigdbr)
-#setwd("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_TF")
-setwd('figures')
+
 synapser::synLogin()
 
+if(!exists('base.path'))
+  base.path <- file.path(getwd(),Sys.Date())
+
+fig.path <- file.path(base.path,'figures')
 #### 1. volcano plot of # of GSEA_TFT_GTRD results ####
-plot.data <- read.csv(synapser::synGet("syn72399428")$path)
+plot.data <-  na.omit(read.csv(file.path(base.path,'analysis','RNA-Seq','GSEA','GSEA_TFT_GTRD','GSEA_results.csv')))#synapser::synGet("syn72399428")$path)#syn66226952")$path)
+
+#read.csv(synapser::synGet("syn72399428")$path)
 FDR <- 0.25
 plot.data$Significance <- paste0("FDR > ", FDR)
 plot.data[plot.data$FDR_q_value < FDR, ]$Significance <- paste0("FDR < ", FDR)
@@ -92,7 +97,7 @@ dot.plot <- ggplot2::ggplot(
           axis.ticks.x=element_blank())
 dot.plot
 # most are only in prot and not in RNA
-ggplot2::ggsave("Enriched_TFs_dotPlot_top10_sameScaleAsKinase.pdf", dot.plot, width=2.1, height=2.1)
+#ggplot2::ggsave("Enriched_TFs_dotPlot_top10_sameScaleAsKinase.pdf", dot.plot, width=2.1, height=2.1)
 
 dot.plot <- ggplot2::ggplot(
   dot.df,
@@ -120,7 +125,7 @@ dot.plot2 <- dot.plot + coord_flip() + ggtitle(paste0("Transcription Factors (",
         axis.title.y = element_blank(), legend.box = "vertical",
         axis.ticks.y = element_blank(), axis.text.y = element_blank(),
         axis.text.x = element_text(angle=45,vjust=1,hjust=1))
-ggplot2::ggsave("Enriched_TFs_dotPlot_horizontal_2025-04-20.pdf", dot.plot2, width=2.5, height=2.5)
+#ggplot2::ggsave("Enriched_TFs_dotPlot_horizontal_2025-04-20.pdf", dot.plot2, width=2.5, height=2.5)
 
 #### correlated TF targets for each TF ####
 tf.genes <- msigdbr::msigdbr(collection="C3", subcollection="GTRD")
@@ -128,8 +133,10 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name %in% topGenes,]$gene_symbol)
 #topGenes <- unique(dot.df[order(-dot.df$NES),]$TF)
 topGenes <- rev(geneOrder)
 topGeneSets <- rev(dot.df[order(dot.df$NES),]$Feature_set)
-synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn72399335")$path)#syn66226866")$path)
+#synapser::synLogin()
+corr.result <- read.csv(file.path(base.path,'analysis','RNA-Seq','Differential_expression','Differential_expression_results.csv'))
+
+#read.csv(synapser::synGet("syn72399335")$path)#syn66226866")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
                                      corr.result$N>=6,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
@@ -201,11 +208,10 @@ for (i in 1:length(topGeneSets)) {
 #ggplot2::ggsave("Correlated_TFTs_dotPlot_patchworkCollection_minN6_tall_v2.pdf", gsea.dot.plots, width=9, height=16)
 #ggplot2::ggsave("Correlated_TFTs_dotPlot_patchworkCollection_minN6_v2.pdf", gsea.dot.plots, width=9, height=9)
 
-#source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plot2 <- gsea.dot.plots + guide_area() + plot_layout(nrow = 2, guides='collect')
-ggplot2::ggsave(paste0("TFT_correlations_dotPlot_patchworkCollection_minN6_v4_",Sys.Date(),".pdf"), gsea.dot.plot2, width=7, height=3.5)
-gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 1, guides='collect')
-ggplot2::ggsave(paste0("TFT_correlations_dotPlot_patchworkCollection_minN6_v5_",Sys.Date(),".pdf"), gsea.dot.plot2, width=14, height=2)
+ggplot2::ggsave(paste0(fig.dir,"/Fig_S4_TFT_correlations_dotPlot_patchworkCollection_minN6_v4_",Sys.Date(),".pdf"), gsea.dot.plot2, width=10, height=10)
+#gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 1, guides='collect')
+#ggplot2::ggsave(paste0(fig.dir,"/TFT_correlations_dotPlot_patchworkCollection_minN6_v5_",Sys.Date(),".pdf"), gsea.dot.plot2, width=14, height=2)
 
 #### also do for all TFs ####
 tf.genes.list <- unique(tf.genes[tf.genes$gs_name %in% 
@@ -214,7 +220,9 @@ tf.genes.list <- unique(tf.genes[tf.genes$gs_name %in%
 topGeneSets <- rev(plot.data[order(plot.data$NES),]$Feature_set)
 topGenes <- sub("_TARGET_GENES", "", topGeneSets)
 synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn72399335")$path)
+corr.result <- read.csv(file.path(base.path,'analysis','RNA-Seq','Differential_expression','Differential_expression_results.csv')
+)
+#synapser::synGet("syn72399335")$path)
 corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
                                      corr.result$N>=6,]) # 691
 corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
@@ -284,155 +292,155 @@ for (i in 1:length(topGeneSets)) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 10, guides='collect')
 gsea.dot.plot2
-ggplot2::ggsave(paste0("All_TFT_correlations_dotPlot_patchworkCollection_minN6_",Sys.Date(),".pdf"), gsea.dot.plot2, width=5, height=20)
+ggplot2::ggsave(paste0(fig.dir,"/Fig_S4_All_TFT_correlations_dotPlot_patchworkCollection_minN6_",Sys.Date(),".pdf"), gsea.dot.plot2, width=5, height=20)
 
-tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene_symbol)
-topGeneSets <- "ZNF22_TARGET_GENES"
-topGenes <- sub("_TARGET_GENES", "", topGeneSets)
-synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn72399335")$path)
-corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
-                                     corr.result$N>=6,]) # 691
-corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
-if (any(corr.result$Spearman.q == 0)) {
-  corr.result[corr.result$Spearman.q == 0,]$minusLogFDR <- ceiling(max(corr.result[corr.result$Spearman.q != 0,]$minusLogFDR))
-}
-maxAbsEst <- max(abs(corr.result$Spearman.est))
-maxLogFDR <- max(abs(corr.result$minusLogFDR))
-library(patchwork); library(ggplot2)
-corr.result$Significant <- FALSE
-corr.result[corr.result$Spearman.q <= 0.05,]$Significant <- TRUE
-gsea.dot.plots <- NULL
-for (i in 1:length(topGeneSets)) {
-  temp.genes <- unique(tf.genes[tf.genes$gs_name == topGeneSets[i],]$gene_symbol)
-  temp.gene.corr <- na.omit(corr.result[corr.result$Gene %in% temp.genes,]) #%>% slice_max(abs(Spearman.est),n=10)
-  if (nrow(temp.gene.corr) > 0) {
-    nGenes <- length(unique(temp.gene.corr$Gene))
-    temp.topGenes <- unique(temp.gene.corr[temp.gene.corr$Significant,]$Gene) # 48
-    nTopGenes <- length(temp.topGenes)
-    geneOrder <- temp.gene.corr[order(temp.gene.corr$Spearman.est),]$Gene
-    
-    dot.plot <- ggplot2::ggplot(
-      temp.gene.corr,
-      ggplot2::aes(
-        x = "RNA", y = Gene, color = Spearman.est,
-        size = minusLogFDR
-      )
-    ) + scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
-      ggplot2::geom_point() +
-      ggplot2::scale_y_discrete(limits = geneOrder) +
-      scale_color_gradient2(low="blue",high="red", mid = "grey", limits=c(-maxAbsEst, maxAbsEst)) +
-      #viridis::scale_color_viridis() +
-      theme_classic() +
-      ggplot2::labs(
-        x = "Omics Type",
-        y = "Transcription Factor Targets",
-        color = "Spearman rho", size = "-log(adj. p)"
-      ) + theme(axis.title.x=element_blank(), #legend.box = "horizontal",
-                axis.text.x=element_blank(),
-                axis.ticks.x=element_blank(), axis.title.y=element_blank()) +
-      geom_point(data = subset(temp.gene.corr, Significant), col = "black", stroke = 1.5, shape = 21)
-    #plot.annot <- paste0(topGenes[i], " (", nTopGenes, " / ", nGenes, " genes correlated)")
-    dot.plot <- dot.plot + ggtitle(topGenes[i])
-    # if (i == 1) {
-    #   gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
-    # } else if (i < 6) {
-    #   gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
-    # } else if (i == 6) {
-    #   gsea.dot.plots <- gsea.dot.plots + dot.plot
-    # } else if (i == 7) {
-    #   gsea.dot.plots2 <- (dot.plot + theme(legend.position = "none"))
-    # } else if (i > 7) {
-    #   gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
-    # }
-   # if (is.list(dot.plot) & length(dot.plot) > 1) {
-      if (is.null(gsea.dot.plots)) {
-        gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
-      } else if (i == ceiling(length(topGenes)/2)) {
-        gsea.dot.plots <- gsea.dot.plots + dot.plot #+ plot_layout(guides = 'collect')
-      } else {
-        gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
-      }
-  #  }
-  }
-}
-
-#source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
-#gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 10, guides='collect')
-#gsea.dot.plot2
-ggplot2::ggsave(paste0("ZNF22_TFT_correlations_dotPlot_patchworkCollection_minN6_",Sys.Date(),".pdf"), dot.plot, width=2.75, height=12)
-
-tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene_symbol)
-topGeneSets <- "ZNF22_TARGET_GENES"
-topGenes <- sub("_TARGET_GENES", "", topGeneSets)
-synapser::synLogin()
-corr.result <- read.csv(synapser::synGet("syn72399335")$path)
-corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list,]) # 691
-corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
-if (any(corr.result$Spearman.q == 0)) {
-  corr.result[corr.result$Spearman.q == 0,]$minusLogFDR <- ceiling(max(corr.result[corr.result$Spearman.q != 0,]$minusLogFDR))
-}
-maxAbsEst <- max(abs(corr.result$Spearman.est))
-maxLogFDR <- max(abs(corr.result$minusLogFDR))
-library(patchwork); library(ggplot2)
-corr.result$Significant <- FALSE
-corr.result[corr.result$Spearman.q <= 0.05,]$Significant <- TRUE
-gsea.dot.plots <- NULL
-for (i in 1:length(topGeneSets)) {
-  temp.genes <- unique(tf.genes[tf.genes$gs_name == topGeneSets[i],]$gene_symbol)
-  temp.gene.corr <- na.omit(corr.result[corr.result$Gene %in% temp.genes,]) #%>% slice_max(abs(Spearman.est),n=10)
-  if (nrow(temp.gene.corr) > 0) {
-    nGenes <- length(unique(temp.gene.corr$Gene))
-    temp.topGenes <- unique(temp.gene.corr[temp.gene.corr$Significant,]$Gene) # 48
-    nTopGenes <- length(temp.topGenes)
-    geneOrder <- temp.gene.corr[order(temp.gene.corr$Spearman.est),]$Gene
-    
-    dot.plot <- ggplot2::ggplot(
-      temp.gene.corr,
-      ggplot2::aes(
-        x = "RNA", y = Gene, color = Spearman.est,
-        size = minusLogFDR
-      )
-    ) + scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
-      ggplot2::geom_point() +
-      ggplot2::scale_y_discrete(limits = geneOrder) +
-      scale_color_gradient2(low="blue",high="red", mid = "grey", limits=c(-maxAbsEst, maxAbsEst)) +
-      #viridis::scale_color_viridis() +
-      theme_classic() +
-      ggplot2::labs(
-        x = "Omics Type",
-        y = "Transcription Factor Targets",
-        color = "Spearman rho", size = "-log(adj. p)"
-      ) + theme(axis.title.x=element_blank(), #legend.box = "horizontal",
-                axis.text.x=element_blank(),
-                axis.ticks.x=element_blank(), axis.title.y=element_blank()) +
-      geom_point(data = subset(temp.gene.corr, Significant), col = "black", stroke = 1.5, shape = 21)
-    #plot.annot <- paste0(topGenes[i], " (", nTopGenes, " / ", nGenes, " genes correlated)")
-    dot.plot <- dot.plot + ggtitle(topGenes[i])
-    # if (i == 1) {
-    #   gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
-    # } else if (i < 6) {
-    #   gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
-    # } else if (i == 6) {
-    #   gsea.dot.plots <- gsea.dot.plots + dot.plot
-    # } else if (i == 7) {
-    #   gsea.dot.plots2 <- (dot.plot + theme(legend.position = "none"))
-    # } else if (i > 7) {
-    #   gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
-    # }
-    if (is.list(dot.plot) & length(dot.plot) > 1) {
-      if (is.null(gsea.dot.plots)) {
-        gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
-      } else if (i == ceiling(length(topGenes)/2)) {
-        gsea.dot.plots <- gsea.dot.plots + dot.plot #+ plot_layout(guides = 'collect')
-      } else {
-        gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
-      }
-    }
-  }
-}
-
-#source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
-#gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 10, guides='collect')
-#gsea.dot.plot2
-ggplot2::ggsave(paste0("ZNF22_TFT_correlations_dotPlot_patchworkCollection_",Sys.Date(),".pdf"), dot.plot, width=2.75, height=14)
+# tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene_symbol)
+# topGeneSets <- "ZNF22_TARGET_GENES"
+# topGenes <- sub("_TARGET_GENES", "", topGeneSets)
+# synapser::synLogin()
+# #corr.result <- read.csv(synapser::synGet("syn72399335")$path)
+# corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list &
+#                                      corr.result$N>=6,]) # 691
+# corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
+# if (any(corr.result$Spearman.q == 0)) {
+#   corr.result[corr.result$Spearman.q == 0,]$minusLogFDR <- ceiling(max(corr.result[corr.result$Spearman.q != 0,]$minusLogFDR))
+# }
+# maxAbsEst <- max(abs(corr.result$Spearman.est))
+# maxLogFDR <- max(abs(corr.result$minusLogFDR))
+# library(patchwork); library(ggplot2)
+# corr.result$Significant <- FALSE
+# corr.result[corr.result$Spearman.q <= 0.05,]$Significant <- TRUE
+# gsea.dot.plots <- NULL
+# for (i in 1:length(topGeneSets)) {
+#   temp.genes <- unique(tf.genes[tf.genes$gs_name == topGeneSets[i],]$gene_symbol)
+#   temp.gene.corr <- na.omit(corr.result[corr.result$Gene %in% temp.genes,]) #%>% slice_max(abs(Spearman.est),n=10)
+#   if (nrow(temp.gene.corr) > 0) {
+#     nGenes <- length(unique(temp.gene.corr$Gene))
+#     temp.topGenes <- unique(temp.gene.corr[temp.gene.corr$Significant,]$Gene) # 48
+#     nTopGenes <- length(temp.topGenes)
+#     geneOrder <- temp.gene.corr[order(temp.gene.corr$Spearman.est),]$Gene
+#     
+#     dot.plot <- ggplot2::ggplot(
+#       temp.gene.corr,
+#       ggplot2::aes(
+#         x = "RNA", y = Gene, color = Spearman.est,
+#         size = minusLogFDR
+#       )
+#     ) + scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
+#       ggplot2::geom_point() +
+#       ggplot2::scale_y_discrete(limits = geneOrder) +
+#       scale_color_gradient2(low="blue",high="red", mid = "grey", limits=c(-maxAbsEst, maxAbsEst)) +
+#       #viridis::scale_color_viridis() +
+#       theme_classic() +
+#       ggplot2::labs(
+#         x = "Omics Type",
+#         y = "Transcription Factor Targets",
+#         color = "Spearman rho", size = "-log(adj. p)"
+#       ) + theme(axis.title.x=element_blank(), #legend.box = "horizontal",
+#                 axis.text.x=element_blank(),
+#                 axis.ticks.x=element_blank(), axis.title.y=element_blank()) +
+#       geom_point(data = subset(temp.gene.corr, Significant), col = "black", stroke = 1.5, shape = 21)
+#     #plot.annot <- paste0(topGenes[i], " (", nTopGenes, " / ", nGenes, " genes correlated)")
+#     dot.plot <- dot.plot + ggtitle(topGenes[i])
+#     # if (i == 1) {
+#     #   gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
+#     # } else if (i < 6) {
+#     #   gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
+#     # } else if (i == 6) {
+#     #   gsea.dot.plots <- gsea.dot.plots + dot.plot
+#     # } else if (i == 7) {
+#     #   gsea.dot.plots2 <- (dot.plot + theme(legend.position = "none"))
+#     # } else if (i > 7) {
+#     #   gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
+#     # }
+#    # if (is.list(dot.plot) & length(dot.plot) > 1) {
+#       if (is.null(gsea.dot.plots)) {
+#         gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
+#       } else if (i == ceiling(length(topGenes)/2)) {
+#         gsea.dot.plots <- gsea.dot.plots + dot.plot #+ plot_layout(guides = 'collect')
+#       } else {
+#         gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
+#       }
+#   #  }
+#   }
+# }
+# 
+# #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
+# #gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 10, guides='collect')
+# #gsea.dot.plot2
+# ggplot2::ggsave(paste0("ZNF22_TFT_correlations_dotPlot_patchworkCollection_minN6_",Sys.Date(),".pdf"), dot.plot, width=2.75, height=12)
+# 
+# tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene_symbol)
+# topGeneSets <- "ZNF22_TARGET_GENES"
+# topGenes <- sub("_TARGET_GENES", "", topGeneSets)
+# synapser::synLogin()
+# corr.result <- read.csv(synapser::synGet("syn72399335")$path)
+# corr.result <- na.omit(corr.result[corr.result$Gene %in% tf.genes.list,]) # 691
+# corr.result$minusLogFDR <- -log(corr.result$Spearman.q, base = 10)
+# if (any(corr.result$Spearman.q == 0)) {
+#   corr.result[corr.result$Spearman.q == 0,]$minusLogFDR <- ceiling(max(corr.result[corr.result$Spearman.q != 0,]$minusLogFDR))
+# }
+# maxAbsEst <- max(abs(corr.result$Spearman.est))
+# maxLogFDR <- max(abs(corr.result$minusLogFDR))
+# library(patchwork); library(ggplot2)
+# corr.result$Significant <- FALSE
+# corr.result[corr.result$Spearman.q <= 0.05,]$Significant <- TRUE
+# gsea.dot.plots <- NULL
+# for (i in 1:length(topGeneSets)) {
+#   temp.genes <- unique(tf.genes[tf.genes$gs_name == topGeneSets[i],]$gene_symbol)
+#   temp.gene.corr <- na.omit(corr.result[corr.result$Gene %in% temp.genes,]) #%>% slice_max(abs(Spearman.est),n=10)
+#   if (nrow(temp.gene.corr) > 0) {
+#     nGenes <- length(unique(temp.gene.corr$Gene))
+#     temp.topGenes <- unique(temp.gene.corr[temp.gene.corr$Significant,]$Gene) # 48
+#     nTopGenes <- length(temp.topGenes)
+#     geneOrder <- temp.gene.corr[order(temp.gene.corr$Spearman.est),]$Gene
+#     
+#     dot.plot <- ggplot2::ggplot(
+#       temp.gene.corr,
+#       ggplot2::aes(
+#         x = "RNA", y = Gene, color = Spearman.est,
+#         size = minusLogFDR
+#       )
+#     ) + scale_size(limits=c(0,maxLogFDR), range = c(0.5,4)) +
+#       ggplot2::geom_point() +
+#       ggplot2::scale_y_discrete(limits = geneOrder) +
+#       scale_color_gradient2(low="blue",high="red", mid = "grey", limits=c(-maxAbsEst, maxAbsEst)) +
+#       #viridis::scale_color_viridis() +
+#       theme_classic() +
+#       ggplot2::labs(
+#         x = "Omics Type",
+#         y = "Transcription Factor Targets",
+#         color = "Spearman rho", size = "-log(adj. p)"
+#       ) + theme(axis.title.x=element_blank(), #legend.box = "horizontal",
+#                 axis.text.x=element_blank(),
+#                 axis.ticks.x=element_blank(), axis.title.y=element_blank()) +
+#       geom_point(data = subset(temp.gene.corr, Significant), col = "black", stroke = 1.5, shape = 21)
+#     #plot.annot <- paste0(topGenes[i], " (", nTopGenes, " / ", nGenes, " genes correlated)")
+#     dot.plot <- dot.plot + ggtitle(topGenes[i])
+#     # if (i == 1) {
+#     #   gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
+#     # } else if (i < 6) {
+#     #   gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
+#     # } else if (i == 6) {
+#     #   gsea.dot.plots <- gsea.dot.plots + dot.plot
+#     # } else if (i == 7) {
+#     #   gsea.dot.plots2 <- (dot.plot + theme(legend.position = "none"))
+#     # } else if (i > 7) {
+#     #   gsea.dot.plots2 <- gsea.dot.plots2 + (dot.plot + theme(legend.position = "none"))
+#     # }
+#     if (is.list(dot.plot) & length(dot.plot) > 1) {
+#       if (is.null(gsea.dot.plots)) {
+#         gsea.dot.plots <- (dot.plot + theme(legend.position = "none"))
+#       } else if (i == ceiling(length(topGenes)/2)) {
+#         gsea.dot.plots <- gsea.dot.plots + dot.plot #+ plot_layout(guides = 'collect')
+#       } else {
+#         gsea.dot.plots <- gsea.dot.plots + (dot.plot + theme(legend.position = "none"))
+#       }
+#     }
+#   }
+# }
+# 
+# #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
+# #gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 10, guides='collect')
+# #gsea.dot.plot2
+# #ggplot2::ggsave(paste0("ZNF22_TFT_correlations_dotPlot_patchworkCollection_",Sys.Date(),".pdf"), dot.plot, width=2.75, height=14)
