@@ -292,7 +292,7 @@ for (i in 1:length(topGeneSets)) {
 #source("/Users/gara093/Library/CloudStorage/OneDrive-PNNL/Documents/MPNST/Chr8/MPNST_Chr8_manuscript/Figure_3_Kinase/guides_build_mod.R")
 gsea.dot.plot2 <- gsea.dot.plots + plot_layout(nrow = 10, guides='collect')
 gsea.dot.plot2
-ggplot2::ggsave(paste0(fig.dir,"Fig_S4_All_TFT_correlations_dotPlot_patchworkCollection_minN6_",Sys.Date(),".pdf"), gsea.dot.plot2, width=5, height=20)
+ggplot2::ggsave(paste0(fig.dir,"/Fig_S4_All_TFT_correlations_dotPlot_patchworkCollection_minN6_",Sys.Date(),".pdf"), gsea.dot.plot2, width=5, height=20)
 
 # tf.genes.list <- unique(tf.genes[tf.genes$gs_name == "ZNF22_TARGET_GENES",]$gene_symbol)
 # topGeneSets <- "ZNF22_TARGET_GENES"
