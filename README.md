@@ -10,8 +10,10 @@ The analysis code for the project is included in this repository. It requires
 a large amount of proteomic data processing, contained in the 
 [proteomics](./proteomics) directory. The code included in this folder is
 for information only, as it requires access to the PNNL intranet to operate.
-The analysis and figures for this paper are included in the 
-[figures](./chr8q_cor) directory.
+The scripts to run the analysis and  genrerate figures for this paper are included in the 
+[chr8q_cor](./chr8q_cor) directory.
+
+The manuscript can be found [on BioRxiv](https://www.biorxiv.org/content/10.64898/2026.01.26.701599v1) and access to the data can be requested on [Synapse](http://synapse.org/mpnst_chr8). 
 
 ## FAK Analysis 
 We also carry out omics analysis implicating FAK in cancer progression. 
