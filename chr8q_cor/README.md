@@ -21,7 +21,7 @@ source('00_computeChr8Expression.R')
 source("01_enrichments_copynumber.R")
 source('02_enrichments_protRNA.R')
 source('03_DMEA_correlations.R')
-source('04_networkAnalysis.R')
+source('04_networkAnalysis.R') #this requires Cytoscape to be open to run
 source("05_tableCompilation.R")
 
 ```
@@ -30,7 +30,7 @@ This generates the data and tables needed for the figures.
 Below is a breakdown of the scripts, scroll down for figure instructions
 
 
-## Compute chr8 copy numbers
+### Compute chr8 copy numbers
 The first step to analyzing the data is to calculate the copy number of chr8
 across the samples. This is currently run by the 
 [00_computeChrCorrelations.R](./00_computeChrCorrelations.R)
@@ -40,37 +40,34 @@ This script downloads the relevant data to the environment, creates a folder
 with today's date and saves the copy number data. It also creates a folder
 with Supplemental tables 1 and 2. 
 
-## Copy chromosome enrichments
+### Copy chromosome enrichments
 We then calculate positional enrichment to ensure that chromosome 8 activity
 is indeed altered in the samples in 
 [01_enrichments_copynumber.R](./01_enrichments_copynumber.R). This will
 save files to the working directory with the current date. 
 
-## Calculate mRNA-Prot correlations
+### Calculate mRNA-Prot correlations
 The next step is to compute the correlations between copy number
 computed in the previous step and mRNA/protein levels to identify functional pathway
 enrichment.  This is calculated by
 [02_enrichments_protRNA.R](./02_enrichments_protRNA.R). 
 
-## DMEA analysis
+### DMEA analysis
 The next step is to carry out the drug correlations used for Figure 3, which
 are slightly different than the mechanism enrichment analyses. There's a chance
 that the DMEA is run more than once when we run [03_DMEA_correlations.R]('./03_DMEA_correlations.R')
 
-## Network analysis
+### Network analysis
 
 We then used the stored files to build the networks used in Figures 2 and 3. 
 This is [04_networkAnalysis.R](./04_networkAnalysis.R). If you want to use
 updated data, then you must update the three synapse IDs that pull the most 
 recent data. 
 
-
 ### Compile tables
 This requires that you run figure 3 code first, but will collect the files 
 in the local directory so that they can be supplemental tables
 [05_tableCompilation.R](./05_tableCompilation.R)
-
-
 
 # Figure panel generation
 
@@ -79,7 +76,7 @@ through the following scripts. The scripts assume that the above scripts have be
 and uploaded to synapse. However, if you run the following scripts they will refer
 to previously run synapse files (currently from the 2026-01-22 run of the code). 
 
-## Figure 1: correlations
+### Figure 1: correlations
 To build the figures in a `figures` directory, first start with 
 [Figure1_correlations.R](./Figure1_correlations.R). This requires 5 files from synapse
 generated from above, so you will need to update it if you re-ran the analysis
@@ -92,13 +89,13 @@ To visualize the enrichment analysis run [Figure2_enrichment_centrality.R](./Fig
 ### Figure 3: drug sensitivity predictions
 Next run [Figure3_drugCors.R](./Figure3_drugCors.R) Creates the figures for Figure 3.
 
-## Figure S1: histograms
+### Figure S1: histograms
 FigureS1_histograms.R
 
 ### Figure S3, S4: drivers of enrichment
 Kinase substrates are plotted here: FigureS3_kinase.R
 
-Transcription factor targets are plotted here but we don't refernece in paper: FigureS4_TF.R
+Transcription factor targets are plotted here but we don't reference in paper: FigureS4_TF.R
 
 ## Upload to synapse
 
