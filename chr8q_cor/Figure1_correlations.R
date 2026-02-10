@@ -23,20 +23,22 @@ med.chr8q <- med.chr8q[order(med.chr8q$`Median Chr8q Copy Number`),]
 sample.order <- med.chr8q$Sample
 
 # create bar plot
-med.chr8q$Omics <- "RNA-Seq"
+med.chr8q$Omics <- "RNA-Seq only"
 prot.samples <- c("JH-2-002", "JH-2-055", "JH-2-079c", "MN-2", "WU-225", "WU-487")
 med.chr8q[med.chr8q$Sample %in% prot.samples,]$Omics <- "RNA-Seq &\n Proteomics"
 ggplot2::ggplot(med.chr8q, aes(x=Sample, y=`Median Chr8q Copy Number`, fill = Omics)) + 
   ggplot2::geom_bar(stat="identity", position="dodge", #alpha = 0.5
                     ) + 
   scale_x_discrete(limits = sample.order) + ggplot2::theme_classic(base_size=12) +
-  scale_fill_manual(values=c("#C2A5CF","#FEE391"), breaks=c("RNA-Seq","RNA-Seq &\n Proteomics")) +
-  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1), legend.position=c(0.3,0.8)) + #, size = 16), 
+  scale_fill_manual(values=c("#CCCCCC","#353535"), breaks=c("RNA-Seq only","RNA-Seq &\n Proteomics")) +
+  theme(axis.text.x = element_text(angle = 45, vjust=1, hjust=1), legend.position=c(0.3,0.8)) +
         #axis.text.y = element_text(size = 16), axis.title=element_text(size=24),
         #legend.title=element_text(size=16),legend.text=element_text(size=12)) +
   geom_errorbar(aes(ymin=`Median Chr8q Copy Number` - sd_med_copy_number, 
                     ymax = `Median Chr8q Copy Number` + sd_med_copy_number), width=0.2,
                 position=position_dodge(0.9)) + xlab("MPNST PDX")
+
+
 ggplot2::ggsave(paste0(fig.path,"/Fig1B_PDX Copy Number_Chr8q_median_", Sys.Date(), ".pdf"), width = 3.5, height = 3) # was width 5
 
 #### 2. Chr8 enrichment along chromosome ####
@@ -168,6 +170,19 @@ plot_dfMin6 <- plyr::ddply(all.degs[all.degs$Significant & abs(all.degs$Spearman
                        nChr8q = length(unique(Feature[tolower(sub("-.*", "",Feature)) %in% tolower(chr8q.genes)])))
 plot_dfMin6$log10nCorr <- log(plot_dfMin6$nCorr, 10)
 
+plt_bar <- ggplot(plot_df, aes(x = reorder(Omics, nCorr),
+  y = nCorr,
+  fill = Omics, alpha = Direction # first version
+  #fill = Direction
+  )) + geom_bar(position = 'dodge', stat = 'identity') +
+  scale_y_log10() +
+  scale_fill_manual(values = c("#C2A5CF", "#FEE391", "#B2DF8A")) + # first version; colors were: "#C2A5CF", "#FEE391", "#B2DF8A"
+  scale_alpha_discrete(range = c(0.5,1)) +
+  labs(x = 'Omics data type', y='Correlated features') +
+  theme_classic()
+
+ggsave(file.path(fig.path,"Fig1D_Chr8_numberOfFeatures_BarPlot.pdf"), plt_bar)
+
 plt <- ggplot(plot_df) +
   # Make custom panel grid
   geom_hline(
@@ -201,7 +216,6 @@ plt <- ggplot(plot_df) +
   # Make it circular!
   coord_polar() + theme_classic()
 
-plt
 
 plt <- plt +
   # Annotate custom scale inside plot
@@ -582,7 +596,7 @@ p1<-ndegs|>
   subset(Omics=='RNA') |> 
   arrange(Spearman.est) |>
   ggplot(aes(x=reorder(Feature,Spearman.est),y=Spearman.est,fill=`Feature status`))+
-  geom_bar(stat='identity') + theme(axis.text=element_blank()) +
+  geom_bar(stat='identity') + theme(axis.text.x=element_blank()) +
   geom_hline(yintercept = 0.75, linetype='dotdash')+
   geom_hline(yintercept = -.75, linetype='dotdash')+
   scale_fill_manual(values=list("On Chr8q,q<0.05"='#4b2e58',`Other Location,q<0.05`='#C2A5CF',`On Chr8q,Not significant`='grey61',`Other Location,Not significant`='grey91')) + 
@@ -594,7 +608,7 @@ p2<-ndegs|>
   subset(Omics=='Protein') |> 
   arrange(Spearman.est) |>
   ggplot(aes(x=reorder(Feature,Spearman.est),y=Spearman.est,fill=`Feature status`))+
-  geom_bar(stat='identity') + theme(axis.text=element_blank()) +
+  geom_bar(stat='identity') + theme(axis.text.x=element_blank()) +
   geom_hline(yintercept = 0.75, linetype='dotdash')+
   geom_hline(yintercept = -.75, linetype='dotdash')+
   scale_fill_manual(values=list(`Other Location,q<0.05`='#FEE391',`Other Location,Not significant`='grey91',`On Chr8q,Not significant`='grey61',
@@ -605,7 +619,7 @@ p3<-ndegs|>
   subset(Omics=='Phospho') |> 
   arrange(Spearman.est) |>
   ggplot(aes(x=reorder(Feature,Spearman.est),y=Spearman.est,fill=`Feature status`))+
-  geom_bar(stat='identity') + theme(axis.text=element_blank()) +
+  geom_bar(stat='identity') + theme(axis.text.x=element_blank()) + 
   geom_hline(yintercept = 0.75, linetype='dotdash')+
   geom_hline(yintercept = -.75, linetype='dotdash')+
   scale_fill_manual(values=list(`Other Location,q<0.05`='#B2DF8A',`Other Location,Not significant`='grey91',`On Chr8q,Not significant`='grey61',
