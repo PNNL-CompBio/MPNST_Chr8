@@ -2,21 +2,51 @@
 library(purrr); library(data.table); #library(synapser)
 #synapser::synLogin()
 #removing synapse integration since many files were not uploaded to synapse
-base.dir='2026-01-29/analysis'
+base.dir='2026-10-05/analysis'
 net.dir = file.path(base.dir,'network')
-table.dir=file.path('2026-01-29','data')
+table.dir=file.path('2026-10-05','data')
 
 de <- list("Copy_number" = read.csv(file.path(base.dir,'Copy_number','Differential_expression','Differential_expression_results.csv')),#synapser::synGet("syn66227257")$path),
            "RNA" = read.csv(file.path(base.dir,'RNA-Seq','Differential_expression','Differential_expression_results.csv')),#synapser::synGet("syn66226866")$path),
            "Protein" = read.csv(file.path(base.dir,'Proteomics','Differential_expression','Differential_expression_results.csv')),#synapser::synGet("syn66224803")$path),
            "Phospho" = read.csv(file.path(base.dir,'Phospho','Differential_expression','Differential_expression_results.csv')))#synapser::synGet("syn66226338")$path))
+
+
+##Reviewer comment: find shared features
+sig <- do.call(rbind,lapply(names(de), function(vn) {
+  val <- de[[vn]]
+  val <- val[abs(as.numeric(val$Spearman.est))>0.75 & val$Spearman.q<0.05,]
+  val$chr8Cor = val$Spearman.est>0
+  val$dataType = vn
+  colnames(val)[1] <- 'Gene'
+  if(vn=='Phospho')
+    val$Gene <- sapply(val$Gene, function(x) gsub('-.+','',x))
+  return(val)}))
+
+##munging to do the counts
+duplicates <- sig |> group_by(chr8Cor,Gene) |> summarize(nvals = n_distinct(dataType)) |> subset(nvals>1) |> arrange(desc(nvals)) |> unique()
+sig_source <- sig |> as.data.frame() |> drop_na() |> dplyr::select(Gene,dataType,chr8Cor)|> pivot_wider(names_from=chr8Cor, values_from = dataType)
+sig_source$`TRUE` <- sapply(sig_source$`TRUE`, function(x) paste(unique(x), collapse=','))
+sig_source$`FALSE` <- sapply(sig_source$`FALSE`, function(x) paste(unique(x), collapse=','))
+sig_source <- sig_source |> tidyr:: pivot_longer(c(`TRUE`,`FALSE`),names_to='chr8Cor',values_to='dataTypes')|>
+  subset(dataTypes!="")|> 
+  subset(!dataTypes %in% c('Copy_number','RNA','Protein','Phospho'))
+sig_summary <-  sig_source |> group_by(dataTypes,chr8Cor) |> summarize(n_distinct(Gene))
+
+de <- append(list('Overlapping features'= sig_source,
+                  'Overlap statistics' = sig_summary), de)
+
 Sheet <- names(de)
 readme <- data.frame(Sheet)
 readme$Description <- c("Correlations between copy number and median chr8q copy number",
                         "Correlations between RNA-seq TPM and median chr8q copy number",
                         "Correlations between relative protein abundance and median chr8q copy number",
-                        "Correlations between relative phospho-protein abundance and median chr8q copy number")
+                        "Correlations between relative phospho-protein abundance and median chr8q copy number",
+                        "Summary of overlap between correlated (abs Rho >0.75 and q<0.05) genes",
+                        "Total number of features agreeing between data types")
+
 de <- append(list("README" = readme), de)
+
 
 gsea <- list("Copy_number" = data.table::rbindlist(list("Positional" = read.csv(file.path(base.dir,'Copy_number','GSEA','GSEA_Positional','GSEA_results.csv'))),#read.csv(synapser::synGet("syn66227265")$path)),
                                                    use.names=TRUE, idcol="Collection"),
@@ -66,13 +96,26 @@ readme$Description <- c("Network analysis including node degree, closeness, betw
                "Information about edges")
 net <- append(list("README" = readme), net)
 
+
+##reviewer requested a link between drug mechanism and the drug name
+gmt.drug <- GSA::GSA.read.gmt(synGet('syn74955107')$path)
+drug_moa <- do.call(rbind,
+                    lapply(1:length(gmt.drug$geneset.names), function(i){
+                      gsid <- gmt.drug$geneset.descriptions[i]
+                      drugs <- setdiff(gmt.drug$genesets[[i]],"")
+                      return(data.frame(Drug=drugs,moa = rep(gsid,length(drugs))))
+                    }))
+
 dmea <- list("DrugCorrelations" = read.csv(file.path(base.dir,'DMEA_corr','DMEA_correlation_results.csv')),#synapser::synGet("syn66295273")$path),
            "DMEA" = read.csv(file.path(base.dir,'DMEA_corr','DMEA_results.csv')))#synapser::synGet("syn66295241")$path))
 colnames(dmea[["DrugCorrelations"]])[1:2] <- c("Omics","Drug")
 dmea[["DrugCorrelations"]]$feature_name <- NULL
+dmea$DrugCorrelations <- dmea$DrugCorrelations |> left_join(drug_moa)
 colnames(dmea[["DMEA"]])[1] <- "Omics"
 Sheet <- names(dmea)
 readme <- data.frame(Sheet)
+
+
 readme$Description <- c("Drug correlations between drug sensitivity (i.e., AUC) and CCLE scores based on correlations with median chr8q copy number",
                         "Drug mechanism enrichment analysis results")
 dmea <- append(list("README" = readme), dmea)

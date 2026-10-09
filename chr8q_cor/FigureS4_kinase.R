@@ -152,7 +152,7 @@ gsea.dot.plots3 <- gsea.dot.plots/gsea.dot.plots2
 gsea.dot.plots3 <- gsea.dot.plots3 + plot_layout(guides = 'collect')
 gsea.dot.plots3
 #ggplot2::ggsave(file.path(fig.path,"Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6_tall_v2.pdf"), gsea.dot.plots, width=10, height=8)
-ggplot2::ggsave(file.path(fig.path,"Fig_S3_Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6.pdf"), gsea.dot.plots3, width=10, height=10)
+ggplot2::ggsave(file.path(fig.path,"Fig_S4_Correlated_kinaseSubsites_dotPlot_patchworkCollection_minN6.pdf"), gsea.dot.plots3, width=10, height=10)
 # actual min N is 10 but only 1 has 10, 4 have 11, and rest (171 - 5) have 12
 #source("guides_build_mod.R")
 #gsea.dot.plot2 <- gsea.dot.plots + guide_area() + plot_layout(nrow = 2, guides='collect')

@@ -8,7 +8,8 @@
 rm(list=ls(all=TRUE))
 if(!require(devtools)){install.packages("dev.tools")}
 if(!require(DMEA)){devtools::install_github('BelindaBGarana/DMEA')}
-library(DMEA);library(dplyr);library(GSA);library(reshape2);library(data.table);library(ggplot2);library(msigdbr)
+library(DMEA);library(dplyr);library(GSA);library(reshape2);library(data.table);
+library(ggplot2);library(msigdbr)
 
 
 

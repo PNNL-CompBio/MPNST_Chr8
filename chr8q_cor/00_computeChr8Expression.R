@@ -5,7 +5,6 @@
 # Last edit: 2024-09-10
 # CLean up, replaced bad dir changes and mislabeled sample: 2024-11-07
 #re-ran on 2025-01-02
-remove(list=ls())
 # overview:
 #### 1. Import metadata & crosstabs
 #### 2. Determine median chr8q copy number
@@ -50,9 +49,9 @@ colnames(phospho.supp) <- sample.meta$SampleName
 
 # export xlsx files
 global.supp.list <- list("README" = global.readme, "global" = global.supp)
-openxlsx::write.xlsx(global.supp.list, file=paste0("SupplementaryTable",1,"_","global",".xlsx"), rowNames=FALSE)
+openxlsx::write.xlsx(global.supp.list, file=paste0("SupplementaryTable",1,"_","global",".xlsx"), rowNames=TRUE)
 phospho.supp.list <- list("README" = phospho.readme, "phospho" = phospho.supp)
-openxlsx::write.xlsx(phospho.supp.list, file=paste0("SupplementaryTable",2,"_","phospho",".xlsx"), rowNames=FALSE)
+openxlsx::write.xlsx(phospho.supp.list, file=paste0("SupplementaryTable",2,"_","phospho",".xlsx"), rowNames=TRUE)
 
 #SG: add in phosphosite correction for gmt
 

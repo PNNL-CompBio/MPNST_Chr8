@@ -9,9 +9,9 @@ library(RCy3)
 #setwd(base.path)
 #base.dir = getwd()
 #setwd(file.path(base.dir,"../proteomics"))
-setwd(paste0(base.path,'/analysis'))
-if(!dir.exists('network'))
-  dir.create('network')
+netpath = paste0(base.path,'/analysis/')
+if(!dir.exists(netpath))
+  dir.create(netpath)
 
 fig.path <- file.path(base.path,'figures')
 #### prep inputs ####
@@ -78,8 +78,8 @@ if(any(any(pos.vert$pos.genes%in%dup.pos)))
 pos.vert$chr8q <- FALSE
 pos.vert[pos.vert$pos.genes %in% chr8q.genes,]$chr8q <- TRUE
 colnames(pos.vert)[1] <- "name"
-write.csv(pos.vert, "network/positive_vertices.csv", row.names=FALSE)
-write.csv(pos.edges, "network/positive_edges.csv", row.names=FALSE)
+write.csv(pos.vert, paste0(netpath,"network/positive_vertices.csv"), row.names=FALSE)
+write.csv(pos.edges, paste0(netpath,"network/positive_edges.csv"), row.names=FALSE)
 topGraph <- igraph::graph_from_data_frame(pos.edges, directed=FALSE, vertices=pos.vert) 
 pos.centrality <- data.frame(name = V(topGraph)$name,
                              degree = igraph::degree(topGraph, mode="all"),
@@ -90,10 +90,10 @@ pos.centrality <- data.frame(name = V(topGraph)$name,
                              authority_score = igraph::authority_score(topGraph)$vector)
 pos.centrality$chr8q <- FALSE
 pos.centrality[pos.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
-write.csv(pos.centrality, "network/positive_centrality.csv", row.names=FALSE)
-pos.vert <- read.csv("network/positive_vertices.csv")
-pos.edges <- read.csv("network/positive_edges.csv")
-pos.centrality <- read.csv("network/positive_centrality.csv")
+write.csv(pos.centrality, paste0(netpath,"network/positive_centrality.csv"), row.names=FALSE)
+#pos.vert <- read.csv("network/positive_vertices.csv")
+#pos.edges <- read.csv("network/positive_edges.csv")
+#pos.centrality <- read.csv("network/positive_centrality.csv")
 chr8.pos.centr <- pos.centrality[pos.centrality$name %in% chr8q.genes,]
 
 neg.edges <- STRINGv12[STRINGv12$from %in% neg.terms | STRINGv12$to %in% neg.terms,] # 26390
@@ -107,8 +107,8 @@ neg.vert[neg.vert$neg.genes %in% kin.result[kin.result$NES<0,]$Feature_set,]$Omi
 neg.vert$chr8q <- FALSE
 neg.vert[neg.vert$neg.genes %in% chr8q.genes,]$chr8q <- TRUE
 colnames(neg.vert)[1] <- "name"
-write.csv(neg.vert, "network/negative_vertices.csv", row.names=FALSE)
-write.csv(neg.edges, "network/negative_edges.csv", row.names=FALSE)
+write.csv(neg.vert,  paste0(netpath,"network/negative_vertices.csv"), row.names=FALSE)
+write.csv(neg.edges,  paste0(netpath,"network/negative_edges.csv"), row.names=FALSE)
 topGraph <- igraph::graph_from_data_frame(neg.edges, directed=FALSE, vertices=neg.vert) 
 neg.centrality <- data.frame(name = V(topGraph)$name,
                                     degree = igraph::degree(topGraph, mode="all"),
@@ -119,7 +119,7 @@ neg.centrality <- data.frame(name = V(topGraph)$name,
                                     authority_score = igraph::authority_score(topGraph)$vector)
 neg.centrality$chr8q <- FALSE
 neg.centrality[neg.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
-write.csv(neg.centrality, "network/negative_centrality.csv", row.names=FALSE)
+write.csv(neg.centrality,  paste0(netpath,"network/negative_centrality.csv"), row.names=FALSE)
 ##why do we read csvs right after writing them?
 #neg.vert <- read.csv("network/negative_vertices.csv")
 #neg.edges <- read.csv("network/negative_edges.csv")
@@ -136,8 +136,8 @@ tempTitle <- paste0("negative", "_", nrow(neg.tf.con.vert),"_MYC_EGFR_manual_",S
 Sys.setenv(http_proxy="")
 Sys.setenv(no_proxy="localhost,1234,127.0.0.1")
 RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-write.csv(neg.tf.con.vert, "network/negative_MYC_EGFR_vertices.csv", row.names=FALSE)
-write.csv(neg.tf.con, "network/negative_MYC_EGFR_edges.csv", row.names=FALSE)
+write.csv(neg.tf.con.vert,  paste0(netpath,"network/negative_MYC_EGFR_vertices.csv"), row.names=FALSE)
+write.csv(neg.tf.con, paste0(netpath, "network/negative_MYC_EGFR_edges.csv"), row.names=FALSE)
 neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     degree = igraph::degree(topGraph, mode="all"),
                                     closeness = igraph::closeness(topGraph, mode="all"),
@@ -145,7 +145,7 @@ neg.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
                                     hub_score = igraph::hub_score(topGraph)$vector,
                                     authority_score = igraph::authority_score(topGraph)$vector)
-write.csv(neg.tf.con.centrality, "network/negative_MYC_EGFR_centrality.csv", row.names=FALSE)
+write.csv(neg.tf.con.centrality,  paste0(netpath,"network/negative_MYC_EGFR_centrality.csv"), row.names=FALSE)
 
 
 pos.tf.con <- pos.edges[pos.edges$from %in% c("MYC", "PLK1") | pos.edges$to %in% c("MYC", "PLK1"),] # 118
@@ -154,8 +154,8 @@ topGraph <- igraph::graph_from_data_frame(pos.tf.con, directed=FALSE, vertices=p
 #plot(topGraph)
 tempTitle <- paste0("positive", "_", nrow(pos.tf.con.vert),"_MYC_PLK1_manual_",Sys.Date())
 RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
-write.csv(pos.tf.con.vert, "network/positive_MYC_PLK1_vertices.csv", row.names=FALSE)
-write.csv(pos.tf.con, "network/positive_MYC_PLK1_edges.csv", row.names=FALSE)
+write.csv(pos.tf.con.vert, paste0(netpath, "network/positive_MYC_PLK1_vertices.csv"), row.names=FALSE)
+write.csv(pos.tf.con,  paste0(netpath,"network/positive_MYC_PLK1_edges.csv"), row.names=FALSE)
 pos.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     degree = igraph::degree(topGraph, mode="all"),
                                     closeness = igraph::closeness(topGraph, mode="all"),
@@ -163,7 +163,7 @@ pos.tf.con.centrality <- data.frame(name = V(topGraph)$name,
                                     eigen_centrality = igraph::eigen_centrality(topGraph, directed = FALSE)$vector,
                                     hub_score = igraph::hub_score(topGraph)$vector,
                                     authority_score = igraph::authority_score(topGraph)$vector)
-write.csv(pos.tf.con.centrality, "network/positive_MYC_PLK1_centrality.csv", row.names=FALSE)
+write.csv(pos.tf.con.centrality,  paste0(netpath,"network/positive_MYC_PLK1_centrality.csv"), row.names=FALSE)
 
 
 #### regulatory networks (TFs and kinases) #### 
@@ -184,13 +184,13 @@ pos.reg.centrality <- data.frame(name = V(topGraph)$name,
                                  authority_score = igraph::authority_score(topGraph)$vector)
 pos.reg.centrality$chr8q <- FALSE
 pos.reg.centrality[pos.reg.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
-write.csv(pos.reg.centrality, "network/positive_TFKin_centrality.csv", row.names=FALSE)
+write.csv(pos.reg.centrality,  paste0(netpath,"network/positive_TFKin_centrality.csv"), row.names=FALSE)
 colnames(pos.reg.vert)[1] <- "name"
-write.csv(pos.reg.vert, "network/positive_TFKin_vertices.csv", row.names=FALSE)
-write.csv(pos.reg.edges, "network/positive_TFKin_edges.csv", row.names=FALSE)
-pos.reg.vert <- read.csv("network/positive_TFKin_vertices.csv")
-pos.reg.edges <- read.csv("network/positive_TFKin_edges.csv")
-pos.reg.centrality <- read.csv("network/positive_TFKin_centrality.csv")
+write.csv(pos.reg.vert,  paste0(netpath,"network/positive_TFKin_vertices.csv"), row.names=FALSE)
+write.csv(pos.reg.edges, paste0(netpath, "network/positive_TFKin_edges.csv"), row.names=FALSE)
+#pos.reg.vert <- read.csv("network/positive_TFKin_vertices.csv")
+#pos.reg.edges <- read.csv("network/positive_TFKin_edges.csv")
+#pos.reg.centrality <- read.csv("network/positive_TFKin_centrality.csv")
 
 neg.reg <- c(tf.result[tf.result$NES<0,]$Gene, kin.result[kin.result$NES<0,]$Feature_set) # 3
 neg.reg.edges <- STRINGv12[STRINGv12$from %in% neg.reg | STRINGv12$to %in% neg.reg,] # 1172
@@ -209,10 +209,10 @@ neg.reg.centrality <- data.frame(name = V(topGraph)$name,
                              authority_score = igraph::authority_score(topGraph)$vector)
 neg.reg.centrality$chr8q <- FALSE
 neg.reg.centrality[neg.reg.centrality$name %in% chr8q.genes,]$chr8q <- TRUE
-write.csv(neg.reg.centrality, "network/negative_TFKin_centrality.csv", row.names=FALSE)
+write.csv(neg.reg.centrality,  paste0(netpath,"network/negative_TFKin_centrality.csv"), row.names=FALSE)
 colnames(neg.reg.vert)[1] <- "name"
-write.csv(neg.reg.vert, "network/negative_TFKin_vertices.csv", row.names=FALSE)
-write.csv(neg.reg.edges, "network/negative_TFKin_edges.csv", row.names=FALSE)
+write.csv(neg.reg.vert,  paste0(netpath,"network/negative_TFKin_vertices.csv"), row.names=FALSE)
+write.csv(neg.reg.edges,  paste0(netpath,"network/negative_TFKin_edges.csv"), row.names=FALSE)
 #neg.reg.vert <- read.csv("network/negative_TFKin_vertices.csv")
 #neg.reg.edges <- read.csv("network/negative_TFKin_edges.csv")
 #neg.reg.centrality <- read.csv("network/negative_TFKin_centrality.csv")
@@ -223,8 +223,8 @@ pos.reg.centrality$Direction <- "positive"
 # look at centrality of chr8q genes in regulatory networks
 chr8q.reg.centrality <- rbind(pos.reg.centrality[pos.reg.centrality$chr8q,], 
                               neg.reg.centrality[neg.reg.centrality$chr8q,]) # 173
-write.csv(chr8q.reg.centrality, "network/chr8q_TFKin_centrality.csv", row.names=FALSE)
-chr8q.reg.centrality <- read.csv("network/chr8q_TFKin_centrality.csv")
+write.csv(chr8q.reg.centrality, paste0(netpath, "network/chr8q_TFKin_centrality.csv"), row.names=FALSE)
+#chr8q.reg.centrality <- read.csv("network/chr8q_TFKin_centrality.csv")
 chr8q.reg.degree <- plyr::ddply(chr8q.reg.centrality, .(name), summarize,
                                 Directions = paste0(sort(unique(Direction)), collapse=", "),
                                 meanDegree = mean(degree),
@@ -232,8 +232,8 @@ chr8q.reg.degree <- plyr::ddply(chr8q.reg.centrality, .(name), summarize,
                                 sumDegree = sum(degree),
                                 meanCentrality = mean(eigen_centrality),
                                 sdCentrality = sd(eigen_centrality))
-write.csv(chr8q.reg.degree, "network/chr8q_TFKin_meanCentrality.csv", row.names=FALSE)
-chr8q.reg.degree <- read.csv("network/chr8q_TFKin_meanCentrality.csv")
+write.csv(chr8q.reg.degree,  paste0(netpath,"network/chr8q_TFKin_meanCentrality.csv"), row.names=FALSE)
+#chr8q.reg.degree <- read.csv("network/chr8q_TFKin_meanCentrality.csv")
 
 bar.df <- chr8q.reg.degree[chr8q.reg.degree$Directions=="negative, positive",]
 bar.df2 <- chr8q.reg.centrality[chr8q.reg.centrality$name %in% bar.df$name,]
@@ -288,8 +288,8 @@ topGraph <- igraph::graph_from_data_frame(pos.reg.edges, directed=FALSE, vertice
 tempTitle <- paste0("positive", "_", nrow(pos.reg.vert),"_TFKin_",Sys.Date())
 RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
 
-setwd(base.path)
-setwd('..')
+#setwd(base.path)
+#setwd('..')
 # use mean centrality instead
 # neg.reg.vert$chr8qBothDir <- FALSE
 # neg.reg.vert[neg.reg.vert$name %in% bar.df$name,]$chr8qBothDir <- TRUE

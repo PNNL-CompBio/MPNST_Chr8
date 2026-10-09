@@ -3,7 +3,7 @@
 install.packages(c("plyr","dplyr","readxl","plotly","stringr","tidyr","knitr",
                    "pheatmap","ggplot2","tidyverse","reticulate","patchwork",
                    "data.table","scales","tibble","reshape2","ggrepel",
-                   "RColorBrewer","ggcorrplot","fmsb"))
+                   "RColorBrewer","ggcorrplot"))#,"fmsb"))
 
 # from Bioconductor
 if (!require("BiocManager", quietly = TRUE)) {
@@ -23,6 +23,11 @@ if (!require("RCy3", quietly = TRUE)) {
 if (!require("amlresistancenetworks", quietly = TRUE)) {
   remotes::install_github("https://github.com/PNNL-CompBio/amlresistancenetworks")
 }
+
+if (!require("multtest", quietly = TRUE)) {
+  BiocManager::install("multtest")
+}
+
 
 if (!require(panSEA, quietly = TRUE)) {
   if (!require("devtools", quietly = TRUE))

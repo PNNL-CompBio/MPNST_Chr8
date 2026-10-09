@@ -26,6 +26,16 @@ sample.order <- med.chr8q$Sample
 med.chr8q$Omics <- "RNA-Seq"
 prot.samples <- c("JH-2-002", "JH-2-055", "JH-2-079c", "MN-2", "WU-225", "WU-487")
 med.chr8q[med.chr8q$Sample %in% prot.samples,]$Omics <- "RNA-Seq &\n Proteomics"
+
+
+##now collect other PDX information
+tab <- synTableQuery("select * from syn53503360")$asDataFrame() |>
+  dplyr::select(Sample,Age,Sex,Location,MPNST)|>distinct()
+
+med.chr8q |> left_join(tab) |> 
+  dplyr::select(Sample, `Median Chr8q Copy Number`,Omics,Age,Sex,Location,MPNST)|>
+  write.csv(paste0(base.path,'/analysis/Table1.csv'))
+
 ggplot2::ggplot(med.chr8q, aes(x=Sample, y=`Median Chr8q Copy Number`, fill = Omics)) + 
   ggplot2::geom_bar(stat="identity", position="dodge", #alpha = 0.5
                     ) + 
