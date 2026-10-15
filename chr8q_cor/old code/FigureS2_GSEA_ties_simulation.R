@@ -12,6 +12,8 @@ if(!dir.exists(base.path))
   dir.create(base.path)
 source("./panSEAFunctions.R")
 
+library(ggpubr)
+
 #rm(list=ls(all=TRUE))
 #if(!require(devtools)){install.packages("dev.tools")}
 #if(!require(DMEA)){devtools::install_github('BelindaBGarana/DMEA')}
@@ -75,13 +77,13 @@ all.sim.results <- list()
 all.perc.sig <- list()
 synth.gene.sets <- data.frame(N_genes=integer(), synthetic.gene.set=character())
 gene.set.sizes <- seq(30, 300, length.out=10)
-for(i in 1:(length(gene.set.sizes))){
+for(i in 1:(length(gene.set.sizes))){''
   synthetic.gene.set <- sample(gene.names,gene.set.sizes[i])
   synthetic.gene.df <- as.data.frame(synthetic.gene.set)
   synthetic.gene.df$N_genes <- gene.set.sizes[i]
   synth.gene.sets <- rbind(synth.gene.sets, synthetic.gene.df)
  
-  # make new gmt with synthetic gene set
+  # make new gmt with synthetic gene set of a separate size
   new.gene.sets <- gmt$genesets
   new.gene.set.names <- gmt$geneset.names
   new.gene.set.descr <- gmt$geneset.descriptions
@@ -117,30 +119,35 @@ for(i in 1:(length(gene.set.sizes))){
                                   ties = TRUE, #this was not set!!!
                                   plots=FALSE, min.per.set=5)
       # i = 1 (5 genes), j=7 (varied val +0.75), N=2: Error in if (temp.NES >= 0) { : missing value where TRUE/FALSE needed
-      og.DMEA.result <- DMEA.result$result.w.ties
+      og.DMEA.result <- DMEA.result$result.w.ties ###TIE Result
       og.synthetic.results[j, c("ES", "NES", "p", "q")] <- og.DMEA.result[
         og.DMEA.result$Drug_set==paste0(gene.set.sizes[i],"_random_genes"), c("ES", "NES", "p_value", "FDR_q_value")]
       og.results[[as.character(values.to.vary[j])]] <- og.DMEA.result
       
-      DMEA.result <- DMEA.result$result
+      DMEA.result <- DMEA.result$result ###get rid of tie checking here....
       synthetic.results[j, c("ES", "NES", "p", "q")] <- DMEA.result[
         DMEA.result$Drug_set==paste0(gene.set.sizes[i],"_random_genes"), c("ES", "NES", "p_value", "FDR_q_value")]
       results[[as.character(values.to.vary[j])]] <- DMEA.result
     }
-    og.synth.sim.results[[N]] <- og.synthetic.results 
-    og.sim.results[[N]] <- data.table::rbindlist(og.results, use.names=TRUE, idcol="Value Added", fill=TRUE)
-    
-    synth.sim.results[[N]] <- synthetic.results 
+    ##for each sampling, we add to table the results for 51 gene lists
+    og.synth.sim.results[[N]] <- og.synthetic.results ###this is the simulated results with tie shuffling
+    og.sim.results[[N]] <- data.table::rbindlist(og.results, use.names=TRUE, idcol="Value Added", fill=TRUE) #this is the result of ALL gene sets including simulated
+    synth.sim.results[[N]] <- synthetic.results  ##synthetic results without tie shuffling
     sim.results[[N]] <- data.table::rbindlist(results, use.names=TRUE, idcol="Value Added", fill=TRUE)
   }
+  #simulated results using tie shuffling
   og.all.synth.sim.results[[as.character(gene.set.sizes[i])]] <- data.table::rbindlist(og.synth.sim.results, use.names=TRUE, idcol="Simulation Number", fill=TRUE)
+  #result of all gene sets including simulated
   og.all.sim.results[[as.character(gene.set.sizes[i])]] <- data.table::rbindlist(og.sim.results, use.names=TRUE, idcol="Simulation Number", fill=TRUE)
+  
   write.csv(og.all.sim.results[[as.character(gene.set.sizes[i])]],
             file=paste0(path.sim,gene.set.sizes[i],"_genes_",N,"_replicates_all_GSEA_ties_results_originalOrder_",Sys.Date(),".csv"))
   write.csv(og.all.synth.sim.results[[as.character(gene.set.sizes[i])]],
             file=paste0(path.sim,gene.set.sizes[i],"_genes_",N,"_replicates_Synthetic_gene_Set_GSEA_ties_results_originalOrder_",Sys.Date(),".csv"))
   og.all.synth.sim.results.df <- og.all.synth.sim.results[[as.character(gene.set.sizes[i])]]
   
+  
+  ##result of all gene sets including simulated without tie shuffling
   all.synth.sim.results[[as.character(gene.set.sizes[i])]] <- data.table::rbindlist(synth.sim.results, use.names=TRUE, idcol="Simulation Number", fill=TRUE)
   all.sim.results[[as.character(gene.set.sizes[i])]] <- data.table::rbindlist(sim.results, use.names=TRUE, idcol="Simulation Number", fill=TRUE)
   write.csv(all.sim.results[[as.character(gene.set.sizes[i])]],
@@ -286,3 +293,67 @@ NES.tile.plot <- ggplot(complete.perc.sig, aes(x = as.factor(N_genes), y = value
   labs(x="Number of Genes in Set", y = "Value Added", fill = "Mean NES")
 ggsave(NES.tile.plot, 
        file = paste0(path.sim, "GSEA_ties_sim_NES_N",N,".pdf"))
+
+
+##new plotting idea: try to plot real gene sets and random gene sets
+complete.sim.results$RandomSet = 'Hallmark gene sets'
+complete.sim.results$RandomSet[grep('random',complete.sim.results$Drug_set)]<-'Simulated gene sets'
+complete.sim.results$Significant = FALSE
+complete.sim.results$Significant[complete.sim.results$p_value<0.05&complete.sim.results$FDR_q_value<0.25] <- TRUE
+##i'm not sure what this is plotting
+ggplot(complete.sim.results,aes(x=`Value Added`, y=ES,col=`Significant`))  + geom_boxplot() + facet_grid(~RandomSet)
+
+##trying this with/without ties
+t1<-data.table::rbindlist(all.synth.sim.results,idcol='SetSize') 
+t2 <- data.table::rbindlist(og.all.synth.sim.results,idcol='SetSize') 
+  
+tab <- rbind(mutate(t1,Ties="Not shuffled"),
+             mutate(t2,Ties='Shuffled'))
+
+##plot distributions
+ggplot(tab,aes(x=ES,y=-log10(p),  col = values.to.vary, alpha = 0.5)) + geom_point() + scale_color_viridis_c() + facet_grid(~Ties)
+
+##plot cors
+
+colnames(t1)[4:7] <- paste('Original',colnames(t1)[4:7])
+colnames(t2)[4:7] <- paste('Shuffled',colnames(t2)[4:7])
+
+tab2<- left_join(t1,t2)
+
+p1<-tab2 |> ggplot(aes(x=`Original ES`,y=`Shuffled ES`)) + 
+  geom_point(aes(col=values.to.vary,size=as.numeric(SetSize)))  +
+  geom_smooth(method = "lm", se = FALSE, col='darkgrey')  +# Adds the linear regression line
+  stat_cor(method = "pearson", r.digits=8,label.x.npc = "left", label.y.npc = "top") + 
+  theme_minimal()
+
+p2<-tab2 |> ggplot(aes(x=`Original NES`,y=`Shuffled NES`)) + 
+  geom_point(aes(col=values.to.vary,size=as.numeric(SetSize)))  +
+  geom_smooth(method = "lm", se = FALSE, col='darkgrey')  +# Adds the linear regression line
+  stat_cor(method = "pearson", r.digits=8,label.x.npc = "left", label.y.npc = "top") + 
+  theme_minimal()
+
+p3<-tab2 |> ggplot(aes(x=`Original p`,y=`Shuffled p`)) + 
+  geom_point(aes(col=as.numeric(SetSize)))  +
+  facet_grid(~values.to.vary)+
+  geom_smooth(method = "lm", se = FALSE, col='darkgrey',aes(group = values.to.vary))  +# Adds the linear regression line
+  geom_hline(yintercept =.05,col='red',linetype='dashed')+
+  geom_vline(xintercept=.05,col='red',linetype='dashed')+
+  stat_cor(method = "pearson", r.digits=8,label.x.npc = "left", label.y.npc = "top") + 
+  theme_minimal()
+
+
+
+p4<-tab2 |> ggplot(aes(x=`Original q`,y=`Shuffled q`)) + 
+  geom_point(aes(col=as.numeric(SetSize)))  +
+  facet_grid(~values.to.vary)+
+  geom_smooth(method = "lm", se = FALSE, col='darkgrey')  +# Adds the linear regression line
+  stat_cor(method = "pearson", r.digits=8,label.x.npc = "left", label.y.npc = "top") + 
+  geom_hline(yintercept =.25,col='red',linetype='dashed')+
+  geom_vline(xintercept=.25,col='red',linetype='dashed')+
+  theme_minimal()
+
+cowplot::plot_grid(plotlist = c(p1,p2))
+cowplot::plot_grid(plotlist= c(p3,p4),nrow=2)
+
+ggsave('simulated_set_enrichment_With_ties.pdf')
+

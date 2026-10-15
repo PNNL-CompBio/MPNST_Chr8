@@ -2,7 +2,7 @@
 library(purrr); library(data.table); #library(synapser)
 #synapser::synLogin()
 #removing synapse integration since many files were not uploaded to synapse
-base.dir='2026-10-05/analysis'
+base.dir=file.path(base.path,'analysis')
 net.dir = file.path(base.dir,'network')
 table.dir=file.path('2026-10-05','data')
 

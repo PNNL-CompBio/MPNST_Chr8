@@ -38,7 +38,14 @@ ofiles <- panSEA_corr3(omics, meta.list, feature.list,
              temp.path = file.path(base.path, "analysis"), syn.id = NULL)#my.syn)
 
 graphics.off()
-##SG: not sure if this is needed:
+##SG: generating no-tie analysis for later to compare in Fig S2
+#ofiles <- panSEA_corr3(omics, meta.list, feature.list, 
+#                       rank.col = "Median Chr8q Copy Number",ties=FALSE,
+#                       other.annotations = c("Sex", "PRC2 Status"), expr.list = expr.list, gmt1=gmt1.rest, gmt2=gmt2,
+#                       temp.path = file.path(base.path, "analysis/no_ties"), syn.id = NULL)#my.syn)
+#
+#graphics.off()
+
 setwd(base.path)
 setwd('..')
 

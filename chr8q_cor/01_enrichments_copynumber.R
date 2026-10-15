@@ -1,7 +1,7 @@
 
 
 #### 3. run panSEA ####
-#base.path <- file.path(getwd(),Sys.Date())
+base.path <- file.path(getwd(),Sys.Date())
 source("panSEAFunctions.R")
 synLogin()
 setwd(paste0(base.path,'/analysis'))
