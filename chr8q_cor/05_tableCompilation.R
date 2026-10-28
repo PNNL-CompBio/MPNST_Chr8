@@ -4,7 +4,7 @@ library(purrr); library(data.table); #library(synapser)
 #removing synapse integration since many files were not uploaded to synapse
 base.dir=file.path(base.path,'analysis')
 net.dir = file.path(base.dir,'network')
-table.dir=file.path('2026-10-05','data')
+table.dir=file.path(Sys.Date(),'data')
 
 de <- list("Copy_number" = read.csv(file.path(base.dir,'Copy_number','Differential_expression','Differential_expression_results.csv')),#synapser::synGet("syn66227257")$path),
            "RNA" = read.csv(file.path(base.dir,'RNA-Seq','Differential_expression','Differential_expression_results.csv')),#synapser::synGet("syn66226866")$path),

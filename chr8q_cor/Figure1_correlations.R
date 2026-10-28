@@ -62,7 +62,7 @@ chr8.msigdb <- chr8.msigdb[grepl("chr8", chr8.msigdb$gs_name),]
 segments <- unique(chr8.enr[chr8.enr$FDR_q_value <= 0.25 & chr8.enr$p_value <= 0.05,]$Feature_set)
 segments <- segments[grepl("chr8",segments)]
 
-ensembl <- biomaRt::useMart("ensembl", dataset="hsapiens_gene_ensembl")#, host="https://useast.ensembl.org")
+ensembl <- biomaRt::useMart("ENSEMBL_MART_ENSEMBL", dataset="hsapiens_gene_ensembl", host="https://e115.ensembl.org/")
 segment.pos <- data.frame(segments)
 segment.pos[,c("start", "end")] <- NA
 for (i in segments) {

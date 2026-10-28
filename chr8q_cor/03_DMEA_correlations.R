@@ -75,6 +75,7 @@ set.seed(2562)
 adh.DMEA <- panSEA::mDMEA(expression = list(adh.RNA2, adh.prot2),
                               weights = inputs, types = c("RNA", "Protein"),
                               weight.values = rep("Spearman.est", 2),
+                              num.permutations = 10000,
                               ties = TRUE)
 adh.DMEA.files <- list("DMEA_results.csv" = adh.DMEA$compiled.results$results,
                        "DMEA_results_compiled.csv" = adh.DMEA$compiled.results$mean.results,

@@ -1308,6 +1308,7 @@ panSEA_corr3 <- function(omics, meta.list, feature.list, rank.col = "Gain of C8"
             ##check_coverage(deg$result, gmt2[[2]], temp.features, gene.rank.val)) {
         gsea2 <- panSEA::mGSEA(list(deg$result), gmt2,#, deg$result), gmt2, 
                                types = names(gmt2)[1], 
+                               num.permutations = 10000,
                                feature.names = rep(temp.features,2),
                                rank.var = rep(gene.rank.val,2), ties=ties)
         # store GSEA results

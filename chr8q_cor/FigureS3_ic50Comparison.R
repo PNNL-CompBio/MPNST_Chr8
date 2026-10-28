@@ -9,7 +9,7 @@ library(ggpubr)
 synLogin()
 
 #synapser::synLogin()
-base.path = '2026-10-05'
+#base.path = '2026-10-05'
 if(!exists('base.path'))
   base.path <- file.path(getwd(),Sys.Date())
 
@@ -46,4 +46,4 @@ ggplot(tab, aes(x=log10(ic50), y = `Copy number`,col = drug,group=drug)) +
   stat_cor(method = "pearson", label.x.npc = "left", label.y.npc = "top") + 
   theme_minimal()
 
-ggsave(paste0(fig.path,'/figS3_ic50cor.pdf'))
+ggsave(paste0(fig.path,'/figS3_ic50cor.pdf'), width =11)

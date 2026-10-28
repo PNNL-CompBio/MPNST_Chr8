@@ -1,7 +1,7 @@
 #New Figure S2 that compares ties vs  no-ties across calculations
 
 
-
+library(ggpubr)
 
 ##define helper function to join tied and untied together, plot correlations,
 ## and identify differences
@@ -56,6 +56,8 @@ check_ties <- function(wties_file, noties_file,data_type=''){
   il <- allres$`Shuffled FDR_q_value`<0.25&allres$`Original FDR_q_value`>0.25
   
   allres$Outliers[ol|il]<-allres$Feature_set[ol|il]
+
+  print(allres[ol|il,]  )
   allres$Color = 'black'
   allres$Color[ol|il] = 'red'
   # print(allres$Outliers)

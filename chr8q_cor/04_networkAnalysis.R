@@ -12,6 +12,9 @@ setwd(base.path)
 netpath = paste0(base.path,'/analysis/')
 if(!dir.exists(netpath))
   dir.create(netpath)
+setwd(netpath)
+if(!dir.exists(file.path(netpath,'network')))
+  dir.create(file.path(netpath,'network'))
 
 fig.path <- file.path(base.path,'figures')
 #### prep inputs ####
@@ -288,8 +291,8 @@ topGraph <- igraph::graph_from_data_frame(pos.reg.edges, directed=FALSE, vertice
 tempTitle <- paste0("positive", "_", nrow(pos.reg.vert),"_TFKin_",Sys.Date())
 RCy3::createNetworkFromIgraph(topGraph, title=tempTitle)
 
-#setwd(base.path)
-#setwd('..')
+setwd(base.path)
+setwd('..')
 # use mean centrality instead
 # neg.reg.vert$chr8qBothDir <- FALSE
 # neg.reg.vert[neg.reg.vert$name %in% bar.df$name,]$chr8qBothDir <- TRUE

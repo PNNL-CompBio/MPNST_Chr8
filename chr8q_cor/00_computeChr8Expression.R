@@ -85,14 +85,14 @@ pdx_data<-manifest|>dplyr::select(common_name,Sex,RNASeq='PDX_RNASeq',
                                   CopyNumber='PDX_CNV')
 
 
-if(!require('EnsDb.Hsapiens.v75')){
-  BiocManager::install('EnsDb.Hsapiens.v75')
+#if(!require('EnsDb.Hsapiens.v75')){
+ # BiocManager::install('EnsDb.Hsapiens.v75')
   library(EnsDb.Hsapiens.v75)
-}
-if(!require('AnnotationsDbi')){
-  BiocManager::install('AnnotationsDbi')
-  library(AnnotationDbi)
-}
+#}
+#if(!require('AnnotationsDbi')){
+#  BiocManager::install('AnnotationsDbi')
+library(AnnotationDbi)
+#}
 # Use the 'select' function with the 'GENETYPE' column
 # The value to filter for is "protein_coding" (check with 'listFilters' if needed)
 # Get all keys (e.g., ENSEMBL IDs) that are protein coding
